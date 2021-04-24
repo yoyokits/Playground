@@ -3,17 +3,29 @@
     x:Class="XamarinFormsXamlCameraTest.Views.CameraPage"
     xmlns="http://xamarin.com/schemas/2014/forms"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:XamarinFormsXamlCameraTest.Controls"
     xmlns:vm="clr-namespace:XamarinFormsXamlCameraTest.ViewModels"
     x:DataType="vm:CameraViewModel">
     <ContentPage.BindingContext>
         <vm:CameraViewModel />
     </ContentPage.BindingContext>
-    <Grid>
+    <Grid BackgroundColor="Black">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+        <Grid
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            BackgroundColor="DimGray"
+            HorizontalOptions="Center"
+            VerticalOptions="Center">
+            <controls:CameraPreview
+                Margin="5"
+                HorizontalOptions="FillAndExpand"
+                VerticalOptions="FillAndExpand" />
+        </Grid>
         <StackLayout
             Grid.Row="2"
             Margin="8"
