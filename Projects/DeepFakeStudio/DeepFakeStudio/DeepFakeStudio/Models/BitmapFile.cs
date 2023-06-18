@@ -12,9 +12,9 @@
     {
         #region Fields
 
-        private WriteableBitmap _bitmap;
-
         private string _path;
+
+        private BitmapImage _thumbnailBitmap;
 
         #endregion Fields
 
@@ -41,20 +41,10 @@
         #region Properties
 
         /// <summary>
+        /// Gets the Bitmap
         /// Gets or sets the Bitmap.
         /// </summary>
-        public WriteableBitmap Bitmap
-        {
-            get { return _bitmap; }
-            internal set
-            {
-                if (_bitmap != value)
-                {
-                    _bitmap = value;
-                    OnPropertyChanged(nameof(Bitmap));
-                }
-            }
-        }
+        public BitmapImage Bitmap => BitmapHelper.CreateBitmapImage(this.Path);
 
         /// <summary>
         /// Gets a value indicating whether IsValid.
@@ -77,6 +67,32 @@
             }
         }
 
+        /// <summary>
+        /// Gets or sets the ThumbnailBitmap.
+        /// </summary>
+        public BitmapImage ThumbnailBitmap
+        {
+            get { return _thumbnailBitmap; }
+            set
+            {
+                if (_thumbnailBitmap != value)
+                {
+                    _thumbnailBitmap = value;
+                    OnPropertyChanged(nameof(ThumbnailBitmap));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the ThumbnailHeight.
+        /// </summary>
+        public int ThumbnailHeight { get; set; } = 200;
+
+        /// <summary>
+        /// Gets or sets the ThumbnailWidth.
+        /// </summary>
+        public int ThumbnailWidth { get; set; } = 200;
+
         #endregion Properties
 
         #region Methods
@@ -92,7 +108,7 @@
                 return;
             }
 
-            this.Bitmap = BitmapHelper.LoadBitmap(this.Path);
+            this.ThumbnailBitmap = BitmapHelper.CreateBitmapImage(this.Path, this.ThumbnailHeight);
         }
 
         #endregion Methods

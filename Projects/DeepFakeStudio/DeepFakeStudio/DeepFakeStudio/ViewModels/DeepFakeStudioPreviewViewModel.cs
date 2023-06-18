@@ -31,10 +31,8 @@ namespace DeepFakeStudio.ViewModels
         /// <summary>
         /// Initializes a new instance of the <see cref="DeepFakeStudioPreviewViewModel"/> class.
         /// </summary>
-        /// <param name="path">The path<see cref="string"/>.</param>
-        public DeepFakeStudioPreviewViewModel(string path)
+        public DeepFakeStudioPreviewViewModel()
         {
-            Path = path;
             this.PropertyChanged += OnPropertyChanged;
         }
 
@@ -120,7 +118,7 @@ namespace DeepFakeStudio.ViewModels
         /// </summary>
         private void ReloadImages()
         {
-            if (string.IsNullOrEmpty(this.Path) || Directory.Exists(this.Path))
+            if (string.IsNullOrEmpty(this.Path) || !Directory.Exists(this.Path))
             {
                 MessageBox.Show("Folder doesn't exist or invalid Folder", "Error Loading Images");
                 return;
@@ -133,6 +131,7 @@ namespace DeepFakeStudio.ViewModels
                 return;
             }
 
+            Logger.Info($"{files.Length} Image files are found");
             this.ReloadBitmapCancellationTokenSource?.Cancel();
             this.ReloadBitmapCancellationTokenSource = new CancellationTokenSource();
             var token = this.ReloadBitmapCancellationTokenSource.Token;
@@ -154,6 +153,17 @@ namespace DeepFakeStudio.ViewModels
                 {
                     this.SelectedBitmapFile = this.BitmapFiles[0];
                 }
+
+                foreach (var file in this.BitmapFiles)
+                {
+                    if (token.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    file.Load();
+                }
+
             }, token);
         }
 
