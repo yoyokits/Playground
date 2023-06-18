@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-namespace DeepFakeStudio
+﻿namespace DeepFakeStudio
 {
     using System;
     using System.IO;

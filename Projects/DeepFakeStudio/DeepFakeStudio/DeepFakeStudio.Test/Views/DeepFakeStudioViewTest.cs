@@ -2,6 +2,8 @@
 
 namespace DeepFakeStudio.Test.Views
 {
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
+
     /// <summary>
     /// Defines the <see cref="DeepFakeStudioViewTest" />.
     /// </summary>

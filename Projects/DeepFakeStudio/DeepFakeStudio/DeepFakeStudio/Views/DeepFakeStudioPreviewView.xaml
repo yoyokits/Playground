@@ -12,7 +12,34 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition />
         </Grid.RowDefinitions>
+        <Grid Grid.Row="0">
+            <Image Source="{Binding}" />
+        </Grid>
+        <Slider Grid.Row="1" />
+        <ListBox ItemsSource="{Binding BitmapFiles}">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Image
+                        Width="120"
+                        Height="120"
+                        HorizontalAlignment="Center">
+                        <Image.Source>
+                            <BitmapImage
+                                DecodePixelHeight="100"
+                                DecodePixelWidth="100"
+                                UriSource="{Binding Path}" />
+                        </Image.Source>
+                    </Image>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
     </Grid>
 </UserControl>
