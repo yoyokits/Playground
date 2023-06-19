@@ -10,6 +10,49 @@
     d:DesignWidth="800"
     mc:Ignorable="d">
     <Grid>
-        <ListBox />
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <TextBlock
+            Grid.Row="0"
+            Margin="2"
+            Text="Project" />
+        <ListBox
+            Grid.Row="1"
+            Margin="2"
+            VerticalAlignment="Stretch"
+            ItemsSource="{Binding ProcessSteps}"
+            ScrollViewer.CanContentScroll="False"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="2" HorizontalAlignment="Stretch">
+                        <Grid.ToolTip>
+                            <TextBlock Text="{Binding Description}" />
+                        </Grid.ToolTip>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Grid.Column="0"
+                            Margin="2"
+                            Text="{Binding Name}" />
+                        <Button
+                            Grid.Column="1"
+                            Margin="2"
+                            Command="{Binding ExecuteCommand}"
+                            Content="Run" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
     </Grid>
 </UserControl>

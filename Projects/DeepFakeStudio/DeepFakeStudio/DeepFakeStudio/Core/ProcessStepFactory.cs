@@ -205,6 +205,21 @@
         #region Methods
 
         /// <summary>
+        /// The CreateProcessSteps.
+        /// </summary>
+        /// <returns>The <see cref="IList{ProcessStep}"/>.</returns>
+        public static IList<ProcessStep> CreateProcessSteps()
+        {
+            var processSteps = new List<ProcessStep>(ProcessStepFactory.StepsList.Count);
+            foreach (var step in ProcessStepFactory.StepsList)
+            {
+                processSteps.Add(new ProcessStep(step));
+            }
+
+            return processSteps;
+        }
+
+        /// <summary>
         /// The RegisterProcessSteps.
         /// </summary>
         private static void RegisterProcessSteps()

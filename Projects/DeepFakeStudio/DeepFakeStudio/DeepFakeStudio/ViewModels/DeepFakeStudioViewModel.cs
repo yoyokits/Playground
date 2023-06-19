@@ -2,7 +2,6 @@
 
 namespace DeepFakeStudio.ViewModels
 {
-    using System.Collections.ObjectModel;
     using System.Windows.Input;
     using DeepFakeStudio.Common;
 
@@ -26,9 +25,14 @@ namespace DeepFakeStudio.ViewModels
         #region Properties
 
         /// <summary>
-        /// Gets the DeepFakeStudioProjects.
+        /// Gets the DeepFakeStudioPreview.
         /// </summary>
-        public ObservableCollection<DeepFakeStudioProjectViewModel> DeepFakeStudioProjects { get; } = new();
+        public DeepFakeStudioPreviewViewModel DeepFakeStudioPreview { get; } = new();
+
+        /// <summary>
+        /// Gets the DeepFakeStudioProject.
+        /// </summary>
+        public DeepFakeStudioProjectViewModel DeepFakeStudioProject { get; } = new();
 
         /// <summary>
         /// Gets the NewProjectCommand.

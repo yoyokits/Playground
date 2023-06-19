@@ -1,10 +1,10 @@
 namespace DeepFakeStudio.Test.Views
 {
+    using DeepFakeStudio.Helpers;
     using DeepFakeStudio.Test.Helpers;
     using DeepFakeStudio.ViewModels;
     using DeepFakeStudio.Views;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
-    using Ookii.Dialogs.Wpf;
 
     /// <summary>
     /// Defines the <see cref="DeepFakeStudioViewTest" />.
@@ -15,23 +15,6 @@ namespace DeepFakeStudio.Test.Views
         #region Methods
 
         /// <summary>
-        /// The GetFolder.
-        /// </summary>
-        /// <returns>The <see cref="string"/>.</returns>
-        public static string GetFolder()
-        {
-            var dialog = new VistaFolderBrowserDialog();
-            var result = dialog.ShowDialog();
-            var path = string.Empty;
-            if (result.HasValue && result.Value)
-            {
-                path = dialog.SelectedPath;
-            }
-
-            return path;
-        }
-
-        /// <summary>
         /// Show DeepFakeStudioView.
         /// </summary>
         [TestMethod]
@@ -39,7 +22,7 @@ namespace DeepFakeStudio.Test.Views
         {
             WpfTestRunner.Run(_ =>
             {
-                var viewModel = new DeepFakeStudioPreviewViewModel { Path = GetFolder() };
+                var viewModel = new DeepFakeStudioPreviewViewModel { Path = FileHelper.GetFolder() };
                 var view = new DeepFakeStudioPreviewView { DataContext = viewModel };
                 view.ShowDialog(nameof(DeepFakeStudioPreviewView));
             });

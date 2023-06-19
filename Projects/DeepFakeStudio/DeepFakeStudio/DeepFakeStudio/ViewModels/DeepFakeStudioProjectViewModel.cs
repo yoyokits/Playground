@@ -4,6 +4,7 @@ namespace DeepFakeStudio.ViewModels
 {
     using System.Collections.Generic;
     using DeepFakeStudio.Common;
+    using DeepFakeStudio.Core;
     using DeepFakeStudio.Models;
 
     /// <summary>
@@ -54,7 +55,7 @@ namespace DeepFakeStudio.ViewModels
         /// <summary>
         /// Gets the ProcessSteps.
         /// </summary>
-        public IList<ProcessStep> ProcessSteps { get; } = new List<ProcessStep>();
+        public IList<ProcessStep> ProcessSteps { get; } = ProcessStepFactory.CreateProcessSteps();
 
         /// <summary>
         /// Gets or sets the VideoDestinationPath.

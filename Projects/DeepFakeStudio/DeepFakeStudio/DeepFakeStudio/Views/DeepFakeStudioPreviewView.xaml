@@ -31,7 +31,6 @@
             ItemsSource="{Binding BitmapFiles}"
             ScrollViewer.CanContentScroll="False"
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-            ScrollViewer.IsDeferredScrollingEnabled="True"
             ScrollViewer.VerticalScrollBarVisibility="Auto"
             SelectedItem="{Binding SelectedBitmapFile}">
             <ListBox.ItemsPanel>

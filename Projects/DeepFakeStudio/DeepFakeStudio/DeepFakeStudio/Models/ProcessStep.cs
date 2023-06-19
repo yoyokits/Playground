@@ -15,9 +15,19 @@ namespace DeepFakeStudio.Models
 
         private bool _isExecuted;
 
+        private ProcessState processState;
+
         #endregion Fields
 
         #region Constructors
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ProcessStep"/> class.
+        /// </summary>
+        /// <param name="other">The other<see cref="ProcessStep"/>.</param>
+        public ProcessStep(ProcessStep other) : this(other.Name, other.Description, other.ProcessCommand)
+        {
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ProcessStep"/> class.
@@ -30,7 +40,7 @@ namespace DeepFakeStudio.Models
             this.Name = name;
             this.Description = description;
             this.ProcessCommand = processCommand;
-            this.Command = new RelayCommand(this.OnCommand, nameof(this.Command), _ => !this.IsExecuted);
+            this.ExecuteCommand = new RelayCommand(this.OnExecute, nameof(this.ExecuteCommand), _ => !this.IsExecuted);
         }
 
         #endregion Constructors
@@ -38,14 +48,14 @@ namespace DeepFakeStudio.Models
         #region Properties
 
         /// <summary>
-        /// Gets the Command.
-        /// </summary>
-        public ICommand Command { get; }
-
-        /// <summary>
         /// Gets the Description.
         /// </summary>
         public string Description { get; }
+
+        /// <summary>
+        /// Gets the ExecuteCommand.
+        /// </summary>
+        public ICommand ExecuteCommand { get; }
 
         /// <summary>
         /// Gets or sets a value indicating whether IsExecuted.
@@ -75,6 +85,22 @@ namespace DeepFakeStudio.Models
         /// </summary>
         public string ProcessCommand { get; }
 
+        /// <summary>
+        /// Gets or sets the ProcessState.
+        /// </summary>
+        public ProcessState ProcessState
+        {
+            get { return processState; }
+            set
+            {
+                if (processState != value)
+                {
+                    processState = value;
+                    OnPropertyChanged(nameof(ProcessState));
+                }
+            }
+        }
+
         #endregion Properties
 
         #region Methods
@@ -83,7 +109,7 @@ namespace DeepFakeStudio.Models
         /// The OnCommand.
         /// </summary>
         /// <param name="obj">The obj<see cref="object"/>.</param>
-        private void OnCommand(object obj)
+        private void OnExecute(object obj)
         {
             var process = new Process();
             var startInfo = new ProcessStartInfo();
