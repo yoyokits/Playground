@@ -20,7 +20,7 @@
             var app = Application.Current;
             if (app == null)
             {
-                app = new Application { ShutdownMode = ShutdownMode.OnLastWindowClose };
+                app = new App { ShutdownMode = ShutdownMode.OnLastWindowClose };
             }
 
             app.Dispatcher.Invoke(() =>

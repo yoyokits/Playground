@@ -9,6 +9,8 @@
     Title="Deep Fake Studio"
     Width="800"
     Height="450"
+    Background="{DynamicResource MaterialDesignPaper}"
+    TextElement.Foreground="{DynamicResource MaterialDesignBody}"
     mc:Ignorable="d">
     <Window.Resources>
         <viewmodels:DeepFakeStudioViewModel x:Key="DeepFakeStudioViewModel" />

@@ -18,7 +18,7 @@
         /// <param name="height">The height<see cref="double"/>.</param>
         public static void ShowDialog(this UIElement view, string title, double width = 1200, double height = 900)
         {
-            var window = new Window
+            var window = new MainWindow
             {
                 Content = view,
                 Width = width,

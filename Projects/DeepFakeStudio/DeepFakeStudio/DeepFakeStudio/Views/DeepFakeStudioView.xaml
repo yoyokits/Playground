@@ -4,24 +4,37 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:DeepFakeStudio.Views"
+    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewmodels="clr-namespace:DeepFakeStudio.ViewModels"
     d:DataContext="{d:DesignInstance viewmodels:DeepFakeStudioViewModel}"
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d">
-    <Grid Margin="2">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition />
-        </Grid.ColumnDefinitions>
-        <local:DeepFakeStudioProjectView
-            Grid.Column="0"
-            Margin="2"
-            DataContext="{Binding DeepFakeStudioProject}" />
-        <local:DeepFakeStudioPreviewView
-            Grid.Column="1"
-            Margin="2"
-            DataContext="{Binding DeepFakeStudioPreview}" />
-    </Grid>
+    <DockPanel>
+        <ToolBarTray DockPanel.Dock="Left" Orientation="Vertical">
+            <ToolBar Style="{DynamicResource MaterialDesignToolBar}">
+                <Button>
+                    <materialDesign:PackIcon Kind="AccountMultiplePlus" />
+                </Button>
+                <Button>
+                    <materialDesign:PackIcon Kind="AccountMultipleRemove" />
+                </Button>
+            </ToolBar>
+        </ToolBarTray>
+        <Grid Margin="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <local:DeepFakeStudioProjectView
+                Grid.Column="0"
+                Margin="2"
+                DataContext="{Binding DeepFakeStudioProject}" />
+            <local:DeepFakeStudioPreviewView
+                Grid.Column="1"
+                Margin="2"
+                DataContext="{Binding DeepFakeStudioPreview}" />
+        </Grid>
+    </DockPanel>
 </UserControl>
