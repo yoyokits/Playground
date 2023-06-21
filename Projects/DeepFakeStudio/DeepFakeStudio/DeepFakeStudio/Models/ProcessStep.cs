@@ -2,7 +2,6 @@
 
 namespace DeepFakeStudio.Models
 {
-    using System.Diagnostics;
     using System.Windows.Input;
     using DeepFakeStudio.Common;
 
@@ -40,6 +39,7 @@ namespace DeepFakeStudio.Models
             this.Name = name;
             this.Description = description;
             this.ProcessCommand = processCommand;
+            this.ProcessController = new ProcessController(this.ProcessCommand);
             this.ExecuteCommand = new RelayCommand(this.OnExecute, nameof(this.ExecuteCommand), _ => !this.IsExecuted);
         }
 
@@ -86,6 +86,11 @@ namespace DeepFakeStudio.Models
         public string ProcessCommand { get; }
 
         /// <summary>
+        /// Gets the ProcessController.
+        /// </summary>
+        public ProcessController ProcessController { get; }
+
+        /// <summary>
         /// Gets or sets the ProcessState.
         /// </summary>
         public ProcessState ProcessState
@@ -111,13 +116,7 @@ namespace DeepFakeStudio.Models
         /// <param name="obj">The obj<see cref="object"/>.</param>
         private void OnExecute(object obj)
         {
-            var process = new Process();
-            var startInfo = new ProcessStartInfo();
-            startInfo.WindowStyle = ProcessWindowStyle.Normal;
-            startInfo.FileName = "cmd.exe";
-            startInfo.Arguments = $"/C {this.ProcessCommand}";
-            process.StartInfo = startInfo;
-            process.Start();
+            this.ProcessController.Execute();
         }
 
         #endregion Methods
