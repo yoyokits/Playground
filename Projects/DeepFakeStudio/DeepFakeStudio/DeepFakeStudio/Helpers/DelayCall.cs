@@ -1,4 +1,4 @@
-﻿namespace VideoBrowser.Helpers
+﻿namespace DeepFakeStudio.Helpers
 {
     using System;
     using System.Threading;
@@ -134,6 +134,12 @@
             this.Cancel();
             if (this.Disposed)
             {
+                return;
+            }
+
+            if (this.IsCallInUIThread)
+            {
+                UIThreadHelper.Invoke(this.Action);
                 return;
             }
 

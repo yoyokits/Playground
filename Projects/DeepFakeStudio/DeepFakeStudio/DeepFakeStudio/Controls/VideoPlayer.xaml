@@ -12,13 +12,23 @@
         <Grid.RowDefinitions>
             <RowDefinition />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <MediaElement
             x:Name="MediaElement"
             Grid.Row="0"
+            Margin="2" />
+        <Slider
+            x:Name="Slider"
+            Grid.Row="1"
             Margin="2"
-            Source="{Binding DestinationVideoUri}" />
-        <ToolBar Grid.Row="1" Margin="2">
+            Minimum="0"
+            Thumb.DragCompleted="OnSlider_DragCompleted"
+            Thumb.DragStarted="OnSlider_DragStarted" />
+        <ToolBar Grid.Row="2" Margin="2">
+            <Button Click="OnStopButton_Click">
+                <materialDesign:PackIcon Kind="Stop" />
+            </Button>
             <Button Click="OnPauseButton_Click">
                 <materialDesign:PackIcon Kind="Pause" />
             </Button>
