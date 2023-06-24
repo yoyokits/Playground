@@ -26,6 +26,9 @@
                 VerticalAlignment="Center"
                 Text="Project" />
             <ToolBar Grid.Column="1">
+                <Button Command="{Binding OpenVideoCommand}">
+                    <materialDesign:PackIcon Kind="MovieOpen" />
+                </Button>
                 <Button>
                     <materialDesign:PackIcon Kind="AccountEdit" />
                 </Button>
