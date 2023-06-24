@@ -3,9 +3,11 @@
 namespace DeepFakeStudio.ViewModels
 {
     using System.Collections.Generic;
+    using System.Windows.Input;
     using DeepFakeStudio.Common;
     using DeepFakeStudio.Core;
     using DeepFakeStudio.Models;
+    using DeepFakeStudio.Views;
 
     /// <summary>
     /// Defines the <see cref="DeepFakeStudioProjectViewModel" />.
@@ -29,6 +31,7 @@ namespace DeepFakeStudio.ViewModels
         /// </summary>
         public DeepFakeStudioProjectViewModel()
         {
+            OpenVideoCommand = new RelayCommand(OnOpenVideo, nameof(OpenVideoCommand));
         }
 
         #endregion Constructors
@@ -51,6 +54,11 @@ namespace DeepFakeStudio.ViewModels
                 this.OnPropertyChanged();
             }
         }
+
+        /// <summary>
+        /// Gets the OpenVideoCommand.
+        /// </summary>
+        public ICommand OpenVideoCommand { get; }
 
         /// <summary>
         /// Gets the ProcessSteps.
@@ -92,5 +100,27 @@ namespace DeepFakeStudio.ViewModels
         }
 
         #endregion Properties
+
+        #region Methods
+
+        /// <summary>
+        /// The OnOpenVideo.
+        /// </summary>
+        /// <param name="obj">The obj<see cref="object"/>.</param>
+        private void OnOpenVideo(object obj)
+        {
+            var viewModel = new OpenVideosViewModel();
+            var view = new OpenVideosView { DataContext = viewModel };
+            WindowFactory.ShowDialog(view, "Open Video to Edit", 1200, 600);
+            if (!viewModel.IsValid)
+            {
+                return;
+            }
+
+            this.VideoSourcePath = viewModel.VideoSourcePath;
+            this.VideoDestinationPath = viewModel.VideoDestinationPath;
+        }
+
+        #endregion Methods
     }
 }

@@ -2,31 +2,31 @@
 
 namespace DeepFakeStudio.ViewModels
 {
-    using System;
+    using System.IO;
     using System.Windows.Input;
     using DeepFakeStudio.Common;
     using DeepFakeStudio.Extensions;
     using DeepFakeStudio.Helpers;
 
     /// <summary>
-    /// Defines the <see cref="DeepFakeStudioNewProjectViewModel" />.
+    /// Defines the <see cref="OpenVideosViewModel" />.
     /// </summary>
-    public class DeepFakeStudioNewProjectViewModel : NotifyPropertyChanged
+    public class OpenVideosViewModel : NotifyPropertyChanged
     {
         #region Fields
 
-        private string _destinationVideoPath;
+        private string _videoDestinationPath;
 
-        private string _sourceVideoPath;
+        private string _videoSourcePath;
 
         #endregion Fields
 
         #region Constructors
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="DeepFakeStudioNewProjectViewModel"/> class.
+        /// Initializes a new instance of the <see cref="OpenVideosViewModel"/> class.
         /// </summary>
-        public DeepFakeStudioNewProjectViewModel()
+        public OpenVideosViewModel()
         {
             this.SelectDestinationVideoCommand = new RelayCommand(this.OnSelectDestinationVideo, nameof(this.SelectDestinationVideoCommand));
             this.SelectSourceVideoCommand = new RelayCommand(this.OnSelectSourceVideo, nameof(this.SelectSourceVideoCommand));
@@ -37,9 +37,17 @@ namespace DeepFakeStudio.ViewModels
         #region Properties
 
         /// <summary>
-        /// Gets or sets the DestinationVideoPath.
+        /// Gets a value indicating whether IsValid.
         /// </summary>
-        public string DestinationVideoPath { get => _destinationVideoPath; set => this.NotifyPropertyChanged(this.PropertyChangedHandler, ref _destinationVideoPath, value); }
+        public bool IsValid
+        {
+            get
+            {
+                var isSrcValid = !string.IsNullOrEmpty(VideoSourcePath) && File.Exists(VideoSourcePath);
+                var isDstValid = !string.IsNullOrEmpty(VideoDestinationPath) && File.Exists(VideoDestinationPath);
+                return isSrcValid && isDstValid;
+            }
+        }
 
         /// <summary>
         /// Gets the SelectDestinationVideoCommand.
@@ -52,9 +60,14 @@ namespace DeepFakeStudio.ViewModels
         public ICommand SelectSourceVideoCommand { get; }
 
         /// <summary>
-        /// Gets or sets the SourceVideoPath.
+        /// Gets or sets the VideoDestinationPath.
         /// </summary>
-        public string SourceVideoPath { get => _sourceVideoPath; set => this.NotifyPropertyChanged(this.PropertyChangedHandler, ref this._sourceVideoPath, value); }
+        public string VideoDestinationPath { get => _videoDestinationPath; set => this.NotifyPropertyChanged(this.PropertyChangedHandler, ref _videoDestinationPath, value); }
+
+        /// <summary>
+        /// Gets or sets the VideoSourcePath.
+        /// </summary>
+        public string VideoSourcePath { get => _videoSourcePath; set => this.NotifyPropertyChanged(this.PropertyChangedHandler, ref this._videoSourcePath, value); }
 
         #endregion Properties
 
@@ -72,7 +85,7 @@ namespace DeepFakeStudio.ViewModels
                 return;
             }
 
-            this.DestinationVideoPath = path;
+            this.VideoDestinationPath = path;
         }
 
         /// <summary>
@@ -87,7 +100,7 @@ namespace DeepFakeStudio.ViewModels
                 return;
             }
 
-            this.SourceVideoPath = path;
+            this.VideoSourcePath = path;
         }
 
         #endregion Methods

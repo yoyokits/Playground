@@ -7,8 +7,8 @@
     xmlns:viewmodels="clr-namespace:DeepFakeStudio.ViewModels"
     xmlns:views="clr-namespace:DeepFakeStudio.Views"
     Title="Deep Fake Studio"
-    Width="800"
-    Height="450"
+    Width="1920"
+    Height="1080"
     Background="{DynamicResource MaterialDesignPaper}"
     TextElement.Foreground="{DynamicResource MaterialDesignBody}"
     mc:Ignorable="d">

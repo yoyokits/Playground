@@ -106,6 +106,11 @@ namespace DeepFakeStudio.Models
             }
         }
 
+        /// <summary>
+        /// Gets or sets the ProcessStepId.
+        /// </summary>
+        public ProcessStepId ProcessStepId { get; internal set; }
+
         #endregion Properties
 
         #region Methods

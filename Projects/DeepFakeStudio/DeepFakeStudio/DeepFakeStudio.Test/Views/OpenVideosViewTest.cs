@@ -6,24 +6,24 @@ namespace DeepFakeStudio.Test.Views
     using Microsoft.VisualStudio.TestTools.UnitTesting;
 
     /// <summary>
-    /// Defines the <see cref="DeepFakeStudioNewProjectViewTest" />.
+    /// Defines the <see cref="OpenVideosViewTest" />.
     /// </summary>
     [TestClass]
-    public class DeepFakeStudioNewProjectViewTest
+    public class OpenVideosViewTest
     {
         #region Methods
 
         /// <summary>
-        /// Show DeepFakeStudioNewProjectView.
+        /// Show OpenVideosView.
         /// </summary>
         [TestMethod]
-        public void DeepFakeStudioNewProjectView()
+        public void OpenVideosView()
         {
             WpfTestRunner.Run(_ =>
             {
-                var viewModel = new DeepFakeStudioNewProjectViewModel();
-                var view = new DeepFakeStudioNewProjectView { DataContext = viewModel };
-                view.ShowDialog(nameof(DeepFakeStudioNewProjectView));
+                var viewModel = new OpenVideosViewModel();
+                var view = new OpenVideosView { DataContext = viewModel };
+                view.ShowDialog(nameof(OpenVideosView));
             });
         }
 
