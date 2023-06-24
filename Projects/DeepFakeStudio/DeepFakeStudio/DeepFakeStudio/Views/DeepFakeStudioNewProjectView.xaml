@@ -2,6 +2,7 @@
     x:Class="DeepFakeStudio.Views.DeepFakeStudioNewProjectView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:DeepFakeStudio.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -20,11 +21,11 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <!--  Source Video  -->
-        <MediaElement
+        <controls:MediaElementPlayer
             Grid.Row="0"
             Grid.Column="0"
             Margin="2"
-            Source="{Binding SourceVideoUri}" />
+            Source="{Binding SourceVideoPath}" />
         <Grid Grid.Row="1" Grid.Column="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
@@ -41,11 +42,11 @@
             </Button>
         </Grid>
         <!--  Destination Video  -->
-        <MediaElement
+        <controls:MediaElementPlayer
             Grid.Row="0"
             Grid.Column="1"
             Margin="2"
-            Source="{Binding DestinationVideoUri}" />
+            Source="{Binding DestinationVideoPath}" />
         <Grid Grid.Row="1" Grid.Column="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
