@@ -32,6 +32,9 @@
                 <Button>
                     <materialDesign:PackIcon Kind="AccountEdit" />
                 </Button>
+                <Button Command="{Binding OpenWorkspaceFolderCommand}">
+                    <materialDesign:PackIcon Kind="FolderOpen" />
+                </Button>
                 <Button>
                     <materialDesign:PackIcon Kind="AnimationPlay" />
                 </Button>

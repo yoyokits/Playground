@@ -2,7 +2,10 @@
 
 namespace DeepFakeStudio.ViewModels
 {
+    using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.IO;
     using System.Windows.Input;
     using DeepFakeStudio.Common;
     using DeepFakeStudio.Core;
@@ -32,6 +35,7 @@ namespace DeepFakeStudio.ViewModels
         public ProjectViewModel()
         {
             OpenVideoCommand = new RelayCommand(OnOpenVideo, nameof(OpenVideoCommand));
+            OpenWorkspaceFolderCommand = new RelayCommand(OnOpenWorkspaceFolder, nameof(OpenWorkspaceFolderCommand));
         }
 
         #endregion Constructors
@@ -59,6 +63,11 @@ namespace DeepFakeStudio.ViewModels
         /// Gets the OpenVideoCommand.
         /// </summary>
         public ICommand OpenVideoCommand { get; }
+
+        /// <summary>
+        /// Gets the OpenWorkspaceFolderCommand.
+        /// </summary>
+        public ICommand OpenWorkspaceFolderCommand { get; }
 
         /// <summary>
         /// Gets the ProcessSteps.
@@ -119,6 +128,29 @@ namespace DeepFakeStudio.ViewModels
 
             this.VideoSourcePath = viewModel.VideoSourcePath;
             this.VideoDestinationPath = viewModel.VideoDestinationPath;
+        }
+
+        /// <summary>
+        /// The OnOpenWorkspaceFolder.
+        /// </summary>
+        /// <param name="obj">The obj<see cref="object"/>.</param>
+        private void OnOpenWorkspaceFolder(object obj)
+        {
+            var folder = AppEnvironment.WorkspaceFolder;
+            if (!Directory.Exists(folder))
+            {
+                folder = AppEnvironment.AppDirectory;
+            }
+
+            try
+            {
+                Process.Start(folder);
+            }
+            catch (Exception e)
+            {
+                WindowFactory.ShowMessageBox(e.Message, "Error Opening Folder");
+                Process.Start("explorer.exe");
+            }
         }
 
         #endregion Methods
