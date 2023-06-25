@@ -3,16 +3,16 @@
 namespace DeepFakeStudio.Views
 {
     /// <summary>
-    /// Interaction logic for DeepFakeStudioProjectView.xaml.
+    /// Interaction logic for ProjectView.xaml.
     /// </summary>
-    public partial class DeepFakeStudioProjectView
+    public partial class ProjectView
     {
         #region Constructors
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="DeepFakeStudioProjectView"/> class.
+        /// Initializes a new instance of the <see cref="ProjectView"/> class.
         /// </summary>
-        public DeepFakeStudioProjectView()
+        public ProjectView()
         {
             this.InitializeComponent();
         }

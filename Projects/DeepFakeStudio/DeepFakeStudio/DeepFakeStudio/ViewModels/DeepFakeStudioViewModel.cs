@@ -27,12 +27,12 @@ namespace DeepFakeStudio.ViewModels
         /// <summary>
         /// Gets the DeepFakeStudioPreview.
         /// </summary>
-        public DeepFakeStudioPreviewViewModel DeepFakeStudioPreview { get; } = new();
+        public PreviewViewModel DeepFakeStudioPreview { get; } = new();
 
         /// <summary>
         /// Gets the DeepFakeStudioProject.
         /// </summary>
-        public DeepFakeStudioProjectViewModel DeepFakeStudioProject { get; } = new();
+        public ProjectViewModel DeepFakeStudioProject { get; } = new();
 
         /// <summary>
         /// Gets the NewProjectCommand.
