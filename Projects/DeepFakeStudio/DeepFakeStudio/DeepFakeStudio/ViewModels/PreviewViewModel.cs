@@ -12,9 +12,9 @@ namespace DeepFakeStudio.ViewModels
     using DeepFakeStudio.Models;
 
     /// <summary>
-    /// Defines the <see cref="DeepFakeStudioPreviewViewModel" />.
+    /// Defines the <see cref="PreviewViewModel" />.
     /// </summary>
-    public class DeepFakeStudioPreviewViewModel : NotifyPropertyChanged
+    public class PreviewViewModel : NotifyPropertyChanged
     {
         #region Fields
 
@@ -29,9 +29,9 @@ namespace DeepFakeStudio.ViewModels
         #region Constructors
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="DeepFakeStudioPreviewViewModel"/> class.
+        /// Initializes a new instance of the <see cref="PreviewViewModel"/> class.
         /// </summary>
-        public DeepFakeStudioPreviewViewModel()
+        public PreviewViewModel()
         {
             this.PropertyChanged += OnPropertyChanged;
         }
@@ -163,7 +163,6 @@ namespace DeepFakeStudio.ViewModels
 
                     file.Load();
                 }
-
             }, token);
         }
 

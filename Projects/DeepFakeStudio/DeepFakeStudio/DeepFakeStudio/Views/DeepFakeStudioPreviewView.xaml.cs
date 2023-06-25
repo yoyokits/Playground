@@ -3,16 +3,16 @@
 namespace DeepFakeStudio.Views
 {
     /// <summary>
-    /// Interaction logic for DeepFakeStudioPreviewView.xaml.
+    /// Interaction logic for PreviewView.xaml.
     /// </summary>
-    public partial class DeepFakeStudioPreviewView
+    public partial class PreviewView
     {
         #region Constructors
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="DeepFakeStudioPreviewView"/> class.
+        /// Initializes a new instance of the <see cref="PreviewView"/> class.
         /// </summary>
-        public DeepFakeStudioPreviewView()
+        public PreviewView()
         {
             this.InitializeComponent();
         }

@@ -27,11 +27,11 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition />
             </Grid.ColumnDefinitions>
-            <local:DeepFakeStudioProjectView
+            <local:ProjectView
                 Grid.Column="0"
                 Margin="2"
                 DataContext="{Binding DeepFakeStudioProject}" />
-            <local:DeepFakeStudioPreviewView
+            <local:PreviewView
                 Grid.Column="1"
                 Margin="2"
                 DataContext="{Binding DeepFakeStudioPreview}" />

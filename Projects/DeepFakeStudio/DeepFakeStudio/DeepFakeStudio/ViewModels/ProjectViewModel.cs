@@ -10,9 +10,9 @@ namespace DeepFakeStudio.ViewModels
     using DeepFakeStudio.Views;
 
     /// <summary>
-    /// Defines the <see cref="DeepFakeStudioProjectViewModel" />.
+    /// Defines the <see cref="ProjectViewModel" />.
     /// </summary>
-    public class DeepFakeStudioProjectViewModel : NotifyPropertyChanged
+    public class ProjectViewModel : NotifyPropertyChanged
     {
         #region Fields
 
@@ -27,9 +27,9 @@ namespace DeepFakeStudio.ViewModels
         #region Constructors
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="DeepFakeStudioProjectViewModel"/> class.
+        /// Initializes a new instance of the <see cref="ProjectViewModel"/> class.
         /// </summary>
-        public DeepFakeStudioProjectViewModel()
+        public ProjectViewModel()
         {
             OpenVideoCommand = new RelayCommand(OnOpenVideo, nameof(OpenVideoCommand));
         }
