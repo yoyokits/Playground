@@ -19,6 +19,8 @@ namespace DeepFakeStudio.ViewModels
     {
         #region Fields
 
+        private MessageHandler _messageHandler;
+
         private string _name = "No name";
 
         private string _videoDestinationPath;
@@ -105,6 +107,27 @@ namespace DeepFakeStudio.ViewModels
                 }
 
                 _videoSourcePath = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the MessageHandler.
+        /// </summary>
+        internal MessageHandler MessageHandler
+        {
+            get { return _messageHandler; }
+            set
+            {
+                if (_messageHandler != value)
+                {
+                    _messageHandler = value;
+                    foreach (var step in ProcessSteps)
+                    {
+                        step.MessageHandler = MessageHandler;
+                    }
+
+                    OnPropertyChanged(nameof(MessageHandler));
+                }
             }
         }
 

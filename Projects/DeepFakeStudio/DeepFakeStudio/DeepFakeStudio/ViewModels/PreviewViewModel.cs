@@ -51,7 +51,7 @@ namespace DeepFakeStudio.ViewModels
                 if (_bitmapFiles != value)
                 {
                     _bitmapFiles = value;
-                    OnPropertyChanged(nameof(BitmapFiles));
+                    OnPropertyChanged();
                 }
             }
         }
@@ -67,7 +67,7 @@ namespace DeepFakeStudio.ViewModels
                 if (_path != value)
                 {
                     _path = value;
-                    OnPropertyChanged(nameof(Path));
+                    OnPropertyChanged();
                 }
             }
         }

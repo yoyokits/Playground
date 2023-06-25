@@ -79,7 +79,7 @@
         /// <summary>
         /// Gets the WorkspaceFolder.
         /// </summary>
-        public static string WorkspaceFolder { get; } = $"{AppDirectory}/workspace";
+        public static string WorkspaceFolder { get; } = $"{AppDirectory}workspace\\";
 
         #endregion Properties
 

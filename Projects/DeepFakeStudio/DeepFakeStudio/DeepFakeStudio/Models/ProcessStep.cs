@@ -16,7 +16,9 @@ namespace DeepFakeStudio.Models
 
         private bool _isExecuted;
 
-        private ProcessState processState;
+        private MessageHandler _messageHandler;
+
+        private ProcessState _processState;
 
         #endregion Fields
 
@@ -97,13 +99,13 @@ namespace DeepFakeStudio.Models
         /// </summary>
         public ProcessState ProcessState
         {
-            get { return processState; }
+            get { return _processState; }
             set
             {
-                if (processState != value)
+                if (_processState != value)
                 {
-                    processState = value;
-                    OnPropertyChanged(nameof(ProcessState));
+                    _processState = value;
+                    OnPropertyChanged();
                 }
             }
         }
@@ -117,6 +119,23 @@ namespace DeepFakeStudio.Models
         /// Gets the ProcessStepSettingItems.
         /// </summary>
         public IList<ProcessStepSettingItem> ProcessStepSettingItems { get; } = new List<ProcessStepSettingItem>();
+
+        /// <summary>
+        /// Gets or sets the MessageHandler.
+        /// </summary>
+        internal MessageHandler MessageHandler
+        {
+            get { return _messageHandler; }
+            set
+            {
+                if (_messageHandler != value)
+                {
+                    _messageHandler = value;
+                    ProcessController.MessageHandler = MessageHandler;
+                    OnPropertyChanged(nameof(MessageHandler));
+                }
+            }
+        }
 
         #endregion Properties
 

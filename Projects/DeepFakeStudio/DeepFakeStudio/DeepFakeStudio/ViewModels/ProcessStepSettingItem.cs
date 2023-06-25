@@ -42,7 +42,7 @@
                 if (selectedOption != value)
                 {
                     selectedOption = value;
-                    OnPropertyChanged(nameof(SelectedOption));
+                    OnPropertyChanged();
                 }
             }
         }
