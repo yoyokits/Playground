@@ -2,8 +2,10 @@
 
 namespace DeepFakeStudio.Models
 {
+    using System.Collections.Generic;
     using System.Windows.Input;
     using DeepFakeStudio.Common;
+    using DeepFakeStudio.ViewModels;
 
     /// <summary>
     /// Defines the <see cref="ProcessStep" />.
@@ -110,6 +112,11 @@ namespace DeepFakeStudio.Models
         /// Gets or sets the ProcessStepId.
         /// </summary>
         public ProcessStepId ProcessStepId { get; internal set; }
+
+        /// <summary>
+        /// Gets the ProcessStepSettingItems.
+        /// </summary>
+        public IList<ProcessStepSettingItem> ProcessStepSettingItems { get; } = new List<ProcessStepSettingItem>();
 
         #endregion Properties
 

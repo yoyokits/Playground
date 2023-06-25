@@ -76,6 +76,11 @@
         /// </summary>
         public static string Version { get; } = $"{Assembly.GetExecutingAssembly().GetName().Version}";
 
+        /// <summary>
+        /// Gets the WorkspaceFolder.
+        /// </summary>
+        public static string WorkspaceFolder { get; } = $"{AppDirectory}/workspace";
+
         #endregion Properties
 
         #region Methods

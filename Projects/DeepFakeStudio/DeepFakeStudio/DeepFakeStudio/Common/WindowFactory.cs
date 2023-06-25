@@ -30,6 +30,17 @@
             window.ShowDialog();
         }
 
+        /// <summary>
+        /// The ShowMessageBox.
+        /// </summary>
+        /// <param name="message">The message<see cref="string"/>.</param>
+        /// <param name="caption">The caption<see cref="string"/>.</param>
+        /// <param name="image">The image<see cref="MessageBoxImage"/>.</param>
+        public static void ShowMessageBox(string message, string caption, MessageBoxImage image = MessageBoxImage.Warning)
+        {
+            MessageBox.Show(message, caption, MessageBoxButton.OK, image);
+        }
+
         #endregion Methods
     }
 }
