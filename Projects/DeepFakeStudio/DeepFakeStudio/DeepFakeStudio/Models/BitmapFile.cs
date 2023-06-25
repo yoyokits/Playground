@@ -62,7 +62,7 @@
                 if (_path != value)
                 {
                     _path = value;
-                    OnPropertyChanged(nameof(Path));
+                    OnPropertyChanged();
                 }
             }
         }
@@ -78,7 +78,7 @@
                 if (_thumbnailBitmap != value)
                 {
                     _thumbnailBitmap = value;
-                    OnPropertyChanged(nameof(ThumbnailBitmap));
+                    OnPropertyChanged();
                 }
             }
         }

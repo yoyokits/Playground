@@ -1,6 +1,5 @@
 ﻿namespace DeepFakeStudio.Common
 {
-    using System;
     using System.Diagnostics;
 
     /// <summary>
@@ -24,19 +23,24 @@
         #region Properties
 
         /// <summary>
+        /// Gets the LastError.
+        /// </summary>
+        public string LastError { get; private set; }
+
+        /// <summary>
+        /// Gets the LastMessage.
+        /// </summary>
+        public string LastMessage { get; private set; }
+
+        /// <summary>
         /// Gets the ProcessCommand.
         /// </summary>
         public string ProcessCommand { get; }
 
         /// <summary>
-        /// Gets or sets the SendErrorAction.
+        /// Gets or sets the MessageHandler.
         /// </summary>
-        public Action<string> SendErrorAction { get; set; }
-
-        /// <summary>
-        /// Gets or sets the SendMessageAction.
-        /// </summary>
-        public Action<string> SendMessageAction { get; set; }
+        internal MessageHandler MessageHandler { get; set; }
 
         #endregion Properties
 
@@ -73,7 +77,13 @@
         /// <param name="e">The e<see cref="DataReceivedEventArgs"/>.</param>
         private void OnProcess_ErrorDataReceived(object sender, DataReceivedEventArgs e)
         {
-            this.SendErrorAction?.Invoke(e.Data);
+            if (string.IsNullOrEmpty(e.Data))
+            {
+                return;
+            }
+
+            this.LastError = e.Data;
+            this.MessageHandler?.SendError(this.LastError);
         }
 
         /// <summary>
@@ -83,7 +93,13 @@
         /// <param name="e">The e<see cref="DataReceivedEventArgs"/>.</param>
         private void OnProcess_OutputDataReceived(object sender, DataReceivedEventArgs e)
         {
-            this.SendMessageAction?.Invoke(e.Data);
+            if (string.IsNullOrEmpty(e.Data))
+            {
+                return;
+            }
+
+            this.LastMessage = e.Data;
+            this.MessageHandler?.SendMessage(this.LastMessage);
         }
 
         #endregion Methods
