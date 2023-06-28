@@ -5,6 +5,7 @@ namespace DeepFakeStudio.ViewModels
     using System;
     using System.Windows.Input;
     using DeepFakeStudio.Common;
+    using DeepFakeStudio.Core;
 
     /// <summary>
     /// Defines the <see cref="DeepFakeStudioViewModel" />.
@@ -46,6 +47,8 @@ namespace DeepFakeStudio.ViewModels
         /// Gets the NewProjectCommand.
         /// </summary>
         public ICommand NewProjectCommand { get; }
+
+        public AppSettingsController AppSettingsController { get; } = new();
 
         /// <summary>
         /// Gets or sets the SendMessageAction.
