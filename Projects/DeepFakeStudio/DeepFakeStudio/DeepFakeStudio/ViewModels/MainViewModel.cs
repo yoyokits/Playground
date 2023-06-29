@@ -8,16 +8,16 @@ namespace DeepFakeStudio.ViewModels
     using DeepFakeStudio.Core;
 
     /// <summary>
-    /// Defines the <see cref="DeepFakeStudioViewModel" />.
+    /// Defines the <see cref="MainViewModel" />.
     /// </summary>
-    public class DeepFakeStudioViewModel : NotifyPropertyChanged
+    public class MainViewModel : NotifyPropertyChanged
     {
         #region Constructors
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="DeepFakeStudioViewModel"/> class.
+        /// Initializes a new instance of the <see cref="MainViewModel"/> class.
         /// </summary>
-        public DeepFakeStudioViewModel()
+        public MainViewModel()
         {
             this.DeepFakeStudioProject = new() { MessageHandler = MessageHandler };
             this.LoadedCommand = new RelayCommand(this.OnLoaded, nameof(this.LoadedCommand));
@@ -29,9 +29,9 @@ namespace DeepFakeStudio.ViewModels
         #region Properties
 
         /// <summary>
-        /// Gets the DeepFakeStudioPreview.
+        /// Gets the PreviewViewModel.
         /// </summary>
-        public PreviewViewModel DeepFakeStudioPreview { get; } = new();
+        public PreviewViewModel PreviewViewModel { get; } = new();
 
         /// <summary>
         /// Gets the DeepFakeStudioProject.
