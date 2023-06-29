@@ -13,9 +13,9 @@
     TextElement.Foreground="{DynamicResource MaterialDesignBody}"
     mc:Ignorable="d">
     <Window.Resources>
-        <viewmodels:DeepFakeStudioViewModel x:Key="DeepFakeStudioViewModel" />
+        <viewmodels:MainViewModel x:Key="MainViewModel" />
     </Window.Resources>
     <Grid>
-        <views:DeepFakeStudioView DataContext="{StaticResource DeepFakeStudioViewModel}" />
+        <views:MainView DataContext="{StaticResource MainViewModel}" />
     </Grid>
 </Window>
