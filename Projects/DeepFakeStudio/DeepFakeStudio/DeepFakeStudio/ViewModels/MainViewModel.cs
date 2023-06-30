@@ -3,6 +3,8 @@
 namespace DeepFakeStudio.ViewModels
 {
     using System;
+    using System.Windows;
+    using System.Windows.Controls;
     using System.Windows.Input;
     using DeepFakeStudio.Common;
     using DeepFakeStudio.Core;
@@ -29,9 +31,9 @@ namespace DeepFakeStudio.ViewModels
         #region Properties
 
         /// <summary>
-        /// Gets the PreviewViewModel.
+        /// Gets the AppSettingsController.
         /// </summary>
-        public PreviewViewModel PreviewViewModel { get; } = new();
+        public AppSettingsController AppSettingsController { get; } = new();
 
         /// <summary>
         /// Gets the DeepFakeStudioProject.
@@ -48,7 +50,10 @@ namespace DeepFakeStudio.ViewModels
         /// </summary>
         public ICommand NewProjectCommand { get; }
 
-        public AppSettingsController AppSettingsController { get; } = new();
+        /// <summary>
+        /// Gets the PreviewViewModel.
+        /// </summary>
+        public PreviewViewModel PreviewViewModel { get; } = new();
 
         /// <summary>
         /// Gets or sets the SendMessageAction.
@@ -76,6 +81,11 @@ namespace DeepFakeStudio.ViewModels
         /// </summary>
         internal MessageHandler MessageHandler { get; } = new();
 
+        /// <summary>
+        /// Gets or sets the Window.
+        /// </summary>
+        private Window Window { get; set; }
+
         #endregion Properties
 
         #region Methods
@@ -83,9 +93,19 @@ namespace DeepFakeStudio.ViewModels
         /// <summary>
         /// The OnLoaded.
         /// </summary>
-        /// <param name="obj">The obj<see cref="object"/>.</param>
-        private void OnLoaded(object obj)
+        /// <param name="view">The obj<see cref="object"/>.</param>
+        private void OnLoaded(object view)
         {
+            var tuple = ((object, object, object))view;
+            var mainView = tuple.Item1 as FrameworkElement;
+            this.Window = Window.GetWindow(mainView);
+            this.Window.Closing += OnWindow_Closing;
+
+            AppSettingsController.Load();
+            var settings = AppSettingsController.AppSettings;
+            this.Window.Width = settings.WindowWidth;
+            this.Window.Height = settings.WindowHeight;
+            this.Window.WindowState = settings.WindowState;
         }
 
         /// <summary>
@@ -94,6 +114,21 @@ namespace DeepFakeStudio.ViewModels
         /// <param name="obj">The obj<see cref="object"/>.</param>
         private void OnNewProject(object obj)
         {
+        }
+
+        /// <summary>
+        /// The OnWindow_Closing.
+        /// </summary>
+        /// <param name="sender">The sender<see cref="object"/>.</param>
+        /// <param name="e">The e<see cref="System.ComponentModel.CancelEventArgs"/>.</param>
+        private void OnWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            this.Window.Closing -= OnWindow_Closing;
+            var settings = AppSettingsController.AppSettings;
+            settings.WindowWidth = this.Window.ActualWidth;
+            settings.WindowHeight = this.Window.ActualHeight;
+            settings.WindowState = this.Window.WindowState;
+            AppSettingsController.Save();
         }
 
         #endregion Methods
