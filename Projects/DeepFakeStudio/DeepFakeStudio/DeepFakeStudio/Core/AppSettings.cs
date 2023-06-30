@@ -12,7 +12,7 @@
         /// <summary>
         /// Gets or sets the WindowHeight.
         /// </summary>
-        public int WindowHeight { get; set; } = 1080;
+        public double WindowHeight { get; set; } = 1080;
 
         /// <summary>
         /// Gets or sets the WindowState.
@@ -22,7 +22,7 @@
         /// <summary>
         /// Gets or sets the WindowWidth.
         /// </summary>
-        public int WindowWidth { get; set; } = 1920;
+        public double WindowWidth { get; set; } = 1920;
 
         /// <summary>
         /// Gets or sets the WorkspacePath.
