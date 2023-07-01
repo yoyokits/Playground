@@ -10,6 +10,16 @@
         #region Properties
 
         /// <summary>
+        /// Gets or sets the Left.
+        /// </summary>
+        public double Left { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Top.
+        /// </summary>
+        public double Top { get; set; }
+
+        /// <summary>
         /// Gets or sets the WindowHeight.
         /// </summary>
         public double WindowHeight { get; set; } = 1080;

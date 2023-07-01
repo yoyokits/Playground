@@ -4,7 +4,6 @@ namespace DeepFakeStudio.ViewModels
 {
     using System;
     using System.Windows;
-    using System.Windows.Controls;
     using System.Windows.Input;
     using DeepFakeStudio.Common;
     using DeepFakeStudio.Core;
@@ -21,6 +20,7 @@ namespace DeepFakeStudio.ViewModels
         /// </summary>
         public MainViewModel()
         {
+            this.AppSettingsController = new() { MessageHandler = MessageHandler };
             this.DeepFakeStudioProject = new() { MessageHandler = MessageHandler };
             this.LoadedCommand = new RelayCommand(this.OnLoaded, nameof(this.LoadedCommand));
             this.NewProjectCommand = new RelayCommand(this.OnNewProject, nameof(this.NewProjectCommand));
@@ -33,7 +33,7 @@ namespace DeepFakeStudio.ViewModels
         /// <summary>
         /// Gets the AppSettingsController.
         /// </summary>
-        public AppSettingsController AppSettingsController { get; } = new();
+        public AppSettingsController AppSettingsController { get; }
 
         /// <summary>
         /// Gets the DeepFakeStudioProject.
@@ -96,13 +96,15 @@ namespace DeepFakeStudio.ViewModels
         /// <param name="view">The obj<see cref="object"/>.</param>
         private void OnLoaded(object view)
         {
-            var tuple = ((object, object, object))view;
+            var tuple = ((object, EventArgs, object))view;
             var mainView = tuple.Item1 as FrameworkElement;
             this.Window = Window.GetWindow(mainView);
             this.Window.Closing += OnWindow_Closing;
 
             AppSettingsController.Load();
             var settings = AppSettingsController.AppSettings;
+            this.Window.Left = settings.Left;
+            this.Window.Top = settings.Top;
             this.Window.Width = settings.WindowWidth;
             this.Window.Height = settings.WindowHeight;
             this.Window.WindowState = settings.WindowState;
@@ -125,6 +127,8 @@ namespace DeepFakeStudio.ViewModels
         {
             this.Window.Closing -= OnWindow_Closing;
             var settings = AppSettingsController.AppSettings;
+            settings.Left = this.Window.Left;
+            settings.Top = this.Window.Top;
             settings.WindowWidth = this.Window.ActualWidth;
             settings.WindowHeight = this.Window.ActualHeight;
             settings.WindowState = this.Window.WindowState;
