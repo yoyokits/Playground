@@ -5,12 +5,13 @@
 
     /// <summary>
     /// Defines the <see cref="ProcessStepSettingItem" />.
+    /// Translate settings to command line inputs like GPU or option CPU selection.
     /// </summary>
     public class ProcessStepSettingItem : NotifyPropertyChanged
     {
         #region Fields
 
-        private string selectedOption;
+        private string _selectedOption;
 
         #endregion Fields
 
@@ -36,12 +37,12 @@
         /// </summary>
         public string SelectedOption
         {
-            get { return selectedOption; }
+            get { return _selectedOption; }
             set
             {
-                if (selectedOption != value)
+                if (_selectedOption != value)
                 {
-                    selectedOption = value;
+                    _selectedOption = value;
                     OnPropertyChanged();
                 }
             }

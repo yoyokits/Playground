@@ -21,6 +21,7 @@ namespace DeepFakeStudio.ViewModels
         public MainViewModel()
         {
             this.AppSettingsController = new() { MessageHandler = MessageHandler };
+            this.AppSettingsController.AppSettings.WorkspacePath = AppEnvironment.WorkspaceFolder;
             this.DeepFakeStudioProject = new() { MessageHandler = MessageHandler };
             this.LoadedCommand = new RelayCommand(this.OnLoaded, nameof(this.LoadedCommand));
             this.NewProjectCommand = new RelayCommand(this.OnNewProject, nameof(this.NewProjectCommand));

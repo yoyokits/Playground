@@ -26,16 +26,16 @@
                 VerticalAlignment="Center"
                 Text="Project" />
             <ToolBar Grid.Column="1">
-                <Button Command="{Binding OpenVideoCommand}">
+                <Button Command="{Binding OpenVideoCommand}" ToolTip="Open the input videos">
                     <materialDesign:PackIcon Kind="MovieOpen" />
                 </Button>
-                <Button>
+                <Button ToolTip="Edit the project">
                     <materialDesign:PackIcon Kind="AccountEdit" />
                 </Button>
-                <Button Command="{Binding OpenWorkspaceFolderCommand}">
+                <Button Command="{Binding OpenWorkspaceFolderCommand}" ToolTip="Open the workspace folder in a new Window">
                     <materialDesign:PackIcon Kind="FolderOpen" />
                 </Button>
-                <Button>
+                <Button ToolTip="Execute the face swap process">
                     <materialDesign:PackIcon Kind="AnimationPlay" />
                 </Button>
             </ToolBar>
