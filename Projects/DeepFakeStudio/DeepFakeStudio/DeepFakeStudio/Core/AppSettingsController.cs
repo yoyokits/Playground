@@ -73,6 +73,10 @@
                 if (settings != null)
                 {
                     AppSettings = settings;
+                    if (string.IsNullOrEmpty(AppSettings.WorkspaceFolder))
+                    {
+                        AppSettings.WorkspaceFolder = AppEnvironment.WorkspaceFolder;
+                    }
                 }
             }
             catch (Exception e)

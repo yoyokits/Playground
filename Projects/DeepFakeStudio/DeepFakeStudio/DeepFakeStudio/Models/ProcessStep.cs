@@ -142,6 +142,16 @@ namespace DeepFakeStudio.Models
         #region Methods
 
         /// <summary>
+        /// The ToString.
+        /// </summary>
+        /// <returns>The <see cref="string"/>.</returns>
+        public override string ToString()
+        {
+            var message = $"{Name}:Command:{ProcessCommand}";
+            return message;
+        }
+
+        /// <summary>
         /// The OnCommand.
         /// </summary>
         /// <param name="obj">The obj<see cref="object"/>.</param>

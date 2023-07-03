@@ -15,7 +15,7 @@
         /// </summary>
         static ProcessStepFactory()
         {
-            ProcessStepFactory.Step01ClearWorkspace = new ProcessStep("Clear workspace", "Delete all files in Workspace folder", "clear workspace.bat");
+            ProcessStepFactory.Step01ClearWorkspace = new ProcessStep("Clear workspace", "Delete all files in Workspace folder", "1) clear workspace.bat");
 
             ProcessStepFactory.Step02ExtractImagesSource = new ProcessStep("Extract images", "Extract images from the video data source", "2) extract images from video data_src.bat");
 

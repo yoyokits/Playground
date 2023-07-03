@@ -3,10 +3,13 @@
 namespace DeepFakeStudio.ViewModels
 {
     using System;
+    using System.Threading.Tasks;
     using System.Windows;
     using System.Windows.Input;
     using DeepFakeStudio.Common;
     using DeepFakeStudio.Core;
+    using DeepFakeStudio.Helpers;
+    using DeepFakeStudio.Views;
 
     /// <summary>
     /// Defines the <see cref="MainViewModel" />.
@@ -21,7 +24,7 @@ namespace DeepFakeStudio.ViewModels
         public MainViewModel()
         {
             this.AppSettingsController = new() { MessageHandler = MessageHandler };
-            this.AppSettingsController.AppSettings.WorkspacePath = AppEnvironment.WorkspaceFolder;
+            this.AppSettingsController.AppSettings.WorkspaceFolder = AppEnvironment.WorkspaceFolder;
             this.DeepFakeStudioProject = new() { MessageHandler = MessageHandler };
             this.LoadedCommand = new RelayCommand(this.OnLoaded, nameof(this.LoadedCommand));
             this.NewProjectCommand = new RelayCommand(this.OnNewProject, nameof(this.NewProjectCommand));
@@ -70,6 +73,7 @@ namespace DeepFakeStudio.ViewModels
                     if (SendMessageAction != null)
                     {
                         MessageHandler.ApplicationHeader();
+                        Task.Run(Initialize);
                     }
 
                     OnPropertyChanged();
@@ -90,6 +94,33 @@ namespace DeepFakeStudio.ViewModels
         #endregion Properties
 
         #region Methods
+
+        /// <summary>
+        /// The Initialize.
+        /// </summary>
+        private void Initialize()
+        {
+            var processSteps = DeepFakeStudioProject.ProcessSteps;
+            var settings = AppSettingsController.AppSettings;
+            var succed = true;
+            if (!ProcessStepHelper.VerifyWorkspaceFolder(settings.WorkspaceFolder, processSteps, MessageHandler))
+            {
+                UIThreadHelper.InvokeAsync(() =>
+                {
+                    succed = false;
+                    var viewModel = new SettingsViewModel { AppSettings = settings };
+                    var settingsView = new SettingsView { DataContext = viewModel };
+                    WindowFactory.ShowDialog(settingsView, "Settings", 800, 600);
+                    succed = ProcessStepHelper.VerifyWorkspaceFolder(settings.WorkspaceFolder, processSteps, MessageHandler);
+                });
+            }
+
+            MessageHandler.Space();
+            var message = succed ? "Initialization is done properly" : "Initialization is failed";
+            MessageHandler.WriteLine(message);
+            MessageHandler.Separator();
+            MessageHandler.Space();
+        }
 
         /// <summary>
         /// The OnLoaded.

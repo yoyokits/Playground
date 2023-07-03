@@ -37,7 +37,7 @@
         /// <summary>
         /// Gets or sets the WorkspacePath.
         /// </summary>
-        public string WorkspacePath { get; set; }
+        public string WorkspaceFolder { get; set; }
 
         #endregion Properties
     }
