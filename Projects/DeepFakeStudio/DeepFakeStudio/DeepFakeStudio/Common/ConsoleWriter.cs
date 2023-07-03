@@ -4,6 +4,7 @@
     using System.IO;
     using System.Text;
     using System.Windows.Controls;
+    using DeepFakeStudio.Helpers;
 
     /// <summary>
     /// Defines the <see cref="ConsoleWriter" />.
@@ -54,7 +55,13 @@
         public override void Write(string value)
         {
             base.Write(value);
-            TextBox.Dispatcher.BeginInvoke((Action)(() => TextBox.AppendText(value)));
+            UIThreadHelper.Invoke(TextBox, () =>
+            {
+                TextBox.AppendText(value);
+                TextBox.Focus();
+                TextBox.CaretIndex = TextBox.Text.Length;
+                TextBox.ScrollToEnd();
+            });
         }
 
         #endregion Methods

@@ -70,14 +70,15 @@
         /// The InvokeAsync.
         /// </summary>
         /// <param name="action">The action<see cref="Action"/>.</param>
-        public static void InvokeAsync(Action action)
+        /// <param name="priority">The priority<see cref="DispatcherPriority"/>.</param>
+        public static void InvokeAsync(Action action, DispatcherPriority priority = DispatcherPriority.Background)
         {
             if (Application.Current == null)
             {
                 return;
             }
 
-            Application.Current.Dispatcher.InvokeAsync(action);
+            Application.Current.Dispatcher.InvokeAsync(action, priority);
         }
 
         /// <summary>
@@ -85,7 +86,8 @@
         /// </summary>
         /// <param name="dispatcher">The dispatcher<see cref="Dispatcher"/>.</param>
         /// <param name="action">The action<see cref="Action"/>.</param>
-        public static void InvokeAsync(this Dispatcher dispatcher, Action action)
+        /// <param name="priority">The priority<see cref="DispatcherPriority"/>.</param>
+        public static void InvokeAsync(this Dispatcher dispatcher, Action action, DispatcherPriority priority = DispatcherPriority.Background)
         {
             if (dispatcher.CheckAccess())
             {
@@ -93,7 +95,7 @@
             }
             else
             {
-                dispatcher.InvokeAsync(() => action?.Invoke());
+                dispatcher.InvokeAsync(() => action?.Invoke(), priority);
             }
         }
 

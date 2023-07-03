@@ -81,7 +81,7 @@
         {
             if (!IsLastErrorSent)
             {
-                Separator();
+                Space();
                 this.SendMessageAction?.Invoke("Error:\r\n");
                 IsLastErrorSent = true;
             }
@@ -97,11 +97,11 @@
         {
             if (IsLastErrorSent)
             {
-                Separator();
+                Space();
                 IsLastErrorSent = false;
             }
 
-            this.SendMessageAction?.Invoke($"- {message}");
+            this.SendMessageAction?.Invoke($"● {message}");
         }
 
         /// <summary>
@@ -109,7 +109,7 @@
         /// </summary>
         internal void Separator()
         {
-            this.SendMessageAction?.Invoke("===================================\r\n");
+            this.SendMessageAction?.Invoke("==========================================\r\n");
         }
 
         /// <summary>
