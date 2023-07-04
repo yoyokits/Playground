@@ -3,6 +3,7 @@
 namespace DeepFakeStudio.ViewModels
 {
     using System;
+    using System.IO;
     using System.Threading.Tasks;
     using System.Windows;
     using System.Windows.Input;
@@ -24,7 +25,7 @@ namespace DeepFakeStudio.ViewModels
         public MainViewModel()
         {
             this.AppSettingsController = new() { MessageHandler = MessageHandler };
-            this.AppSettingsController.AppSettings.WorkspaceFolder = AppEnvironment.WorkspaceFolder;
+            this.AppSettingsController.AppSettings.WorkspaceFolder = Path.Combine(AppEnvironment.AppDirectory, "Workspace");
             this.DeepFakeStudioProject = new() { MessageHandler = MessageHandler };
             this.LoadedCommand = new RelayCommand(this.OnLoaded, nameof(this.LoadedCommand));
             this.NewProjectCommand = new RelayCommand(this.OnNewProject, nameof(this.NewProjectCommand));
@@ -120,6 +121,7 @@ namespace DeepFakeStudio.ViewModels
             MessageHandler.WriteLine(message);
             MessageHandler.Separator();
             MessageHandler.Space();
+            DeepFakeStudioProject.AppSettings = this.AppSettingsController.AppSettings;
         }
 
         /// <summary>

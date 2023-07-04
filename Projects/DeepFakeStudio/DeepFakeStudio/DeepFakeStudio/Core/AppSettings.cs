@@ -10,6 +10,11 @@
         #region Properties
 
         /// <summary>
+        /// Gets or sets the DeepFaceLabFolder.
+        /// </summary>
+        public string DeepFaceLabFolder { get; set; }
+
+        /// <summary>
         /// Gets or sets the Left.
         /// </summary>
         public double Left { get; set; }
@@ -35,7 +40,7 @@
         public double WindowWidth { get; set; } = 1920;
 
         /// <summary>
-        /// Gets or sets the WorkspacePath.
+        /// Gets or sets the WorkspaceFolder.
         /// </summary>
         public string WorkspaceFolder { get; set; }
 

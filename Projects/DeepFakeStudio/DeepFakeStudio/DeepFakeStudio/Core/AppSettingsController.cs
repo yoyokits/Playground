@@ -75,7 +75,11 @@
                     AppSettings = settings;
                     if (string.IsNullOrEmpty(AppSettings.WorkspaceFolder))
                     {
-                        AppSettings.WorkspaceFolder = AppEnvironment.WorkspaceFolder;
+                        var directory = Directory.GetCurrentDirectory();
+                        var parent = Directory.GetParent(AppEnvironment.AppDirectory);
+                        var workspacePath = Path.Combine(parent.FullName, "Workspace");
+                        workspacePath = Directory.Exists(workspacePath) ? workspacePath : parent.FullName;
+                        AppSettings.WorkspaceFolder = workspacePath;
                     }
                 }
             }
