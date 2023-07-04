@@ -58,7 +58,7 @@
             WriteLine($"{AppEnvironment.LongName} - {AppEnvironment.Version}");
             WriteLine($"Author: {AppEnvironment.Author}");
             WriteLine($"Website: {AppEnvironment.HomeUrl}");
-            WriteLine($"Workspace Folder: {AppEnvironment.WorkspaceFolder}");
+            WriteLine($"Application Folder: {AppEnvironment.AppDirectory}");
             Date();
             Space();
             Separator();

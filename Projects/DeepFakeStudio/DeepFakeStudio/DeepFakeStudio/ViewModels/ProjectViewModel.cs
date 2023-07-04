@@ -111,6 +111,11 @@ namespace DeepFakeStudio.ViewModels
         }
 
         /// <summary>
+        /// Gets or sets the AppSettings.
+        /// </summary>
+        internal AppSettings AppSettings { get; set; }
+
+        /// <summary>
         /// Gets or sets the MessageHandler.
         /// </summary>
         internal MessageHandler MessageHandler
@@ -159,7 +164,7 @@ namespace DeepFakeStudio.ViewModels
         /// <param name="obj">The obj<see cref="object"/>.</param>
         private void OnOpenWorkspaceFolder(object obj)
         {
-            var folder = AppEnvironment.WorkspaceFolder;
+            var folder = AppSettings.WorkspaceFolder;
             if (!Directory.Exists(folder))
             {
                 folder = AppEnvironment.AppDirectory;
