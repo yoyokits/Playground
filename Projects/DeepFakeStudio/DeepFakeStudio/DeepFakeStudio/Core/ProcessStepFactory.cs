@@ -48,6 +48,39 @@
             ProcessStepFactory.Step05_24DataDestinationFaceSetUnpack = new ProcessStep("Data destination faceset unpack", "Data destination util faceset unpack", "5.2) data_dst util faceset unpack.bat");
             ProcessStepFactory.Step05_25DataDestinationFaceSetRecoverOriginalFileName = new ProcessStep("Data destination recover original filename", "Data destination util recover original filename", "5.2) data_dst util recover original filename.bat");
 
+            ProcessStepFactory.Step05_XSegGenericDataDestinationWholeFaceMaskApply = new ProcessStep("Generic data destination whole face mask apply", "Generic data destination whole face mask apply", "5.XSeg Generic) data_dst whole_face mask - apply.bat");
+            ProcessStepFactory.Step05_XSegGenericDataSrcWholeFaceMaskApply = new ProcessStep("Generic data source whole face mask apply", "Generic data source whole face mask apply", "5.XSeg Generic) data_src whole_face mask - apply.bat");
+            ProcessStepFactory.Step05_XSegDataDestinationMaskEdit = new ProcessStep("Data destination mask Edit", "Data destination mask Edit", "5.XSeg) data_dst mask - edit.bat");
+            ProcessStepFactory.Step05_XSegDataDestinationMaskFetch = new ProcessStep("Data destination mask Fetch", "Data destination mask Fetch", "5.XSeg) data_dst mask - fetch.bat");
+            ProcessStepFactory.Step05_XSegDataDestinationMaskRemove = new ProcessStep("Data destination mask remove", "Data destination mask remove", "5.XSeg) data_dst mask - remove.bat");
+            ProcessStepFactory.Step05_XSegDataDestinationTrainedMaskApply = new ProcessStep("Data destination trained mask apply", "Data destination trained mask apply", "5.XSeg) data_dst trained mask - apply.bat");
+            ProcessStepFactory.Step05_XSegDataDestinationTrainedMaskRemove = new ProcessStep("Data destination trained mask remove", "Data destination trained mask remove", "5.XSeg) data_dst trained mask - remove.bat");
+            ProcessStepFactory.Step05_XSegDataSourceMaskEdit = new ProcessStep("Data source mask edit", "Data source mask edit", "5.XSeg) data_src mask - edit.bat");
+            ProcessStepFactory.Step05_XSegDataSourceMaskFetch = new ProcessStep("Data source mask fetch", "Data source mask fetch", "5.XSeg) data_src mask - fetch.bat");
+            ProcessStepFactory.Step05_XSegDataSourceMaskRemove = new ProcessStep("Data source mask remove", "Data source mask remove", "5.XSeg) data_src mask - remove.bat");
+            ProcessStepFactory.Step05_XSegDataSourceTrainedMaskApply = new ProcessStep("Data source trained mask apply", "Data source trained mask apply", "5.XSeg) data_src trained mask - apply.bat");
+            ProcessStepFactory.Step05_XSegDataSourceTrainedMaskRemove = new ProcessStep("Data Source trained mask remove", "Data Source trained mask remove", "5.XSeg) data_src trained mask - remove.bat");
+            ProcessStepFactory.Step05_XSegTrain = new ProcessStep("Train", "Train", "5.XSeg) train.bat");
+
+            ProcessStepFactory.Step06_ExportAmpAsDFM = new ProcessStep("Data destination recover original filename", "Data destination util recover original filename", "6) export AMP as dfm.bat");
+            ProcessStepFactory.Step06_ExportSAEHDAsDFM = new ProcessStep("Data destination recover original filename", "Data destination util recover original filename", "6) export SAEHD as dfm.bat");
+            ProcessStepFactory.Step06_TrainAMPSourceSource = new ProcessStep("Data destination recover original filename", "Data destination util recover original filename", "6) train AMP SRC-SRC.bat");
+            ProcessStepFactory.Step06_TrainAMP = new ProcessStep("Data destination recover original filename", "Data destination util recover original filename", "6) train AMP.bat");
+            ProcessStepFactory.Step06_TrainQuick96 = new ProcessStep("Data destination recover original filename", "Data destination util recover original filename", "6) train Quick96.bat");
+            ProcessStepFactory.Step06_TrainSAEHD = new ProcessStep("Data destination recover original filename", "Data destination util recover original filename", "6) train SAEHD.bat");
+
+            ProcessStepFactory.Step07_MergeAMP = new ProcessStep("Merge AMP", "Merge AMP", "7) merge AMP.bat");
+            ProcessStepFactory.Step07_MergeQuick96 = new ProcessStep("Merge Quick96", "Merge Quick96", "7) merge Quick96.bat");
+            ProcessStepFactory.Step07_MergeSAEHD = new ProcessStep("Merge SAEHD", "Merge SAEHD", "7) merge SAEHD.bat");
+
+            ProcessStepFactory.Step08_MergedToAvi = new ProcessStep("Merged to AVI", "Merged to AVI", "8) merged to avi.bat");
+            ProcessStepFactory.Step08_MergedToMovLossless = new ProcessStep("Merged to MovLossless", "Merged to MovLossless", "8) merged to mov lossless.bat");
+            ProcessStepFactory.Step08_MergedToMp4Lossless = new ProcessStep("Merged to Mp4Lossless", "Merged to Mp4Lossless", "8) merged to mp4 lossless.bat");
+            ProcessStepFactory.Step08_MergedToMp4 = new ProcessStep("Merged to Mp4", "Merged to Mp4", "8) merged to mp4.bat");
+
+            ProcessStepFactory.Step10_MiscMakeCPUOnly = new ProcessStep("Make CPU only", "Misc Make CPU only", "10.misc) make CPU only.bat");
+            ProcessStepFactory.Step10_MiscStartEBSynth = new ProcessStep("Start EBSynth", "Misc start EBSynth", "10.misc) start EBSynth.bat");
+
             ProcessStepFactory.RegisterProcessSteps();
         }
 
@@ -89,6 +122,151 @@
         /// Gets the Step05_25DataDestinationFaceSetRecoverOriginalFileName.
         /// </summary>
         public static ProcessStep Step05_25DataDestinationFaceSetRecoverOriginalFileName { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSeg_Generic_data_dst_whole_face_mask_.
+        /// </summary>
+        public static int Step05_XSeg_Generic_data_dst_whole_face_mask_ { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegDataDestinationMaskEdit.
+        /// </summary>
+        public static ProcessStep Step05_XSegDataDestinationMaskEdit { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegDataDestinationMaskFetch.
+        /// </summary>
+        public static ProcessStep Step05_XSegDataDestinationMaskFetch { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegDataDestinationMaskRemove.
+        /// </summary>
+        public static ProcessStep Step05_XSegDataDestinationMaskRemove { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegDataDestinationTrainedMaskApply.
+        /// </summary>
+        public static ProcessStep Step05_XSegDataDestinationTrainedMaskApply { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegDataDestinationTrainedMaskRemove.
+        /// </summary>
+        public static ProcessStep Step05_XSegDataDestinationTrainedMaskRemove { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegDataSourceMaskEdit.
+        /// </summary>
+        public static ProcessStep Step05_XSegDataSourceMaskEdit { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegDataSourceMaskFetch.
+        /// </summary>
+        public static ProcessStep Step05_XSegDataSourceMaskFetch { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegDataSourceMaskRemove.
+        /// </summary>
+        public static ProcessStep Step05_XSegDataSourceMaskRemove { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegDataSourceTrainedMaskApply.
+        /// </summary>
+        public static ProcessStep Step05_XSegDataSourceTrainedMaskApply { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegDataSourceTrainedMaskRemove.
+        /// </summary>
+        public static ProcessStep Step05_XSegDataSourceTrainedMaskRemove { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegGenericDataDestinationWholeFaceMaskApply.
+        /// </summary>
+        public static ProcessStep Step05_XSegGenericDataDestinationWholeFaceMaskApply { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegGenericDataSrcWholeFaceMaskApply.
+        /// </summary>
+        public static ProcessStep Step05_XSegGenericDataSrcWholeFaceMaskApply { get; }
+
+        /// <summary>
+        /// Gets the Step05_XSegTrain.
+        /// </summary>
+        public static ProcessStep Step05_XSegTrain { get; }
+
+        /// <summary>
+        /// Gets the Step06_ExportAmpAsDFM.
+        /// </summary>
+        public static ProcessStep Step06_ExportAmpAsDFM { get; }
+
+        /// <summary>
+        /// Gets the Step06_ExportSAEHDAsDFM.
+        /// </summary>
+        public static ProcessStep Step06_ExportSAEHDAsDFM { get; }
+
+        /// <summary>
+        /// Gets the Step06_TrainAMP.
+        /// </summary>
+        public static ProcessStep Step06_TrainAMP { get; }
+
+        /// <summary>
+        /// Gets the Step06_TrainAMPSourceSource.
+        /// </summary>
+        public static ProcessStep Step06_TrainAMPSourceSource { get; }
+
+        /// <summary>
+        /// Gets the Step06_TrainQuick96.
+        /// </summary>
+        public static ProcessStep Step06_TrainQuick96 { get; }
+
+        /// <summary>
+        /// Gets the Step06_TrainSAEHD.
+        /// </summary>
+        public static ProcessStep Step06_TrainSAEHD { get; }
+
+        /// <summary>
+        /// Gets the Step07_MergeAMP.
+        /// </summary>
+        public static ProcessStep Step07_MergeAMP { get; }
+
+        /// <summary>
+        /// Gets the Step07_MergeQuick96.
+        /// </summary>
+        public static ProcessStep Step07_MergeQuick96 { get; }
+
+        /// <summary>
+        /// Gets the Step07_MergeSAEHD.
+        /// </summary>
+        public static ProcessStep Step07_MergeSAEHD { get; }
+
+        /// <summary>
+        /// Gets the Step08_MergedToAvi.
+        /// </summary>
+        public static ProcessStep Step08_MergedToAvi { get; }
+
+        /// <summary>
+        /// Gets the Step08_MergedToMovLossless.
+        /// </summary>
+        public static ProcessStep Step08_MergedToMovLossless { get; }
+
+        /// <summary>
+        /// Gets the Step08_MergedToMp4.
+        /// </summary>
+        public static ProcessStep Step08_MergedToMp4 { get; }
+
+        /// <summary>
+        /// Gets the Step08_MergedToMp4Lossless.
+        /// </summary>
+        public static ProcessStep Step08_MergedToMp4Lossless { get; }
+
+        /// <summary>
+        /// Gets the Step10_MiscMakeCPUOnly.
+        /// </summary>
+        public static ProcessStep Step10_MiscMakeCPUOnly { get; }
+
+        /// <summary>
+        /// Gets the Step10_MiscStartEBSynth.
+        /// </summary>
+        public static ProcessStep Step10_MiscStartEBSynth { get; }
 
         /// <summary>
         /// Gets the StepsList.
@@ -256,6 +434,39 @@
             ProcessStepFactory.StepsList.Add(Step05_23DataDestinationFaceSetResize);
             ProcessStepFactory.StepsList.Add(Step05_24DataDestinationFaceSetUnpack);
             ProcessStepFactory.StepsList.Add(Step05_25DataDestinationFaceSetRecoverOriginalFileName);
+
+            ProcessStepFactory.StepsList.Add(Step05_XSegGenericDataDestinationWholeFaceMaskApply);
+            ProcessStepFactory.StepsList.Add(Step05_XSegGenericDataSrcWholeFaceMaskApply);
+            ProcessStepFactory.StepsList.Add(Step05_XSegDataDestinationMaskEdit);
+            ProcessStepFactory.StepsList.Add(Step05_XSegDataDestinationMaskFetch);
+            ProcessStepFactory.StepsList.Add(Step05_XSegDataDestinationMaskRemove);
+            ProcessStepFactory.StepsList.Add(Step05_XSegDataDestinationTrainedMaskApply);
+            ProcessStepFactory.StepsList.Add(Step05_XSegDataDestinationTrainedMaskRemove);
+            ProcessStepFactory.StepsList.Add(Step05_XSegDataSourceMaskEdit);
+            ProcessStepFactory.StepsList.Add(Step05_XSegDataSourceMaskFetch);
+            ProcessStepFactory.StepsList.Add(Step05_XSegDataSourceMaskRemove);
+            ProcessStepFactory.StepsList.Add(Step05_XSegDataSourceTrainedMaskApply);
+            ProcessStepFactory.StepsList.Add(Step05_XSegDataSourceTrainedMaskRemove);
+            ProcessStepFactory.StepsList.Add(Step05_XSegTrain);
+
+            ProcessStepFactory.StepsList.Add(Step06_ExportAmpAsDFM);
+            ProcessStepFactory.StepsList.Add(Step06_ExportSAEHDAsDFM);
+            ProcessStepFactory.StepsList.Add(Step06_TrainAMPSourceSource);
+            ProcessStepFactory.StepsList.Add(Step06_TrainAMP);
+            ProcessStepFactory.StepsList.Add(Step06_TrainQuick96);
+            ProcessStepFactory.StepsList.Add(Step06_TrainSAEHD);
+
+            ProcessStepFactory.StepsList.Add(Step07_MergeAMP);
+            ProcessStepFactory.StepsList.Add(Step07_MergeQuick96);
+            ProcessStepFactory.StepsList.Add(Step07_MergeSAEHD);
+
+            ProcessStepFactory.StepsList.Add(Step08_MergedToAvi);
+            ProcessStepFactory.StepsList.Add(Step08_MergedToMovLossless);
+            ProcessStepFactory.StepsList.Add(Step08_MergedToMp4Lossless);
+            ProcessStepFactory.StepsList.Add(Step08_MergedToMp4);
+
+            ProcessStepFactory.StepsList.Add(Step10_MiscMakeCPUOnly);
+            ProcessStepFactory.StepsList.Add(Step10_MiscStartEBSynth);
         }
 
         #endregion Methods
