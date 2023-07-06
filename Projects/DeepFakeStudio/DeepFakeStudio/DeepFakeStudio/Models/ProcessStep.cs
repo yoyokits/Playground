@@ -157,7 +157,7 @@ namespace DeepFakeStudio.Models
         /// <param name="obj">The obj<see cref="object"/>.</param>
         private void OnExecute(object obj)
         {
-            this.ProcessController.Execute();
+            this.ProcessController.ExecuteAsync();
         }
 
         #endregion Methods
