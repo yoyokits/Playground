@@ -49,25 +49,36 @@
         /// <summary>
         /// The Execute.
         /// </summary>
-        public void Execute()
+        public async void ExecuteAsync()
         {
-            //* Create your Process
-            var process = new Process();
-            process.StartInfo.FileName = "cmd.exe";
-            process.StartInfo.Arguments = $"/C {this.ProcessCommand}";
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.RedirectStandardOutput = true;
-            process.StartInfo.RedirectStandardError = true;
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = @"C:\Windows\system32\cmd.exe",
+                Arguments = $"/C {this.ProcessCommand}",
 
-            //* Set your output and error (asynchronous) handlers
-            process.OutputDataReceived += OnProcess_OutputDataReceived;
-            process.ErrorDataReceived += OnProcess_ErrorDataReceived;
+                WindowStyle = ProcessWindowStyle.Normal,
+                CreateNoWindow = false,
+                UseShellExecute = true,
+                RedirectStandardOutput = false
+            };
 
-            //* Start process and handlers
+            //////* Set your output and error (asynchronous) handlers
+            ////pprocessStartInfo.OutputDataReceived += OnProcess_OutputDataReceived;
+            ////pprocessStartInfo.ErrorDataReceived += OnProcess_ErrorDataReceived;
+
+            //////* Start process and handlers
+            ////process.Start();
+            ////process.BeginOutputReadLine();
+            ////process.BeginErrorReadLine();
+
+            var process = new Process
+            {
+                StartInfo = processStartInfo
+            };
+
             process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-            process.WaitForExit();
+            await process.WaitForExitAsync();
+            process.CloseMainWindow();
         }
 
         /// <summary>

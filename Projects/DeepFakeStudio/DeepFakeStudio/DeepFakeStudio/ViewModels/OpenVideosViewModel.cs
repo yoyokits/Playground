@@ -3,6 +3,7 @@
 namespace DeepFakeStudio.ViewModels
 {
     using System.IO;
+    using System.Windows;
     using System.Windows.Input;
     using DeepFakeStudio.Common;
     using DeepFakeStudio.Extensions;
@@ -28,6 +29,8 @@ namespace DeepFakeStudio.ViewModels
         /// </summary>
         public OpenVideosViewModel()
         {
+            this.ApplyCommand = new RelayCommand(this.OnApply, nameof(this.ApplyCommand));
+            this.CancelCommand = new RelayCommand(this.OnCancel, nameof(this.CancelCommand));
             this.SelectDestinationVideoCommand = new RelayCommand(this.OnSelectDestinationVideo, nameof(this.SelectDestinationVideoCommand));
             this.SelectSourceVideoCommand = new RelayCommand(this.OnSelectSourceVideo, nameof(this.SelectSourceVideoCommand));
         }
@@ -35,6 +38,16 @@ namespace DeepFakeStudio.ViewModels
         #endregion Constructors
 
         #region Properties
+
+        /// <summary>
+        /// Gets the ApplyCommand.
+        /// </summary>
+        public ICommand ApplyCommand { get; }
+
+        /// <summary>
+        /// Gets the CancelCommand.
+        /// </summary>
+        public ICommand CancelCommand { get; }
 
         /// <summary>
         /// Gets a value indicating whether IsValid.
@@ -72,6 +85,42 @@ namespace DeepFakeStudio.ViewModels
         #endregion Properties
 
         #region Methods
+
+        /// <summary>
+        /// The OnApply.
+        /// </summary>
+        /// <param name="obj">The obj<see cref="object"/>.</param>
+        private void OnApply(object obj)
+        {
+            if (string.IsNullOrEmpty(this.VideoSourcePath) || string.IsNullOrEmpty(this.VideoDestinationPath))
+            {
+                var message = "Source and destination video are not selected";
+                var caption = "Copy videos to Workspace Canceled";
+                WindowFactory.ShowMessageBox(message, caption);
+                return;
+            }
+
+            if (!Directory.Exists(this.VideoSourcePath) || !Directory.Exists(this.VideoDestinationPath))
+            {
+                var message = "Source or destination video is not found";
+                var caption = "Copy videos to Workspace Canceled";
+                WindowFactory.ShowMessageBox(message, caption);
+                return;
+            }
+
+            var window = Window.GetWindow(obj as UIElement);
+            window.Close();
+        }
+
+        /// <summary>
+        /// The OnCancel.
+        /// </summary>
+        /// <param name="obj">The obj<see cref="object"/>.</param>
+        private void OnCancel(object obj)
+        {
+            var window = Window.GetWindow(obj as UIElement);
+            window.Close();
+        }
 
         /// <summary>
         /// The OnSelectDestinationVideo.

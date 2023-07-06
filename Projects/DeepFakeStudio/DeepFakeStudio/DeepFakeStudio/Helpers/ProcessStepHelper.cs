@@ -34,17 +34,17 @@
             }
 
             var filesFound = true;
-            foreach (var step in steps)
+            for (var i = 0; i < steps.Count; i++)
             {
-                var stepPath = step.ProcessCommand;
+                var stepPath = steps[i].ProcessCommand;
                 if (!File.Exists(stepPath))
                 {
-                    handler.SendError($@"Path ""{stepPath}"" doesn't exist");
+                    handler.SendError($@"{i}. Path ""{stepPath}"" doesn't exist");
                     filesFound = false;
                 }
                 else
                 {
-                    handler.WriteLine($@"Path ""{stepPath}"" is found");
+                    handler.WriteLine($@"{i}. Path ""{stepPath}"" is found");
                 }
             }
 
