@@ -1,0 +1,1 @@
+https://download.wikdict.com/dictionaries/sqlite/2/de.sqlite3
