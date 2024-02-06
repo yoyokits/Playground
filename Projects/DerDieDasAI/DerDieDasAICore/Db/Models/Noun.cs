@@ -1,19 +1,32 @@
-﻿using System.ComponentModel;
+﻿// ========================================== //
+// Developer: Yohanes Wahyu Nurcahyo          //
+// Website: https://github.com/yoyokits       //
+// ========================================== //
 
 namespace DerDieDasAICore.Db.Models
 {
+    using System.ComponentModel;
+
     public class Noun : INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler? PropertyChanged;
+        #region Events
 
-        public int Id { get; set; }
+        public event PropertyChangedEventHandler PropertyChanged;
 
-        public string Word { get; set; }
+        #endregion Events
+
+        #region Properties
 
         public Gender Gender { get; set; }
+
+        public int Id { get; set; }
 
         public string Information { get; set; }
 
         public string Translation { get; set; }
+
+        public string Word { get; set; }
+
+        #endregion Properties
     }
 }

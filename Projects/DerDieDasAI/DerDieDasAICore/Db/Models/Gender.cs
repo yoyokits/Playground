@@ -3,7 +3,9 @@
     public enum Gender
     {
         der,
+
         die,
+
         das
     }
 }

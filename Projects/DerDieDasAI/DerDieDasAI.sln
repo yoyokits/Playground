@@ -3,11 +3,16 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34525.116
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DerDieDasAIApp", "DerDieDasAIApp\DerDieDasAIApp.csproj", "{3239B961-AD94-42DF-B7A1-1294162F9D6B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DerDieDasAIApp", "DerDieDasAIApp\DerDieDasAIApp.csproj", "{3239B961-AD94-42DF-B7A1-1294162F9D6B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DerDieDasAITest", "DerDieDasAITest\DerDieDasAITest.csproj", "{843D44AF-ED5F-4ECB-B41A-52506E516D71}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DerDieDasAITest", "DerDieDasAITest\DerDieDasAITest.csproj", "{843D44AF-ED5F-4ECB-B41A-52506E516D71}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DerDieDasAICore", "DerDieDasAICore\DerDieDasAICore.csproj", "{4CEF0E7A-FF25-402D-879C-2882C0AB6CC3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DerDieDasAICore", "DerDieDasAICore\DerDieDasAICore.csproj", "{4CEF0E7A-FF25-402D-879C-2882C0AB6CC3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{901489E9-F469-4587-986E-7F2C84041B12}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

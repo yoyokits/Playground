@@ -1,7 +1,13 @@
-﻿namespace DerDieDasAICore.File
+﻿// ========================================== //
+// Developer: Yohanes Wahyu Nurcahyo          //
+// Website: https://github.com/yoyokits       //
+// ========================================== //
+namespace DerDieDasAICore.File
 {
     internal static class FolderHelper
     {
+        #region Methods
+
         internal static string NameToPath(string fileName)
         {
             fileName = fileName.ToUpper();
@@ -14,5 +20,7 @@
             var path = Path.Combine(folder0.ToString(), folder1.ToString());
             return path;
         }
+
+        #endregion Methods
     }
 }
