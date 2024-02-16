@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace DerDieDasAICore.Database.Models;
+namespace DerDieDasAICore.Database.Models.Source;
 
 public partial class Importance
 {

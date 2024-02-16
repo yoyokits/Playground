@@ -4,7 +4,7 @@
 // ========================================== //
 namespace DerDieDasAICore.Image
 {
-    using DerDieDasAICore.Db.Models;
+    using DerDieDasAICore.Database.Models;
 
     public class ImageAI
     {
