@@ -3,11 +3,9 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-using System;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
+namespace DerDieDasAICore.Database.Models.Source;
 
-namespace DerDieDasAICore.Database.Models;
+using Microsoft.EntityFrameworkCore;
 
 public partial class DeContext : DbContext
 {
