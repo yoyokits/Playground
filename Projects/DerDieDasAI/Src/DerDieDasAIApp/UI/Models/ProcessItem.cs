@@ -3,11 +3,11 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace DerDieDasAICore.Db.Models
+namespace DerDieDasAIApp.UI.Models
 {
     using System.ComponentModel;
 
-    public class Noun : INotifyPropertyChanged
+    public abstract class ProcessItem : INotifyPropertyChanged
     {
         #region Events
 
@@ -17,16 +17,14 @@ namespace DerDieDasAICore.Db.Models
 
         #region Properties
 
-        public Gender Gender { get; set; }
-
-        public int Id { get; set; }
-
-        public string Information { get; set; }
-
-        public string Translation { get; set; }
-
-        public string Word { get; set; }
+        public string Name { get; set; }
 
         #endregion Properties
+
+        #region Methods
+
+        internal abstract void Execute();
+
+        #endregion Methods
     }
 }
