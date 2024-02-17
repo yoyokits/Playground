@@ -7,11 +7,7 @@ namespace DerDieDasAIApp.UI.Models
 {
     using DerDieDasAICore.Database.Models;
     using DerDieDasAICore.Database.Models.Source;
-    using System;
-    using System.Collections.Generic;
     using System.Linq;
-    using System.Text;
-    using System.Threading.Tasks;
 
     public class GenerateNounsTableProcess : ProcessItem
     {
@@ -19,7 +15,7 @@ namespace DerDieDasAIApp.UI.Models
 
         public GenerateNounsTableProcess()
         {
-            this.Name = "Generate Nouns Table";
+            Name = "Generate Nouns Table";
         }
 
         #endregion Constructors
