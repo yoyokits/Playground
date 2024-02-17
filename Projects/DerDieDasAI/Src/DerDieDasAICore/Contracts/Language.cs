@@ -3,14 +3,14 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace DerDieDasAICore.Database.Models
+namespace DerDieDasAICore.Contracts
 {
-    public enum Gender
+    public enum Language
     {
-        der,
+        German,
 
-        die,
+        France,
 
-        das
+        Spanish
     }
 }
