@@ -24,6 +24,8 @@ public partial class DeContext : DbContext
 
     #region Properties
 
+    public static DeContext Instance { get; } = new DeContext();
+
     public virtual DbSet<Entry> Entries { get; set; }
 
     public virtual DbSet<Form> Forms { get; set; }

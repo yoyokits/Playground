@@ -3,7 +3,7 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace DerDieDasAITest.Database.Models.Source
+namespace DerDieDasAITest.Core.Database.Models.Source
 {
     using DerDieDasAICore.Database.Models.Source;
     using FluentAssertions;
@@ -16,7 +16,7 @@ namespace DerDieDasAITest.Database.Models.Source
         [TestMethod]
         public void LoadSource()
         {
-            var deContext = new DeContext();
+            var deContext = DeContext.Instance;
             var list = deContext.Entries.ToList();
             list.Count.Should().BeGreaterThan(0);
         }

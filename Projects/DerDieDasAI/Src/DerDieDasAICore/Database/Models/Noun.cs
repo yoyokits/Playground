@@ -17,16 +17,30 @@ namespace DerDieDasAICore.Database.Models
 
         #region Properties
 
-        public Gender Gender { get; set; }
+        public string Gender { get; set; }
 
         public int Id { get; set; }
 
+        public double Importance { get; set; }
+
         public string Information { get; set; }
+
+        public string Pronounce { get; set; }
 
         public string Translation { get; set; }
 
         public string Word { get; set; }
 
         #endregion Properties
+
+        #region Methods
+
+        public override string ToString()
+        {
+            var message = $"{this.Word}:Gender:{this.Gender};Pronounce:{this.Pronounce}";
+            return message;
+        }
+
+        #endregion Methods
     }
 }

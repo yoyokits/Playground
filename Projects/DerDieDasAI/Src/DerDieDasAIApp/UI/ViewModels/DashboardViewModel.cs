@@ -11,6 +11,12 @@ namespace DerDieDasAIApp.UI.ViewModels
 
     public class DashboardViewModel : INotifyPropertyChanged
     {
+        #region Fields
+
+        private ProcessItem selectedItem;
+
+        #endregion Fields
+
         #region Events
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -29,6 +35,12 @@ namespace DerDieDasAIApp.UI.ViewModels
         #region Properties
 
         public CollectionViewSource ProcessItems { get; } = new CollectionViewSource();
+
+        public ProcessItem SelectedItem
+        {
+            get => selectedItem;
+            set => this.selectedItem = value;
+        }
 
         #endregion Properties
 

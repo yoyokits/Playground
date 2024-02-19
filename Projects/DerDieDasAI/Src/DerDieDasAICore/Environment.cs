@@ -27,6 +27,8 @@ namespace DerDieDasAICore
 
         #region Properties
 
+        public static string DbVersion { get; } = "2024.0.1";
+
         public static string RootPath { get; set; } = @"C:\Temp\derdiedas";
 
         public static string Version { get; set; }
