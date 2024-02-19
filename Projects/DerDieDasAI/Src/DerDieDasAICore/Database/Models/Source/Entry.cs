@@ -22,4 +22,14 @@ public partial class Entry
     public string WrittenRep { get; set; }
 
     #endregion Properties
+
+    #region Methods
+
+    public override string ToString()
+    {
+        var message = $"{this.WrittenRep}:Gender:{this.Gender};Pronounce:{this.PronunList}";
+        return message;
+    }
+
+    #endregion Methods
 }
