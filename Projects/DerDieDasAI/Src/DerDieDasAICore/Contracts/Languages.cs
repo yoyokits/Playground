@@ -11,31 +11,65 @@ namespace DerDieDasAIApp.UI.Models
 
     public static class Languages
     {
+        #region Fields
+
+        #region Properties
+
+        internal static IDictionary<string, Gender> StringToGenderDictionary { get; }
+
+        #endregion Properties
+
+        internal const string Feminine = "feminine";
+
+        internal const string Masculine = "masculine";
+
+        internal const string Neuter = "neuter";
+
+        #endregion Fields
+
         #region Constructors
 
         static Languages()
         {
             GenderDictionary[Language.German] = GetGenderDictionary("die", "der", "das");
             GenderDictionary[Language.France] = GetGenderDictionary("la", "le", string.Empty);
+
+            StringToGenderDictionary = new Dictionary<string, Gender>
+            {
+                [Languages.Feminine] = Gender.Feminine,
+                [Languages.Masculine] = Gender.Masculine,
+                [Languages.Neuter] = Gender.Neutral
+            };
         }
 
         #endregion Constructors
 
         #region Properties
 
-        public static IDictionary<Language, IDictionary<string, Gender>> GenderDictionary { get; } = new Dictionary<Language, IDictionary<string, Gender>>();
+        public static IDictionary<Language, IDictionary<Gender, string>> GenderDictionary { get; } = new Dictionary<Language, IDictionary<Gender, string>>();
 
         #endregion Properties
 
         #region Methods
 
-        private static IDictionary<string, Gender> GetGenderDictionary(string feminine, string masculine, string neutral)
+        public static Gender TextToGender(string genderText)
         {
-            var dict = new Dictionary<string, Gender>
+            return genderText switch
             {
-                [feminine] = Gender.Feminine,
-                [masculine] = Gender.Masculine,
-                [neutral] = Gender.Neutral
+                Languages.Feminine => Gender.Feminine,
+                Languages.Masculine => Gender.Masculine,
+                Languages.Neuter => Gender.Neutral,
+                _ => Gender.Neutral,
+            };
+        }
+
+        private static IDictionary<Gender, string> GetGenderDictionary(string feminine, string masculine, string neutral)
+        {
+            var dict = new Dictionary<Gender, string>
+            {
+                [Gender.Feminine] = feminine,
+                [Gender.Masculine] = masculine,
+                [Gender.Neutral] = neutral
             };
 
             return dict;
