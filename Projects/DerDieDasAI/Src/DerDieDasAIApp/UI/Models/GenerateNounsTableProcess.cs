@@ -8,6 +8,7 @@ namespace DerDieDasAIApp.UI.Models
     using DerDieDasAICore.Database.Models;
     using DerDieDasAICore.Database.Models.Source;
     using DerDieDasAICore.Extensions;
+    using DerDieDasAICore.Helpers;
     using System.Linq;
 
     public class GenerateNounsTableProcess : ProcessItem
@@ -23,16 +24,19 @@ namespace DerDieDasAIApp.UI.Models
 
         #region Methods
 
-        internal Noun EntryToNoun(Entry entry)
+        internal static Noun EntryToNoun(Entry entry)
         {
-            if (StringExtesion.IsAnyNullOrEmpty(entry.Gender, entry.WrittenRep, entry.PartOfSpeech) || entry.WrittenRep.Contains('-') || entry.WrittenRep.Contains(' ') || !entry.PartOfSpeech.Equals("noun", StringComparison.InvariantCultureIgnoreCase))
+            var word = entry.WrittenRep;
+            if (StringExtesion.IsAnyNullOrEmpty(entry.Gender, word, entry.PartOfSpeech)
+                || !word.IsBaseWord()
+                || !entry.PartOfSpeech.Equals("noun", StringComparison.InvariantCultureIgnoreCase))
             {
                 return null;
             }
 
             return new Noun
             {
-                Word = entry.WrittenRep,
+                Word = word,
                 Gender = entry.Gender,
                 Pronounce = entry.PronunList
             };
@@ -40,16 +44,19 @@ namespace DerDieDasAIApp.UI.Models
 
         internal override void Execute()
         {
-            var nouns = GetNouns();
+            var source = DeContext.Instance;
+            var entries = source.Entries.ToArray();
+            var nouns = GetNouns(entries);
+            var importances = source.Importances.Where(item => item.WrittenRepGuess.IsBaseWord()).ToList();
+            var importanceDict = importances.ToDictionary(i => i.WrittenRepGuess, i => i);
+            InsertNounsParameter(nouns, importanceDict);
             UpdateNounDBAsync(nouns);
         }
 
-        internal IList<Noun> GetNouns()
+        internal IList<Noun> GetNouns(IEnumerable<Entry> entries)
         {
-            var source = DeContext.Instance;
-            var words = source.Entries.ToArray();
             var nouns = new HashSet<Noun>();
-            foreach (var entry in words)
+            foreach (var entry in entries)
             {
                 var noun = EntryToNoun(entry);
                 if (noun != null && !nouns.Contains(noun))
@@ -76,6 +83,17 @@ namespace DerDieDasAIApp.UI.Models
             }
 
             await dictionaryDB.SaveChangesAsync().ConfigureAwait(false);
+        }
+
+        private void InsertNounsParameter(IList<Noun> nouns, Dictionary<string, Importance> importanceDict)
+        {
+            foreach (var noun in nouns)
+            {
+                if (importanceDict.TryGetValue(noun.Word, out var importance) && importance.Score != null)
+                {
+                    noun.Importance = importance.Score.Value;
+                }
+            }
         }
 
         #endregion Methods
