@@ -5,53 +5,32 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewmodels="clr-namespace:DerDieDasAIApp.UI.ViewModels"
+    xmlns:views="clr-namespace:DerDieDasAIApp.UI.Views"
     Margin="8"
     d:DataContext="{d:DesignInstance Type=viewmodels:DashboardViewModel}"
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition />
-        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition />
         </Grid.RowDefinitions>
-        <StackPanel
-            Grid.Row="0"
-            Grid.Column="0"
-            Grid.ColumnSpan="2"
-            HorizontalAlignment="Stretch">
-            <TextBlock Text="Folder" />
-            <TextBox Text="{Binding RootFolder}" />
-            <Button
-                HorizontalAlignment="Left"
-                Command="{Binding SelectFolderCommand, Mode=OneWay}"
-                Content="Root Directory" />
-        </StackPanel>
-        <ItemsControl
-            Grid.Row="1"
-            Grid.Column="0"
-            ItemsSource="{Binding ProcessItems}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <StackPanel />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Grid Margin="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="{Binding Name}" />
-                        <Button Grid.Column="1" />
-                    </Grid>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <Grid>
+            <TextBlock Text="Menu" />
+        </Grid>
+        <TabControl Grid.Row="0">
+            <TabControl.Items>
+                <TabItem Header="Process">
+                    <views:ProcessView DataContext="{Binding Process}" />
+                </TabItem>
+                <TabItem Header="Data Base">
+                    <views:DataBaseView DataContext="{Binding DataBase}" />
+                </TabItem>
+                <TabItem Header="Settings">
+                    <views:SettingsView DataContext="{Binding Settings}" />
+                </TabItem>
+            </TabControl.Items>
+        </TabControl>
     </Grid>
 </UserControl>

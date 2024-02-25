@@ -13,6 +13,18 @@ namespace DerDieDasAIApp.UI.Models
 
     public class GenerateNounsTableProcess : ProcessItem
     {
+        #region Fields
+
+        private string _outputFolder = @"C:\Temp";
+
+        #endregion Fields
+
+        #region Properties
+
+        public string OutputFolder { get => _outputFolder; set => _outputFolder = value; }
+
+        #endregion Properties
+
         #region Constructors
 
         public GenerateNounsTableProcess()

@@ -3,16 +3,16 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace DerDieDasAIApp
+namespace DerDieDasAIApp.UI.Views
 {
     /// <summary>
-    /// Interaction logic for MainWindow.xaml
+    /// Interaction logic for DataBaseView.xaml
     /// </summary>
-    public partial class MainWindow
+    public partial class DataBaseView
     {
         #region Constructors
 
-        public MainWindow()
+        public DataBaseView()
         {
             InitializeComponent();
         }

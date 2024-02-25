@@ -19,6 +19,8 @@ namespace DerDieDasAIApp.UI.Models
 
         public string Name { get; set; }
 
+        public PropertyChangedEventHandler PropertyChangedHandler => this.PropertyChanged;
+
         #endregion Properties
 
         #region Methods
