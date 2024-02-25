@@ -3,16 +3,16 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace DerDieDasAIApp
+namespace DerDieDasAIApp.UI.Views
 {
     /// <summary>
-    /// Interaction logic for MainWindow.xaml
+    /// Interaction logic for SettingsView.xaml
     /// </summary>
-    public partial class MainWindow
+    public partial class SettingsView
     {
         #region Constructors
 
-        public MainWindow()
+        public SettingsView()
         {
             InitializeComponent();
         }
