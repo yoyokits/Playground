@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewmodels="clr-namespace:DerDieDasAIApp.UI.ViewModels"
+    Margin="8"
     d:DataContext="{d:DesignInstance Type=viewmodels:DashboardViewModel}"
     d:DesignHeight="450"
     d:DesignWidth="800"
@@ -14,7 +15,26 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition />
         </Grid.ColumnDefinitions>
-        <ItemsControl Grid.Column="0" ItemsSource="{Binding ProcessItems}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <StackPanel
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            HorizontalAlignment="Stretch">
+            <TextBlock Text="Folder" />
+            <TextBox Text="{Binding RootFolder}" />
+            <Button
+                HorizontalAlignment="Left"
+                Command="{Binding SelectFolderCommand, Mode=OneWay}"
+                Content="Root Directory" />
+        </StackPanel>
+        <ItemsControl
+            Grid.Row="1"
+            Grid.Column="0"
+            ItemsSource="{Binding ProcessItems}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <StackPanel />

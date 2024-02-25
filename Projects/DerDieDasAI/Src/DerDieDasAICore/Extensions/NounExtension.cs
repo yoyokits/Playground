@@ -5,7 +5,6 @@
 
 namespace DerDieDasAICore.Extensions
 {
-    using DerDieDasAIApp.UI.Models;
     using DerDieDasAICore.Contracts;
     using DerDieDasAICore.Database.Models;
 
