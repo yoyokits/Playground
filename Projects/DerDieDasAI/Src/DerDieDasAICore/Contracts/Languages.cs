@@ -3,7 +3,7 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace DerDieDasAIApp.UI.Models
+namespace DerDieDasAICore.Contracts
 {
     using DerDieDasAICore.Contracts;
     using DerDieDasAICore.Database.Models;
@@ -14,6 +14,8 @@ namespace DerDieDasAIApp.UI.Models
         #region Fields
 
         #region Properties
+
+        internal static IDictionary<Language, string> LanguageCodeDictionary { get; }
 
         internal static IDictionary<string, Gender> StringToGenderDictionary { get; }
 
@@ -39,6 +41,13 @@ namespace DerDieDasAIApp.UI.Models
                 [Languages.Feminine] = Gender.Feminine,
                 [Languages.Masculine] = Gender.Masculine,
                 [Languages.Neuter] = Gender.Neutral
+            };
+
+            LanguageCodeDictionary = new Dictionary<Language, string>
+            {
+                [Language.France] = "fr",
+                [Language.German] = "de",
+                [Language.Spanish] = "es"
             };
         }
 
