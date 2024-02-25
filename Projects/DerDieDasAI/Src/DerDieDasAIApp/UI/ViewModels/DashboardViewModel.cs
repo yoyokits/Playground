@@ -5,15 +5,22 @@
 
 namespace DerDieDasAIApp.UI.ViewModels
 {
+    using CommunityToolkit.Mvvm.Input;
     using DerDieDasAIApp.UI.Models;
+    using DerDieDasAICore.Extensions;
     using System.ComponentModel;
     using System.Windows.Data;
+    using Microsoft.WindowsAPICodePack.Dialogs;
+    using System.Windows.Input;
+    using DerDieDasAIApp.Common;
 
     public class DashboardViewModel : INotifyPropertyChanged
     {
         #region Fields
 
-        private ProcessItem selectedItem;
+        private string myRootFolder = @"C:\Temp\";
+
+        private ProcessItem mySelectedProcess;
 
         #endregion Fields
 
@@ -27,6 +34,7 @@ namespace DerDieDasAIApp.UI.ViewModels
 
         public DashboardViewModel()
         {
+            this.SelectFolderCommand = new RelayCommand(this.OnSelectFolder);
             Initialize();
         }
 
@@ -36,11 +44,19 @@ namespace DerDieDasAIApp.UI.ViewModels
 
         public CollectionViewSource ProcessItems { get; } = new CollectionViewSource();
 
-        public ProcessItem SelectedItem
+        public string RootFolder
         {
-            get => selectedItem;
-            set => this.selectedItem = value;
+            get => myRootFolder;
+            set => this.Set(PropertyChanged, ref myRootFolder, value);
         }
+
+        public ProcessItem SelectedProcess
+        {
+            get => mySelectedProcess;
+            set => this.Set(PropertyChanged, ref mySelectedProcess, value);
+        }
+
+        public ICommand SelectFolderCommand { get; }
 
         #endregion Properties
 
@@ -50,6 +66,31 @@ namespace DerDieDasAIApp.UI.ViewModels
         {
             var items = new List<ProcessItem>();
             ProcessItems.Source = items;
+        }
+
+        private void OnSelectFolder()
+        {
+            var dlg = new CommonOpenFileDialog
+            {
+                Title = "My Title",
+                IsFolderPicker = true,
+                InitialDirectory = AppEnvironment.Instance.RootDirectory,
+                AddToMostRecentlyUsedList = true,
+                AllowNonFileSystemItems = false,
+                DefaultDirectory = AppEnvironment.Instance.RootDirectory,
+                EnsureFileExists = true,
+                EnsurePathExists = true,
+                EnsureReadOnly = false,
+                EnsureValidNames = true,
+                Multiselect = false,
+                ShowPlacesList = true
+            };
+
+            if (dlg.ShowDialog() == CommonFileDialogResult.Ok)
+            {
+                this.RootFolder = dlg.FileName;
+                AppEnvironment.Instance.RootDirectory = this.RootFolder;
+            }
         }
 
         #endregion Methods
