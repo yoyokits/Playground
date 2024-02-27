@@ -11,7 +11,7 @@ namespace DerDieDasAICore.Helpers
 
         public static bool IsBaseWord(this string word)
         {
-            return !string.IsNullOrEmpty(word) && !word.Contains('-') && !word.Contains(' ');
+            return !string.IsNullOrEmpty(word) && !word.Contains('-') && !word.Contains('*') && !word.Contains(' ');
         }
 
         #endregion Methods

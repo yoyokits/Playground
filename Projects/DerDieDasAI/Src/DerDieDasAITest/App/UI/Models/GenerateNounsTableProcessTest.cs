@@ -18,6 +18,7 @@ namespace DerDieDasAITest.App.UI.Models
         [TestMethod]
         public void Execute()
         {
+            DictionaryContext.CreateInstance("C:\\Temp");
             var process = new GenerateNounsTableProcess();
             process.Execute();
             var dictionaryDB = DictionaryContext.Instance;
