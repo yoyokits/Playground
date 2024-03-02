@@ -8,12 +8,12 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace DerDieDasAIApp.Properties {
+namespace DerDieDasAICore.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "17.8.0.0")]
-    internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
+    public sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
         
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
         
@@ -25,13 +25,25 @@ namespace DerDieDasAIApp.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("0.1")]
-        public string Version {
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string ChatGPTKey {
             get {
-                return ((string)(this["Version"]));
+                return ((string)(this["ChatGPTKey"]));
             }
             set {
-                this["Version"] = value;
+                this["ChatGPTKey"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("C:\\Temp\\DerDieDas")]
+        public string RootDirectory {
+            get {
+                return ((string)(this["RootDirectory"]));
+            }
+            set {
+                this["RootDirectory"] = value;
             }
         }
     }

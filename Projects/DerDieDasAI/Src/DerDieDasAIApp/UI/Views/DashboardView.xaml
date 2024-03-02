@@ -19,7 +19,7 @@
         <Grid>
             <TextBlock Text="Menu" />
         </Grid>
-        <TabControl Grid.Row="0">
+        <TabControl Grid.Row="1">
             <TabControl.Items>
                 <TabItem Header="Process">
                     <views:ProcessView DataContext="{Binding Process}" />

@@ -27,7 +27,10 @@
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid>
-                        <TextBlock HorizontalAlignment="Left" Text="{Binding Name}" />
+                        <TextBlock
+                            Margin="0,0,12,0"
+                            HorizontalAlignment="Left"
+                            Text="{Binding Name}" />
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>

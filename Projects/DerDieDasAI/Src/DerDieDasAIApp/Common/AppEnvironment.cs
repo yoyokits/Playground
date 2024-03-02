@@ -1,36 +1,47 @@
-﻿namespace DerDieDasAIApp.Common
+﻿// ========================================== //
+// Developer: Yohanes Wahyu Nurcahyo          //
+// Website: https://github.com/yoyokits       //
+// ========================================== //
+
+namespace DerDieDasAIApp.Common
 {
     using DerDieDasAIApp.Properties;
-    using System;
-    using System.Collections.Generic;
     using System.ComponentModel;
-    using System.Linq;
-    using System.Text;
-    using System.Threading.Tasks;
 
     internal class AppEnvironment : INotifyPropertyChanged
     {
-        public static readonly AppEnvironment Instance = new AppEnvironment();
+        #region Fields
 
-        public string RootDirectory { get; set; }
+        public static readonly AppEnvironment Instance = new();
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        #endregion Fields
 
+        #region Constructors
 
         private AppEnvironment()
         {
-            this.LoadSettings();
+            LoadSettings();
+        }
+
+        #endregion Constructors
+
+        #region Events
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        #endregion Events
+
+        #region Methods
+
+        internal void LoadSettings()
+        {
         }
 
         internal void SaveSettings()
         {
-            Settings.Default.RootDirectory = this.RootDirectory;
             Settings.Default.Save();
         }
 
-        internal void LoadSettings()
-        {
-            this.RootDirectory = Settings.Default.RootDirectory ;
-        }
+        #endregion Methods
     }
 }

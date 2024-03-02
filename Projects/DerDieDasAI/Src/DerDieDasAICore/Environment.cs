@@ -8,11 +8,17 @@ namespace DerDieDasAICore
     using System.Diagnostics;
     using System.Reflection;
 
-    internal static class Environment
+    internal class Environment
     {
+        #region Properties
+
+        public static Environment Instance { get; } = new();
+
+        #endregion Properties
+
         #region Constructors
 
-        static Environment()
+        private Environment()
         {
             var assembly = Assembly.GetExecutingAssembly();
             var fileVersionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
@@ -25,14 +31,28 @@ namespace DerDieDasAICore
 
         #endregion Constructors
 
+
+
         #region Properties
 
-        public static string DbVersion { get; } = "2024.0.1";
+        public string DbVersion { get; } = "2024.0.1";
 
-        public static string RootPath { get; set; } = @"C:\Temp\derdiedas";
+        public string RootPath { get; set; } = @"C:\Temp\derdiedas";
 
-        public static string Version { get; set; }
+        public string Version { get; set; }
 
         #endregion Properties
+
+        internal void LoadSettings()
+        {
+            ////this.RootDirectory = Settings.Default.RootDirectory;
+        }
+
+        internal void SaveSettings()
+        {
+            ////Settings.
+            ////Settings.Default.RootDirectory = this.RootDirectory;
+            ////Settings.Default.Save();
+        }
     }
 }
