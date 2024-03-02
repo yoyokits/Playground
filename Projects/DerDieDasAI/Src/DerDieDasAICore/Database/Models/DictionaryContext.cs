@@ -36,7 +36,7 @@ namespace DerDieDasAICore.Database.Models
 
         #region Methods
 
-        internal static void CreateInstance(string directory)
+        public static void CreateInstance(string directory)
         {
             if (!Directory.Exists(directory))
             {

@@ -9,6 +9,7 @@ namespace DerDieDasAIApp.UI.ViewModels
     using DerDieDasAICore.Database.Models;
     using DerDieDasAICore.Database.Models.Source;
     using DerDieDasAICore.Extensions;
+    using DerDieDasAICore.Properties;
     using System.Collections.Generic;
     using System.ComponentModel;
     using System.Linq;
@@ -58,6 +59,7 @@ namespace DerDieDasAIApp.UI.ViewModels
         internal DataBaseViewModel()
         {
             DeContext.Instance.SavedChanges += OnDeContextSavedChanges;
+            DictionaryContext.CreateInstance(Settings.Default.RootDirectory);
             DictionaryContext.Instance.SavedChanges += OnDictionaryContextSavedChanges;
             InitializeAsync();
         }
