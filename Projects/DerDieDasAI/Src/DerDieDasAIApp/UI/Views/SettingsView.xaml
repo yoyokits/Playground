@@ -18,7 +18,7 @@
     </i:Interaction.Triggers>
     <StackPanel HorizontalAlignment="Stretch">
         <TextBlock Text="Folder" />
-        <TextBox Margin="0,4,0,0" Text="{Binding RootDirectory}" />
+        <TextBox Margin="0,4,0,0" Text="{Binding RootDirectory, UpdateSourceTrigger=PropertyChanged}" />
         <StackPanel
             Margin="0,4,0,0"
             HorizontalAlignment="Left"
@@ -30,6 +30,6 @@
                 Content="Open Root Directory" />
         </StackPanel>
         <TextBlock Margin="0,4,0,0" Text="ChatGPT Key" />
-        <TextBox Margin="0,4,0,0" Text="{Binding ChatGPTKey}" />
+        <TextBox Margin="0,4,0,0" Text="{Binding ChatGPTKey, UpdateSourceTrigger=PropertyChanged}" />
     </StackPanel>
 </UserControl>
