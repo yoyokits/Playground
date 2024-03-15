@@ -1,17 +1,6 @@
-# XamarinFormsXamlCameraTest
-Test camera app using Xamarin.Forms XAML for GUI to control camera.
+# My Coding Playground
+Before promoted to the main project, a new project ideas are tested to this playground.
 
-This development base on the official Xamarin.Forms in
+The app projects are developed here to make sure further development is possible and have possibility to be usefull.
 
-For camera preview:
-
-https://github.com/xamarin/xamarin-forms-samples/tree/master/CustomRenderers/View
-
-For camera capture or take a photo:
-
-https://github.com/xamarin/xamarin-forms-samples/tree/master/CustomRenderers/ContentPage
-
-Both examples are using too many Android side of User interface and not XAML in Xamarin.Forms.
-This example is intended to use Xamarin.Forms for Camera user interface.
-
-Please joint to improve this test to make a full camera functionality using only Xamarin.Forms.
+If the project candidates meet the requirement then it will be promoted to the main project.
