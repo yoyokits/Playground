@@ -22,6 +22,7 @@ namespace DerDieDasAITest.Core.AI
             img.Prompt = "Cat";
             var response = client.DefaultApi.Text2imgapiSdapiV1Txt2imgPost(img);
             response.Should().NotBeNull();
+            client.Save(@"C:\Temp\Test.png", response);
         }
 
         #endregion Methods
