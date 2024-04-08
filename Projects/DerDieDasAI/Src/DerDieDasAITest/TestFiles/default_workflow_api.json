@@ -1,10 +1,10 @@
 {
   "3": {
     "inputs": {
-      "seed": 413407728204199,
+      "seed": 1102235482751556,
       "steps": 20,
-      "cfg": 0.96,
-      "sampler_name": "dpmpp_sde_gpu",
+      "cfg": 8,
+      "sampler_name": "euler",
       "scheduler": "normal",
       "denoise": 1,
       "model": [
@@ -31,7 +31,7 @@
   },
   "4": {
     "inputs": {
-      "ckpt_name": "samaritan3dCartoon_v40SDXL.safetensors"
+      "ckpt_name": "DreamShaperXL_Lightning.safetensors"
     },
     "class_type": "CheckpointLoaderSimple",
     "_meta": {
@@ -41,7 +41,7 @@
   "5": {
     "inputs": {
       "width": 512,
-      "height": 768,
+      "height": 512,
       "batch_size": 1
     },
     "class_type": "EmptyLatentImage",
@@ -51,10 +51,7 @@
   },
   "6": {
     "inputs": {
-      "text": [
-        "11",
-        0
-      ],
+      "text": "beautiful scenery nature glass bottle landscape, , purple galaxy bottle,",
       "clip": [
         "4",
         1
@@ -67,7 +64,7 @@
   },
   "7": {
     "inputs": {
-      "text": "text, watermark, cropped",
+      "text": "text, watermark",
       "clip": [
         "4",
         1
@@ -75,7 +72,7 @@
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
-      "title": "CLIP Negative Prompt"
+      "title": "CLIP Text Encode (Prompt)"
     }
   },
   "8": {
@@ -105,62 +102,6 @@
     "class_type": "SaveImage",
     "_meta": {
       "title": "Save Image"
-    }
-  },
-  "10": {
-    "inputs": {
-      "text": "dragon",
-      "weight": 1.2,
-      "active": true
-    },
-    "class_type": "PromptComposerTextSingle",
-    "_meta": {
-      "title": "Prompt Composer Single Text"
-    }
-  },
-  "11": {
-    "inputs": {
-      "text_1": "feminine look",
-      "weight_1": 1.1,
-      "text_2": "pink environment",
-      "weight_2": 1.21,
-      "text_3": "high resolution",
-      "weight_3": 1,
-      "text_4": "4k",
-      "weight_4": 1,
-      "text_5": "high quality",
-      "weight_5": 1,
-      "text_6": "",
-      "weight_6": 1,
-      "text_7": "",
-      "weight_7": 1,
-      "text_8": "",
-      "weight_8": 1,
-      "text_9": "",
-      "weight_9": 1,
-      "text_10": "",
-      "weight_10": 1,
-      "active": true,
-      "text_in_opt": [
-        "10",
-        0
-      ]
-    },
-    "class_type": "promptComposerTextMultiple",
-    "_meta": {
-      "title": "CLIP Positive Prompt"
-    }
-  },
-  "15": {
-    "inputs": {
-      "text": [
-        "11",
-        0
-      ]
-    },
-    "class_type": "ShowText|pysssss",
-    "_meta": {
-      "title": "Show Text 🐍"
     }
   }
 }
