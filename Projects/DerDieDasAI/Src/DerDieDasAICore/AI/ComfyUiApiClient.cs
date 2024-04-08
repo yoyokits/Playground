@@ -55,15 +55,20 @@ namespace DerDieDasAICore.AI
         public async Task<Dictionary<string, List<byte[]>>> GetImages(ClientWebSocket ws, JObject prompt)
         {
             var promptResult = await QueuePrompt(prompt);
+            Trace.WriteLine(string.Format("JSON result {0}", promptResult.ToString()));
             var promptId = promptResult["prompt_id"].ToString();
             var outputImages = new Dictionary<string, List<byte[]>>();
             var buffer = new byte[1024];
             var iteration = 0;
             while (true)
             {
+                Trace.WriteLine($"=======================");
                 Trace.WriteLine($"Iteration {iteration++}");
                 var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 var outStr = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                Trace.WriteLine("JSON:");
+                Trace.WriteLine($"{outStr}");
+
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
                     var message = JObject.Parse(outStr);
@@ -85,19 +90,21 @@ namespace DerDieDasAICore.AI
 
             var historyJson = await GetHistory(promptId);
             var history = historyJson[promptId];
-            foreach (var o in (JArray)history["outputs"])
+            foreach (var o in (JObject)history["outputs"])
             {
-                foreach (var nodeId in (JArray)history["outputs"])
+                foreach (var nodeId in (JObject)history["outputs"])
                 {
-                    var nodeOutput = (JObject)history["outputs"][nodeId.ToString()];
-                    if (nodeOutput.ContainsKey("images"))
+                    var nodeOutput = history["outputs"];
+                    var id = nodeOutput[nodeId.ToString()];
+                    if (nodeOutput.Contains("images"))
                     {
                         var imagesOutput = new List<byte[]>();
-                        foreach (var image in (JArray)nodeOutput["images"])
+                        foreach (var image in nodeOutput["images"])
                         {
                             var imageData = await GetImage((string)image["filename"], (string)image["subfolder"], (string)image["type"]);
                             imagesOutput.Add(imageData);
                         }
+
                         outputImages[nodeId.ToString()] = imagesOutput;
                     }
                 }
