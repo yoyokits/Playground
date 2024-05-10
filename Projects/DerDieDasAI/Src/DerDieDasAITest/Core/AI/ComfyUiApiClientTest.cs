@@ -18,7 +18,7 @@ namespace DerDieDasAITest.Core.AI
         {
             // Arrange
             var comfyUiApiClient = new ComfyUiApiClient();
-            var jsonFilePath = @"TestFiles\default_workflow_api.json";
+            var jsonFilePath = @"TestFiles\ollama_workflow_api.json";
             if (!File.Exists(jsonFilePath))
             {
                 Console.WriteLine("File not found: " + jsonFilePath);

@@ -1,0 +1,576 @@
+{
+  "last_node_id": 16,
+  "last_link_id": 17,
+  "nodes": [
+    {
+      "id": 7,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        1285,
+        -102
+      ],
+      "size": [
+        315,
+        595
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "name": "audio",
+          "type": "VHS_AUDIO",
+          "link": 14
+        },
+        {
+          "name": "meta_batch",
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "frame_rate",
+          "type": "FLOAT",
+          "link": 17,
+          "widget": {
+            "name": "frame_rate"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null,
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VHS_VideoCombine"
+      },
+      "widgets_values": {
+        "frame_rate": 30,
+        "loop_count": 0,
+        "filename_prefix": "AnimateDiff",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 19,
+        "save_metadata": true,
+        "pingpong": false,
+        "save_output": true,
+        "videopreview": {
+          "hidden": false,
+          "paused": false,
+          "params": {
+            "filename": "AnimateDiff_00001-audio.mp4",
+            "subfolder": "",
+            "type": "output",
+            "format": "video/h264-mp4"
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "LoadImage",
+      "pos": [
+        121,
+        -404
+      ],
+      "size": {
+        "0": 315,
+        "1": 314
+      },
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            3
+          ],
+          "shape": 3,
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "ahmed-sukarno-first-president-indonesia-9696391.jpg",
+        "image"
+      ]
+    },
+    {
+      "id": 13,
+      "type": "StringConstant",
+      "pos": [
+        120,
+        -542
+      ],
+      "size": {
+        "0": 315,
+        "1": 58
+      },
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            12,
+            13
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "title": "AudioPath",
+      "properties": {
+        "Node name for S&R": "StringConstant"
+      },
+      "widgets_values": [
+        "G:\\Projects\\AI\\Data\\Videos\\Pembacaan Teks Proklamasi Suara Asli Soekarno #proklamasi #kemerdekaan #soekarno #shorts #short.mp3"
+      ]
+    },
+    {
+      "id": 16,
+      "type": "FloatConstant",
+      "pos": [
+        320.53237689924737,
+        15.0309554150125
+      ],
+      "size": {
+        "0": 210,
+        "1": 58
+      },
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "value",
+          "type": "FLOAT",
+          "links": [
+            17
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FloatConstant"
+      },
+      "widgets_values": [
+        24
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 14,
+      "type": "INTConstant",
+      "pos": [
+        68,
+        19
+      ],
+      "size": {
+        "0": 210,
+        "1": 58
+      },
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "value",
+          "type": "INT",
+          "links": [
+            15
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "INTConstant"
+      },
+      "widgets_values": [
+        24
+      ],
+      "color": "#1b4669",
+      "bgcolor": "#29699c"
+    },
+    {
+      "id": 3,
+      "type": "AniPortraitRun",
+      "pos": [
+        888,
+        219
+      ],
+      "size": {
+        "0": 315,
+        "1": 350
+      },
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "pipe",
+          "type": "Pose2VideoPipeline",
+          "link": 10
+        },
+        {
+          "name": "a2m_model",
+          "type": "Audio2MeshModel",
+          "link": 11
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 3
+        },
+        {
+          "name": "pose",
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "name": "video_length",
+          "type": "INT",
+          "link": 6,
+          "widget": {
+            "name": "video_length"
+          }
+        },
+        {
+          "name": "audio_path",
+          "type": "STRING",
+          "link": 12,
+          "widget": {
+            "name": "audio_path"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            5
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AniPortraitRun"
+      },
+      "widgets_values": [
+        "G:\\Projects\\AI\\StabilityMatrix-win-x64\\Data\\Packages\\ComfyUI\\custom_nodes\\ComfyUI-AniPortrait\\pretrained_model\\wav2vec2-base-960h",
+        "/home/admin/ComfyUI/custom_nodes/ComfyUI-AniPortrait/configs/inference/audio/lyl.wav",
+        512,
+        512,
+        0,
+        25,
+        3.5,
+        871,
+        "fixed",
+        "fp16",
+        0.5
+      ]
+    },
+    {
+      "id": 11,
+      "type": "AniPortraitLoader",
+      "pos": [
+        -22,
+        220
+      ],
+      "size": {
+        "0": 417.1524658203125,
+        "1": 327.2062072753906
+      },
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "pipe",
+          "type": "Pose2VideoPipeline",
+          "links": [
+            10
+          ],
+          "shape": 3,
+          "slot_index": 0
+        },
+        {
+          "name": "a2m_model",
+          "type": "Audio2MeshModel",
+          "links": [
+            11
+          ],
+          "shape": 3,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AniPortraitLoader"
+      },
+      "widgets_values": [
+        "G:\\Projects\\AI\\StabilityMatrix-win-x64\\Data\\Packages\\ComfyUI\\custom_nodes\\ComfyUI-AniPortrait\\pretrained_model\\stable-diffusion-v1-5",
+        "G:\\Projects\\AI\\StabilityMatrix-win-x64\\Data\\Packages\\ComfyUI\\custom_nodes\\ComfyUI-AniPortrait\\pretrained_model\\sd-vae-ft-mse",
+        "G:\\Projects\\AI\\StabilityMatrix-win-x64\\Data\\Packages\\ComfyUI\\custom_nodes\\ComfyUI-AniPortrait\\pretrained_model\\image_encoder",
+        "G:\\Projects\\AI\\StabilityMatrix-win-x64\\Data\\Packages\\ComfyUI\\custom_nodes\\ComfyUI-AniPortrait\\pretrained_model\\wav2vec2-base-960h",
+        "G:\\Projects\\AI\\StabilityMatrix-win-x64\\Data\\Packages\\ComfyUI\\custom_nodes\\ComfyUI-AniPortrait\\pretrained_model\\audio2mesh.pt",
+        "G:\\Projects\\AI\\StabilityMatrix-win-x64\\Data\\Packages\\ComfyUI\\custom_nodes\\ComfyUI-AniPortrait\\pretrained_model\\motion_module.pth",
+        "G:\\Projects\\AI\\StabilityMatrix-win-x64\\Data\\Packages\\ComfyUI\\custom_nodes\\ComfyUI-AniPortrait\\pretrained_model\\denoising_unet.pth",
+        "G:\\Projects\\AI\\StabilityMatrix-win-x64\\Data\\Packages\\ComfyUI\\custom_nodes\\ComfyUI-AniPortrait\\pretrained_model\\reference_unet.pth",
+        "G:\\Projects\\AI\\StabilityMatrix-win-x64\\Data\\Packages\\ComfyUI\\custom_nodes\\ComfyUI-AniPortrait\\pretrained_model\\pose_guider.pth",
+        "fp16"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "VHS_LoadVideoPath",
+      "pos": [
+        463,
+        365
+      ],
+      "size": [
+        317.4000244140625,
+        214
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "meta_batch",
+          "type": "VHS_BatchManager",
+          "link": null,
+          "slot_index": 0
+        },
+        {
+          "name": "force_rate",
+          "type": "INT",
+          "link": 15,
+          "widget": {
+            "name": "force_rate"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            4
+          ],
+          "shape": 3,
+          "slot_index": 0
+        },
+        {
+          "name": "frame_count",
+          "type": "INT",
+          "links": [
+            6
+          ],
+          "shape": 3,
+          "slot_index": 1
+        },
+        {
+          "name": "audio",
+          "type": "VHS_AUDIO",
+          "links": [],
+          "shape": 3,
+          "slot_index": 2
+        },
+        {
+          "name": "video_info",
+          "type": "VHS_VIDEOINFO",
+          "links": null,
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VHS_LoadVideoPath"
+      },
+      "widgets_values": {
+        "video": "G:\\Projects\\AI\\Data\\Videos\\Proklamasi Preparation.mp4",
+        "force_rate": 30,
+        "force_size": "Disabled",
+        "custom_width": 512,
+        "custom_height": 512,
+        "frame_load_cap": 0,
+        "skip_first_frames": 0,
+        "select_every_nth": 1,
+        "videopreview": {
+          "hidden": false,
+          "paused": false,
+          "params": {
+            "frame_load_cap": 0,
+            "skip_first_frames": 0,
+            "force_rate": 30,
+            "filename": "G:\\Projects\\AI\\Data\\Videos\\Proklamasi Preparation.mp4",
+            "type": "path",
+            "format": "video/mp4",
+            "select_every_nth": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "VHS_LoadAudio",
+      "pos": [
+        868,
+        -251
+      ],
+      "size": {
+        "0": 315,
+        "1": 82
+      },
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "audio_file",
+          "type": "STRING",
+          "link": 13,
+          "widget": {
+            "name": "audio_file"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "audio",
+          "type": "VHS_AUDIO",
+          "links": [
+            14
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VHS_LoadAudio"
+      },
+      "widgets_values": {
+        "audio_file": "/home/admin/ComfyUI/custom_nodes/ComfyUI-AniPortrait/configs/inference/audio/lyl.wav",
+        "seek_seconds": 0
+      }
+    }
+  ],
+  "links": [
+    [
+      3,
+      4,
+      0,
+      3,
+      2,
+      "IMAGE"
+    ],
+    [
+      4,
+      6,
+      0,
+      3,
+      3,
+      "IMAGE"
+    ],
+    [
+      5,
+      3,
+      0,
+      7,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      6,
+      1,
+      3,
+      4,
+      "INT"
+    ],
+    [
+      10,
+      11,
+      0,
+      3,
+      0,
+      "Pose2VideoPipeline"
+    ],
+    [
+      11,
+      11,
+      1,
+      3,
+      1,
+      "Audio2MeshModel"
+    ],
+    [
+      12,
+      13,
+      0,
+      3,
+      5,
+      "STRING"
+    ],
+    [
+      13,
+      13,
+      0,
+      8,
+      0,
+      "STRING"
+    ],
+    [
+      14,
+      8,
+      0,
+      7,
+      1,
+      "VHS_AUDIO"
+    ],
+    [
+      15,
+      14,
+      0,
+      6,
+      1,
+      "INT"
+    ],
+    [
+      17,
+      16,
+      0,
+      7,
+      3,
+      "FLOAT"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

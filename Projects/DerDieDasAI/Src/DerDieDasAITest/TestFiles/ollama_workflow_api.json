@@ -1,0 +1,33 @@
+{
+  "1": {
+    "inputs": {
+      "prompt": "what is the main content of skin medicine betagalen?",
+      "debug": "enable",
+      "url": "http://127.0.0.1:11434",
+      "model": "mistral",
+      "system": "Skin health topic.",
+      "seed": 866249966,
+      "top_k": 40,
+      "top_p": 0.9,
+      "temperature": 0.7,
+      "num_predict": -1,
+      "tfs_z": 1
+    },
+    "class_type": "OllamaGenerateAdvance",
+    "_meta": {
+      "title": "Ollama Generate Advance"
+    }
+  },
+  "2": {
+    "inputs": {
+      "text": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "ShowText|pysssss",
+    "_meta": {
+      "title": "Show Text 🐍"
+    }
+  }
+}
