@@ -13,6 +13,7 @@ namespace DerDieDasAICore.AI
     using System.Net.WebSockets;
     using System.Text;
     using System.Threading;
+    using System.Xml.Linq;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
 
@@ -58,8 +59,9 @@ namespace DerDieDasAICore.AI
             Trace.WriteLine(string.Format("JSON result {0}", promptResult.ToString()));
             var promptId = promptResult["prompt_id"].ToString();
             var outputImages = new Dictionary<string, List<byte[]>>();
-            var buffer = new byte[1024];
+            var buffer = new byte[10024];
             var iteration = 0;
+            var jsonOutput = new StringBuilder();
             while (true)
             {
                 Trace.WriteLine($"=======================");
@@ -71,6 +73,7 @@ namespace DerDieDasAICore.AI
 
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
+                    jsonOutput.AppendLine(outStr);
                     var message = JObject.Parse(outStr);
                     var type = message["type"];
                     Trace.WriteLine($"Message Type: {type}");
@@ -85,8 +88,24 @@ namespace DerDieDasAICore.AI
                             break; //Execution is done
                         }
                     }
+
+                    if ((string)message["type"] == "executed")
+                    {
+                        var data = (JObject)message["data"];
+                        var output = data["output"];
+                        var text = output["text"];
+                        Trace.WriteLine($"Text:");
+                        Trace.WriteLine($"{text}");
+                    }
                 }
             }
+
+            Trace.WriteLine($"=======================");
+            Trace.WriteLine($"Output");
+            Trace.WriteLine($"{jsonOutput}");
+            Trace.WriteLine($"=======================");
+            var outputString = jsonOutput.ToString();
+            return outputImages;
 
             var historyJson = await GetHistory(promptId);
             var history = historyJson[promptId];

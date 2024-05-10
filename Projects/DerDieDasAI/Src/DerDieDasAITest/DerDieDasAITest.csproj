@@ -48,6 +48,9 @@
     <None Update="TestFiles\default_workflow_api.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="TestFiles\ollama_workflow_api.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="TestFiles\workflow_api.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
