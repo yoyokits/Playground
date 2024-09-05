@@ -1,47 +1,59 @@
-﻿namespace AdventureCamApp;
+﻿// ========================================== //
+// Developer: Yohanes Wahyu Nurcahyo          //
+// Website: https://github.com/yoyokits       //
+// ========================================== //
+
+using Camera.MAUI;
+
+namespace AdventureCamApp;
 
 public static class MauiProgram
 {
-	public static MauiApp CreateMauiApp()
-	{
-		var builder = MauiApp.CreateBuilder();
-		builder
-			.UseMauiApp<App>()
-			.UseMauiCommunityToolkitMediaElement()
-			.UseMauiCommunityToolkit()
-			.ConfigureFonts(fonts =>
-			{
-				fonts.AddFont("FontAwesome6FreeBrands.otf", "FontAwesomeBrands");
-				fonts.AddFont("FontAwesome6FreeRegular.otf", "FontAwesomeRegular");
-				fonts.AddFont("FontAwesome6FreeSolid.otf", "FontAwesomeSolid");
-				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
-			});
+    #region Methods
 
-		builder.Services.AddSingleton<MainViewModel>();
+    public static MauiApp CreateMauiApp()
+    {
+        var builder = MauiApp.CreateBuilder();
+        builder
+            .UseMauiApp<App>()
+            .UseMauiCommunityToolkitMediaElement()
+            .UseMauiCommunityToolkit()
+            .ConfigureFonts(fonts =>
+            {
+                fonts.AddFont("FontAwesome6FreeBrands.otf", "FontAwesomeBrands");
+                fonts.AddFont("FontAwesome6FreeRegular.otf", "FontAwesomeRegular");
+                fonts.AddFont("FontAwesome6FreeSolid.otf", "FontAwesomeSolid");
+                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+                fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+            })
+            .UseMauiCameraView();
 
-		builder.Services.AddSingleton<MainPage>();
+        builder.Services.AddSingleton<MainViewModel>();
 
-		builder.Services.AddSingleton<PreviewViewModel>();
+        builder.Services.AddSingleton<MainPage>();
 
-		builder.Services.AddSingleton<PreviewPage>();
+        builder.Services.AddSingleton<PreviewViewModel>();
 
-		builder.Services.AddSingleton<GalleryViewModel>();
+        builder.Services.AddSingleton<PreviewPage>();
 
-		builder.Services.AddSingleton<GalleryPage>();
+        builder.Services.AddSingleton<GalleryViewModel>();
 
-		builder.Services.AddTransient<SampleDataService>();
-		builder.Services.AddTransient<EditorDetailViewModel>();
-		builder.Services.AddTransient<EditorDetailPage>();
+        builder.Services.AddSingleton<GalleryPage>();
 
-		builder.Services.AddSingleton<EditorViewModel>();
+        builder.Services.AddTransient<SampleDataService>();
+        builder.Services.AddTransient<EditorDetailViewModel>();
+        builder.Services.AddTransient<EditorDetailPage>();
 
-		builder.Services.AddSingleton<EditorPage>();
+        builder.Services.AddSingleton<EditorViewModel>();
 
-		builder.Services.AddSingleton<AboutViewModel>();
+        builder.Services.AddSingleton<EditorPage>();
 
-		builder.Services.AddSingleton<AboutPage>();
+        builder.Services.AddSingleton<AboutViewModel>();
 
-		return builder.Build();
-	}
+        builder.Services.AddSingleton<AboutPage>();
+
+        return builder.Build();
+    }
+
+    #endregion Methods
 }

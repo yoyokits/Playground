@@ -6,26 +6,25 @@
 	xmlns:views="clr-namespace:AdventureCamApp.Views"
 	xmlns:local="clr-namespace:AdventureCamApp">
 
-	<TabBar>
-		<ShellContent
-			Title="Main"
+    <TabBar>
+        <ShellContent
 			Icon="iconblank.png"
 			ContentTemplate="{DataTemplate views:MainPage}" />
-		<ShellContent
+        <ShellContent
 			Title="Preview"
 			Icon="iconmediaelement.png"
 			ContentTemplate="{DataTemplate views:PreviewPage}" />
-		<ShellContent
+        <ShellContent
 			Title="Gallery"
 			Icon="iconblank.png"
 			ContentTemplate="{DataTemplate views:GalleryPage}" />
-		<ShellContent
+        <ShellContent
 			Title="Editor"
 			Icon="iconlistdetail.png"
 			ContentTemplate="{DataTemplate views:EditorPage}" />
-		<ShellContent
+        <ShellContent
 			Title="About"
 			Icon="iconblank.png"
 			ContentTemplate="{DataTemplate views:AboutPage}" />
-	</TabBar>
+    </TabBar>
 </Shell>
