@@ -1,10 +1,10 @@
-﻿namespace AdventureCamApp
+﻿namespace AdventureCamApp;
+
+public partial class AppShell : Shell
 {
-    public partial class AppShell : Shell
-    {
-        public AppShell()
-        {
-            InitializeComponent();
-        }
-    }
+	public AppShell()
+	{
+		InitializeComponent();
+		Routing.RegisterRoute(nameof(EditorDetailPage), typeof(EditorDetailPage));
+	}
 }
