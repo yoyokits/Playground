@@ -4,6 +4,7 @@
 // ========================================== //
 
 using Camera.MAUI;
+using Sharpnado.Tabs;
 
 namespace AdventureCamApp;
 
@@ -18,6 +19,7 @@ public static class MauiProgram
             .UseMauiApp<App>()
             .UseMauiCommunityToolkitMediaElement()
             .UseMauiCommunityToolkit()
+            .UseSharpnadoTabs(loggerEnable: false)
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("FontAwesome6FreeBrands.otf", "FontAwesomeBrands");
