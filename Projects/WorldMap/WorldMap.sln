@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36414.22
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldMapApp", "WorldMapApp\WorldMapApp.csproj", "{AE5C9B89-52BF-9672-1D43-9BDE14517B38}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldMapControls", "WorldMapControls\WorldMapControls.csproj", "{8B589637-DE92-490A-865E-A5495232CDE0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AE5C9B89-52BF-9672-1D43-9BDE14517B38}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE5C9B89-52BF-9672-1D43-9BDE14517B38}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE5C9B89-52BF-9672-1D43-9BDE14517B38}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE5C9B89-52BF-9672-1D43-9BDE14517B38}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8B589637-DE92-490A-865E-A5495232CDE0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8B589637-DE92-490A-865E-A5495232CDE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8B589637-DE92-490A-865E-A5495232CDE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8B589637-DE92-490A-865E-A5495232CDE0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {98DAB763-28DF-4577-AEB5-EA2B41EDDA71}
+	EndGlobalSection
+EndGlobal
