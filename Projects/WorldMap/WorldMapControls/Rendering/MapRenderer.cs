@@ -23,30 +23,14 @@ namespace WorldMapControls.Rendering
     {
         #region Fields
 
-        /// <summary>
-        /// Defines the _canvas
-        /// </summary>
         private readonly Canvas _canvas;
-
-        /// <summary>
-        /// Defines the _pathStyler
-        /// </summary>
         private readonly PathStyler _pathStyler;
-
-        /// <summary>
-        /// Defines the _statusText
-        /// </summary>
         private readonly TextBlock _statusText;
 
         #endregion Fields
 
         #region Constructors
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="MapRenderer"/> class.
-        /// </summary>
-        /// <param name="canvas">The canvas<see cref="Canvas"/>.</param>
-        /// <param name="statusText">The statusText<see cref="TextBlock"/>.</param>
         public MapRenderer(Canvas canvas, TextBlock statusText)
         {
             _canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
@@ -56,15 +40,18 @@ namespace WorldMapControls.Rendering
 
         #endregion Constructors
 
+        #region Properties
+
+        public PathStyler PathStyler => _pathStyler;
+
+        #endregion Properties
+
         #region Methods
 
-        /// <summary>
-        /// The RenderFallbackMap.
-        /// </summary>
         public void RenderFallbackMap()
         {
             ClearCanvas();
-            _pathStyler.ClearRegistry(); // Clear path registry
+            _pathStyler.ClearRegistry();
 
             const double width = 800;
             const double height = 400;
@@ -86,16 +73,10 @@ namespace WorldMapControls.Rendering
             _statusText.Text = $"FALLBACK: Created {samples.Length} sample regions.";
         }
 
-        /// <summary>
-        /// The RenderMap.
-        /// </summary>
-        /// <param name="mapData">The mapData<see cref="MapData"/>.</param>
-        /// <param name="width">The width<see cref="double"/>.</param>
-        /// <param name="height">The height<see cref="double"/>.</param>
         public void RenderMap(MapData mapData, double width, double height)
         {
             ClearCanvas();
-            _pathStyler.ClearRegistry(); // Clear path registry
+            _pathStyler.ClearRegistry();
             SetupCanvas(width, height);
             AddBackground(width, height);
 
@@ -118,11 +99,6 @@ namespace WorldMapControls.Rendering
             _canvas.UpdateLayout();
         }
 
-        /// <summary>
-        /// The AddBackground.
-        /// </summary>
-        /// <param name="width">The width<see cref="double"/>.</param>
-        /// <param name="height">The height<see cref="double"/>.</param>
         private void AddBackground(double width, double height)
         {
             var background = new Rectangle
@@ -134,10 +110,6 @@ namespace WorldMapControls.Rendering
             _canvas.Children.Add(background);
         }
 
-        /// <summary>
-        /// The AddCountryLabels.
-        /// </summary>
-        /// <param name="countryBounds">The countryBounds<see cref="List{(string name, Rect bounds)}"/>.</param>
         private void AddCountryLabels(List<(string name, Rect bounds)> countryBounds)
         {
             var labelCreator = new CountryLabelCreator(_canvas);
@@ -145,18 +117,8 @@ namespace WorldMapControls.Rendering
                 labelCreator.AddLabel(name, bounds);
         }
 
-        /// <summary>
-        /// The ClearCanvas.
-        /// </summary>
         private void ClearCanvas() => _canvas.Children.Clear();
 
-        /// <summary>
-        /// The CreateCountryPaths.
-        /// </summary>
-        /// <param name="country">The country<see cref="CountryInfo"/>.</param>
-        /// <param name="width">The width<see cref="double"/>.</param>
-        /// <param name="height">The height<see cref="double"/>.</param>
-        /// <returns>The <see cref="IEnumerable{WpfPath}"/>.</returns>
         private IEnumerable<WpfPath> CreateCountryPaths(CountryInfo country, double width, double height)
         {
             var builder = new CountryPathBuilder();
@@ -168,15 +130,6 @@ namespace WorldMapControls.Rendering
             };
         }
 
-        /// <summary>
-        /// The CreateSampleRectangle.
-        /// </summary>
-        /// <param name="name">The name<see cref="string"/>.</param>
-        /// <param name="x">The x<see cref="double"/>.</param>
-        /// <param name="y">The y<see cref="double"/>.</param>
-        /// <param name="width">The width<see cref="double"/>.</param>
-        /// <param name="height">The height<see cref="double"/>.</param>
-        /// <returns>The <see cref="Rectangle"/>.</returns>
         private Rectangle CreateSampleRectangle(string name, double x, double y, double width, double height)
         {
             var rect = new Rectangle
@@ -207,11 +160,6 @@ namespace WorldMapControls.Rendering
             return rect;
         }
 
-        /// <summary>
-        /// The SetupCanvas.
-        /// </summary>
-        /// <param name="width">The width<see cref="double"/>.</param>
-        /// <param name="height">The height<see cref="double"/>.</param>
         private void SetupCanvas(double width, double height)
         {
             _canvas.Width = width;
