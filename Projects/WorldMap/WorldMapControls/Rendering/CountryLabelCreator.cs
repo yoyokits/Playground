@@ -3,7 +3,7 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace WorldMapApp.Rendering
+namespace WorldMapControls.Rendering
 {
     using System;
     using System.Globalization;
@@ -71,10 +71,10 @@ namespace WorldMapApp.Rendering
 
         private void PositionLabel(TextBlock label, string countryName, Rect bounds)
         {
-            var centerX = bounds.X + bounds.Width / 2;
-            var centerY = bounds.Y + bounds.Height / 2;
+            var cx = bounds.X + bounds.Width / 2;
+            var cy = bounds.Y + bounds.Height / 2;
 
-            var formattedText = new FormattedText(
+            var ft = new FormattedText(
                 countryName,
                 CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
@@ -83,8 +83,8 @@ namespace WorldMapApp.Rendering
                 label.Foreground,
                 VisualTreeHelper.GetDpi(_canvas).PixelsPerDip);
 
-            Canvas.SetLeft(label, centerX - formattedText.Width / 2);
-            Canvas.SetTop(label, centerY - formattedText.Height / 2);
+            Canvas.SetLeft(label, cx - ft.Width / 2);
+            Canvas.SetTop(label, cy - ft.Height / 2);
         }
 
         #endregion Methods

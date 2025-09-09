@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="world-countries.geo.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Maps\world-countries.geo.json" />
   </ItemGroup>
 

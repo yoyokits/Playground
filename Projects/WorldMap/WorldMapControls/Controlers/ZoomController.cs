@@ -3,11 +3,11 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace WorldMapApp.Controls
+namespace WorldMapControls.Controls
 {
     using System;
     using System.Windows;
-    using WorldMapApp.Models;
+    using WorldMapControls.Models;
 
     /// <summary>
     /// Handles zoom control logic.

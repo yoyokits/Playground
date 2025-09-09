@@ -3,7 +3,7 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace WorldMapApp.Rendering
+namespace WorldMapControls.Rendering
 {
     using System;
     using System.Collections.Generic;
@@ -13,7 +13,7 @@ namespace WorldMapApp.Rendering
     using System.Windows.Input;
     using System.Windows.Media;
     using System.Windows.Shapes;
-    using WorldMapApp.Models;
+    using WorldMapControls.Models;
     using WpfPath = System.Windows.Shapes.Path;
 
     /// <summary>
@@ -142,33 +142,28 @@ namespace WorldMapApp.Rendering
         {
             var labelCreator = new CountryLabelCreator(_canvas);
             foreach (var (name, bounds) in countryBounds)
-            {
                 labelCreator.AddLabel(name, bounds);
-            }
         }
 
         /// <summary>
         /// The ClearCanvas.
         /// </summary>
-        private void ClearCanvas()
-        {
-            _canvas.Children.Clear();
-        }
+        private void ClearCanvas() => _canvas.Children.Clear();
 
         /// <summary>
         /// The CreateCountryPaths.
         /// </summary>
-        /// <param name="country">The country<see cref="Country"/>.</param>
+        /// <param name="country">The country<see cref="CountryInfo"/>.</param>
         /// <param name="width">The width<see cref="double"/>.</param>
         /// <param name="height">The height<see cref="double"/>.</param>
         /// <returns>The <see cref="IEnumerable{WpfPath}"/>.</returns>
-        private IEnumerable<WpfPath> CreateCountryPaths(Country country, double width, double height)
+        private IEnumerable<WpfPath> CreateCountryPaths(CountryInfo country, double width, double height)
         {
-            var pathBuilder = new CountryPathBuilder();
+            var builder = new CountryPathBuilder();
             return country.GeometryType switch
             {
-                CountryGeometryType.Polygon => new[] { pathBuilder.BuildPolygonPath(country.Geometry, width, height) }.Where(p => p != null)!,
-                CountryGeometryType.MultiPolygon => pathBuilder.BuildMultiPolygonPaths(country.Geometry, width, height),
+                CountryGeometryType.Polygon => new[] { builder.BuildPolygonPath(country.Geometry, width, height) }.Where(p => p != null)!,
+                CountryGeometryType.MultiPolygon => builder.BuildMultiPolygonPaths(country.Geometry, width, height),
                 _ => Enumerable.Empty<WpfPath>()
             };
         }

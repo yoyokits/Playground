@@ -3,7 +3,7 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace WorldMapApp.Rendering
+namespace WorldMapControls.Rendering
 {
     using System.Collections.Generic;
     using System.Windows.Controls;
