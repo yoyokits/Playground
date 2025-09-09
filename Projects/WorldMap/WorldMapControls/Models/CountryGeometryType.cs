@@ -3,7 +3,7 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace WorldMapApp.Models
+namespace WorldMapControls.Models
 {
     /// <summary>
     /// Defines the CountryGeometryType.

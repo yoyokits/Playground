@@ -3,9 +3,14 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace WorldMapApp.Models
+namespace WorldMapControls.Models
 {
     using System.Text.Json.Nodes;
+    using WorldMapControls.Models.Enums;
 
-    public record Country(string Name, CountryGeometryType GeometryType, JsonNode? Geometry);
+    public record CountryInfo(
+        string Name,
+        Country Country,
+        CountryGeometryType GeometryType,
+        JsonNode? Geometry);
 }

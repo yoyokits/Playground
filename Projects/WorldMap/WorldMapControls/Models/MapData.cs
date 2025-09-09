@@ -3,9 +3,9 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace WorldMapApp.Models
+namespace WorldMapControls.Models
 {
     using System.Collections.Generic;
 
-    public record MapData(List<Country> Countries);
+    public record MapData(List<CountryInfo> Countries);
 }
