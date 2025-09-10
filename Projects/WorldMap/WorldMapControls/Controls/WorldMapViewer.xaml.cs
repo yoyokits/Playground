@@ -12,13 +12,14 @@ namespace WorldMapControls.Controls
     using System.Text.Json.Nodes;
     using System.Threading.Tasks;
     using System.Windows;
-    using System.Windows.Controls;          // Added for Grid base
+    using System.Windows.Controls;
     using System.Windows.Input;
     using System.Windows.Media;
     using WorldMapControls.Models;
     using WorldMapControls.Models.Enums;
     using WorldMapControls.Rendering;
     using WorldMapControls.Services;
+    using WorldMapControls.Extensions;
     using CountryEnum = WorldMapControls.Models.Enums.Country;
 
     // IMPORTANT: Must inherit from Grid because XAML root element is <Grid>
@@ -36,9 +37,18 @@ namespace WorldMapControls.Controls
         private readonly ResourceLoader _resourceLoader;
         private readonly ZoomController _zoomController;
 
+        private ColorMapType _selectedColorMapType = ColorMapType.Jet;
+
         #endregion Fields
 
         #region Dependency Properties
+
+        public static readonly DependencyProperty CountryCodeColorsJsonProperty =
+            DependencyProperty.Register(
+                nameof(CountryCodeColorsJson),
+                typeof(string),
+                typeof(WorldMapViewer),
+                new PropertyMetadata(null, OnCountryCodeColorsJsonChanged));
 
         public static readonly DependencyProperty CountryColorOverridesProperty =
             DependencyProperty.Register(
@@ -54,6 +64,12 @@ namespace WorldMapControls.Controls
                 typeof(WorldMapViewer),
                 new PropertyMetadata(null, OnCountryColorsJsonChanged));
 
+        public string? CountryCodeColorsJson
+        {
+            get => (string?)GetValue(CountryCodeColorsJsonProperty);
+            set => SetValue(CountryCodeColorsJsonProperty, value);
+        }
+
         public IEnumerable<CountryColorMapping>? CountryColorOverrides
         {
             get => (IEnumerable<CountryColorMapping>?)GetValue(CountryColorOverridesProperty);
@@ -64,6 +80,12 @@ namespace WorldMapControls.Controls
         {
             get => (string?)GetValue(CountryColorsJsonProperty);
             set => SetValue(CountryColorsJsonProperty, value);
+        }
+
+        private static void OnCountryCodeColorsJsonChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is WorldMapViewer v)
+                v.ApplyCountryColorsJson(e.NewValue as string);
         }
 
         private static void OnCountryColorOverridesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -87,6 +109,9 @@ namespace WorldMapControls.Controls
             _resourceLoader = new ResourceLoader();
             _mapRenderer = new MapRenderer(MapCanvas, StatusText);
             _zoomController = new ZoomController(MIN_ZOOM, MAX_ZOOM, ZOOM_STEP);
+
+            // Initialize ColorMap ComboBox
+            InitializeColorMapCombo();
         }
 
         #endregion Constructors
@@ -95,9 +120,57 @@ namespace WorldMapControls.Controls
 
         private static CountryEnum MapToEnum(string name)
         {
-            if (string.IsNullOrWhiteSpace(name)) return CountryEnum.Unknown;
-            var normalized = new string(name.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
-            return MapDictionaries.NormalizedNameToCountry.TryGetValue(normalized, out var c) ? c : CountryEnum.Unknown;
+            if (string.IsNullOrWhiteSpace(name))
+                return CountryEnum.Unknown;
+
+            // Log ALL country names from GeoJSON for debugging
+            System.Diagnostics.Debug.WriteLine($"[GeoJSON Country] Processing: '{name}'");
+
+            // First try the specialized GeoJSON name mapper for shortened names
+            var mappedCountry = GeoJsonNameMapper.MapGeoJsonNameToCountry(name);
+            if (mappedCountry != Country.Unknown)
+            {
+                System.Diagnostics.Debug.WriteLine($"[GeoJSON Mapped] '{name}' -> {mappedCountry}");
+                return (CountryEnum)mappedCountry; // Cast to CountryEnum alias
+            }
+
+            // Fallback to the existing normalized name lookup
+            var normalized = new string(name.Where(ch => char.IsLetterOrDigit(ch)).ToArray()).ToLowerInvariant();
+            
+            if (MapDictionaries.NormalizedNameToCountry.TryGetValue(normalized, out var country))
+            {
+                System.Diagnostics.Debug.WriteLine($"[Dictionary Mapped] '{name}' (normalized: '{normalized}') -> {country}");
+                return (CountryEnum)country; // Cast to CountryEnum alias
+            }
+
+            // Log unmatched names for debugging - this is critical for finding missing mappings
+            System.Diagnostics.Debug.WriteLine($"❌ [UNMAPPED COUNTRY] '{name}' (normalized: '{normalized}') -> NOT FOUND");
+            return CountryEnum.Unknown;
+        }
+
+        private void ApplyColorMapButton_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyColorMapToCountries(_selectedColorMapType);
+        }
+
+        private void ApplyColorMapToCountries(ColorMapType colorMapType)
+        {
+            try
+            {
+                var mappings = CountryCodeColorService.BuildColorMappings(colorMapType);
+                if (mappings.Count == 0)
+                {
+                    StatusText.Text = "No country codes available to apply colormap.";
+                    return;
+                }
+
+                CountryColorOverrides = mappings;
+                StatusText.Text = $"Applied {colorMapType} colormap using {mappings.Count} country codes.";
+            }
+            catch (System.Exception ex)
+            {
+                StatusText.Text = $"Error applying colormap: {ex.Message}";
+            }
         }
 
         private void ApplyCountryColorOverrides()
@@ -109,10 +182,21 @@ namespace WorldMapControls.Controls
             {
                 foreach (var mapping in CountryColorOverrides)
                 {
+                    // Strategy 1: Use MapDictionaries mapping if available
                     if (MapDictionaries.CountryToName.TryGetValue(mapping.Country, out var display))
+                    {
                         dict[display] = mapping.Fill;
-                    else
-                        dict[mapping.Country.ToString()] = mapping.Fill;
+                    }
+
+                    // Strategy 2: Add common GeoJSON name variations for the country
+                    var countryVariations = mapping.Country.GetGeoJsonNameVariations();
+                    foreach (var variation in countryVariations)
+                    {
+                        dict[variation] = mapping.Fill;
+                    }
+
+                    // Strategy 3: Use enum name as fallback
+                    dict[mapping.Country.ToString()] = mapping.Fill;
                 }
             }
 
@@ -124,118 +208,13 @@ namespace WorldMapControls.Controls
 
         private void ApplyCountryColorsJson(string? json)
         {
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                CountryColorOverrides = null;
-                if (StatusText != null) StatusText.Text = "Color overrides cleared.";
-                return;
-            }
+            // Delegate JSON parsing to the dedicated service
+            var result = CountryColorJsonParser.Parse(json);
 
-            try
-            {
-                using var doc = JsonDocument.Parse(json);
-                var list = new List<CountryColorMapping>();
+            CountryColorOverrides = result.ColorMappings.Length > 0 ? result.ColorMappings : null;
 
-                void TryAdd(string? countryName, string? colorStr)
-                {
-                    if (string.IsNullOrWhiteSpace(countryName) || string.IsNullOrWhiteSpace(colorStr))
-                        return;
-
-                    // Normalize color
-                    if (!colorStr.StartsWith("#", StringComparison.Ordinal))
-                    {
-                        // Named color attempt
-                        try
-                        {
-                            var named = (Color)ColorConverter.ConvertFromString(colorStr);
-                            colorStr = $"#{named.A:X2}{named.R:X2}{named.G:X2}{named.B:X2}";
-                        }
-                        catch
-                        {
-                            return;
-                        }
-                    }
-
-                    // Map to enum
-                    var normalized = new string(countryName.ToLowerInvariant()
-                        .Replace("'", "")
-                        .Replace("-", "")
-                        .Replace(" ", "")
-                        .ToCharArray());
-
-                    if (!MapDictionaries.NormalizedNameToCountry.TryGetValue(normalized, out var enumCountry))
-                        return;
-
-                    // Create brush
-                    Brush fill;
-                    try
-                    {
-                        var c = (Color)ColorConverter.ConvertFromString(colorStr);
-                        fill = new SolidColorBrush(c);
-                        fill.Freeze();
-                    }
-                    catch
-                    {
-                        return;
-                    }
-
-                    // Positional record usage (fixes: no parameterless ctor for CountryColorMapping)
-                    list.Add(new CountryColorMapping(enumCountry, fill));
-                }
-
-                var root = doc.RootElement;
-
-                if (root.ValueKind == JsonValueKind.Object)
-                {
-                    foreach (var prop in root.EnumerateObject())
-                    {
-                        var colorVal = prop.Value.ValueKind == JsonValueKind.String ? prop.Value.GetString() : null;
-                        TryAdd(prop.Name, colorVal);
-                    }
-                }
-                else if (root.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var el in root.EnumerateArray())
-                    {
-                        switch (el.ValueKind)
-                        {
-                            case JsonValueKind.Object:
-                                {
-                                    string? country = null;
-                                    string? color = null;
-                                    if (el.TryGetProperty("country", out var cEl) && cEl.ValueKind == JsonValueKind.String)
-                                        country = cEl.GetString();
-                                    if (el.TryGetProperty("color", out var colEl) && colEl.ValueKind == JsonValueKind.String)
-                                        color = colEl.GetString();
-                                    else if (el.TryGetProperty("value", out var vCol) && vCol.ValueKind == JsonValueKind.String)
-                                        color = vCol.GetString();
-                                    TryAdd(country, color);
-                                }
-                                break;
-
-                            case JsonValueKind.Array:
-                                if (el.GetArrayLength() == 2 &&
-                                    el[0].ValueKind == JsonValueKind.String &&
-                                    el[1].ValueKind == JsonValueKind.String)
-                                {
-                                    TryAdd(el[0].GetString(), el[1].GetString());
-                                }
-                                break;
-                        }
-                    }
-                }
-
-                CountryColorOverrides = list.Count > 0 ? list : null;
-                if (StatusText != null)
-                    StatusText.Text = list.Count > 0
-                        ? $"Applied {list.Count} color overrides."
-                        : "No valid country colors found.";
-            }
-            catch (Exception ex)
-            {
-                if (StatusText != null)
-                    StatusText.Text = $"Invalid color JSON: {ex.Message}";
-            }
+            if (StatusText != null)
+                StatusText.Text = result.Message;
         }
 
         private void ApplyZoomTransform(ZoomResult zr, Point mouse)
@@ -253,16 +232,139 @@ namespace WorldMapControls.Controls
             sv.ScrollToVerticalOffset(newV);
         }
 
+        private void ColorMapCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ColorMapCombo.SelectedItem is string selectedName &&
+                Enum.TryParse<ColorMapType>(selectedName, out var colorMapType))
+            {
+                _selectedColorMapType = colorMapType;
+                StatusText.Text = $"ColorMap changed to {selectedName}";
+            }
+        }
+
+        private void InitializeColorMapCombo()
+        {
+            var colorMapTypes = Enum.GetValues<ColorMapType>();
+            foreach (var colorMap in colorMapTypes)
+            {
+                ColorMapCombo.Items.Add(colorMap.ToString());
+            }
+            ColorMapCombo.SelectedIndex = 0; // Default to Jet
+        }
+
+        #if DEBUG
+        private void RunMappingDiagnostics()
+        {
+            // Run final verification first
+            FinalMappingVerification.RunFinalVerification();
+            
+            // Run the comprehensive CountryCode investigation
+            CountryCodeMappingInvestigator.RunDebugDiagnostics();
+            
+            // Run the comprehensive test suite
+            var testReport = CountryMappingTestSuite.GenerateTestReport();
+            System.Diagnostics.Debug.WriteLine("=== COMPREHENSIVE MAPPING TEST RESULTS ===");
+            System.Diagnostics.Debug.WriteLine(testReport);
+            
+            var report = CountryMappingValidator.GenerateValidationReport();
+            System.Diagnostics.Debug.WriteLine("=== COUNTRY MAPPING DIAGNOSTICS ===");
+            System.Diagnostics.Debug.WriteLine(report);
+            
+            // Test the GeoJSON name mapper with common problematic names INCLUDING the exact "Dem. Rep. Congo"
+            var testNames = new[]
+            {
+                "Congo", "Congo, Rep.", "Congo, Dem. Rep.", 
+                "Dem. Rep. Congo", "Democratic Rep. Congo", // CRITICAL TEST CASES
+                "Central African Rep.", "S. Sudan", "Sudan",
+                "Georgia", "Armenia", "Turkmenistan", "Somalia",
+                "Iceland", "Ireland", "Lesotho", "Eswatini", "Swaziland",
+                "Benin", "Togo", "Djibouti", "Eritrea", "Comoros",
+                "Seychelles", "Mauritius", "Brunei", "Bahamas", "Barbados",
+                "North Macedonia", "Macedonia", "FYROM", "Czech Republic", "Czechia",
+                "Bosnia and Herzegovina", "Vatican City", "Holy See"
+            };
+            
+            System.Diagnostics.Debug.WriteLine("=== GEOJSON NAME MAPPING TEST ===");
+            foreach (var testName in testNames)
+            {
+                var mapped = GeoJsonNameMapper.MapGeoJsonNameToCountry(testName);
+                var status = mapped != Country.Unknown ? "✅" : "❌";
+                System.Diagnostics.Debug.WriteLine($"{status} '{testName}' -> {mapped}");
+            }
+            
+            // Test the normalized lookup as well
+            System.Diagnostics.Debug.WriteLine("=== NORMALIZED NAME LOOKUP TEST ===");
+            foreach (var testName in testNames)
+            {
+                var normalized = new string(testName.Where(ch => char.IsLetterOrDigit(ch)).ToArray()).ToLowerInvariant();
+                var found = MapDictionaries.NormalizedNameToCountry.TryGetValue(normalized, out var country);
+                var status = found ? "✅" : "❌";
+                System.Diagnostics.Debug.WriteLine($"{status} '{testName}' (normalized: '{normalized}') -> {(found ? country : "NOT FOUND")}");
+            }
+
+            // Test CountryCode to Country mappings
+            System.Diagnostics.Debug.WriteLine("=== COUNTRYCODE TO COUNTRY MAPPING TEST ===");
+            var problematicCodes = new[]
+            {
+                CountryCode.CD, CountryCode.CG, CountryCode.CF, CountryCode.SS, CountryCode.SD,
+                CountryCode.GE, CountryCode.AM, CountryCode.TM, CountryCode.SO, CountryCode.IS,
+                CountryCode.IE, CountryCode.LS, CountryCode.SZ, CountryCode.BJ, CountryCode.TG,
+                CountryCode.DJ, CountryCode.ER, CountryCode.KM, CountryCode.SC, CountryCode.MU,
+                CountryCode.BN, CountryCode.BS, CountryCode.BB, CountryCode.MK, CountryCode.BA,
+                CountryCode.CZ, CountryCode.VA
+            };
+
+            foreach (var code in problematicCodes)
+            {
+                var country = code.ToCountry();
+                var status = country != Country.Unknown ? "✅" : "❌";
+                System.Diagnostics.Debug.WriteLine($"{status} {code} -> {country}");
+            }
+        }
+        #endif
+
         private async Task LoadAndRenderMapAsync()
         {
             try
             {
                 StatusText.Text = "Loading world map data...";
                 var geoJson = await _resourceLoader.LoadGeoJsonAsync();
+                
+                #if DEBUG
+                // CRITICAL: Extract and log ALL country names from the actual GeoJSON
+                System.Diagnostics.Debug.WriteLine("=== ANALYZING ACTUAL GEOJSON COUNTRY NAMES ===");
+                var geoJsonReport = GeoJsonCountryExtractor.GenerateCountryNamesReport(geoJson);
+                System.Diagnostics.Debug.WriteLine(geoJsonReport);
+                #endif
+                
                 var mapData = ParseGeoJsonData(geoJson);
                 _mapRenderer.RenderMap(mapData, MAP_WIDTH, MAP_HEIGHT);
                 ApplyCountryColorOverrides();
                 StatusText.Text = $"Loaded {mapData.Countries.Count} countries. Hover for details.";
+                
+                #if DEBUG
+                // Run comprehensive mapping diagnostics
+                RunMappingDiagnostics();
+                
+                // Generate fix verification report
+                var fixReport = CountryMappingVerifier.GenerateFixReport();
+                System.Diagnostics.Debug.WriteLine(fixReport);
+                
+                // Also run the detailed coverage diagnostics
+                var detailed = CountryCodeColorService.DiagnoseDetailed(mapData);
+                System.Diagnostics.Debug.WriteLine($"[Coverage] Countries in enum: {detailed.EnumCountries.Count}");
+                System.Diagnostics.Debug.WriteLine($"[Coverage] Countries in map: {detailed.MappedCountries.Count}");
+                System.Diagnostics.Debug.WriteLine($"[Coverage] Unknown feature names: {detailed.UnknownFeatureNames.Count}");
+                
+                if (detailed.UnknownFeatureNames.Count > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine("=== UNMAPPED COUNTRIES FROM PARSED DATA ===");
+                    foreach (var name in detailed.UnknownFeatureNames)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"❌ UNMAPPED: '{name}'");
+                    }
+                }
+                #endif
             }
             catch (Exception ex)
             {
@@ -296,14 +398,25 @@ namespace WorldMapControls.Controls
             var properties = feature["properties"];
             var geometry = feature["geometry"];
 
+            // Try multiple property names that might contain the country name
             var name =
                 properties?["NAME"]?.ToString() ??
                 properties?["Name"]?.ToString() ??
                 properties?["name"]?.ToString() ??
                 properties?["ADMIN"]?.ToString() ??
+                properties?["NAME_EN"]?.ToString() ??
+                properties?["NAME_LONG"]?.ToString() ??
+                properties?["COUNTRY"]?.ToString() ??
+                properties?["ADM0_A3"]?.ToString() ??
                 "Unknown";
 
             var enumValue = MapToEnum(name);
+
+            // Debug output to see what countries are being parsed
+            if (enumValue == CountryEnum.Unknown && name != "Unknown")
+            {
+                System.Diagnostics.Debug.WriteLine($"[MapParsing] Unmapped country: '{name}'");
+            }
 
             return geometry?["type"]?.ToString() switch
             {

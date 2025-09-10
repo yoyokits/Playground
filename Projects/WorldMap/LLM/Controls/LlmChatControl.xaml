@@ -6,7 +6,6 @@
              MinWidth="420"
              MinHeight="300">
     <UserControl.Resources>
-
         <!-- Message Template (User messages: reuse ↺, all: copy 📋) -->
         <DataTemplate x:Key="MessageTemplate">
             <Border Margin="0,3"
@@ -130,9 +129,10 @@
             <!-- Command bar -->
         </Grid.RowDefinitions>
 
-        <!-- Top controls (2-row grid) -->
+        <!-- Top controls (3 rows now) -->
         <Grid Grid.Row="0" Margin="0,0,0,4">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
@@ -144,26 +144,17 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <!-- Row 1 -->
+            <!-- Row 1: Provider selection -->
             <TextBlock Grid.Row="0" Grid.Column="0"
-                       Text="Model:"
+                       Text="Provider:"
                        VerticalAlignment="Center"
                        Margin="0,0,4,0"
                        Foreground="#DDD" />
             <ComboBox Grid.Row="0" Grid.Column="1"
-                      x:Name="ModelCombo"
-                      ItemsSource="{Binding ModelNames}"
-                      SelectionChanged="ModelCombo_SelectionChanged"
-                      MinWidth="200"
+                      x:Name="ProviderCombo"
+                      SelectionChanged="ProviderCombo_SelectionChanged"
+                      MinWidth="120"
                       Margin="0,0,6,0" />
-            <Button Grid.Row="0" Grid.Column="2"
-                    x:Name="RefreshButton"
-                    Width="34"
-                    Height="26"
-                    Content="↻"
-                    ToolTip="Refresh models"
-                    Click="RefreshButton_Click"
-                    Margin="0,0,6,0" />
             <Button Grid.Row="0" Grid.Column="3"
                     x:Name="SettingsButton"
                     Content="Settings"
@@ -172,8 +163,29 @@
                     Click="SettingsButton_Click"
                     Margin="0,0,6,0" />
 
-            <!-- Row 2 -->
-            <CheckBox Grid.Row="1" Grid.Column="0"
+            <!-- Row 2: Model selection -->
+            <TextBlock Grid.Row="1" Grid.Column="0"
+                       Text="Model:"
+                       VerticalAlignment="Center"
+                       Margin="0,4,4,0"
+                       Foreground="#DDD" />
+            <ComboBox Grid.Row="1" Grid.Column="1"
+                      x:Name="ModelCombo"
+                      ItemsSource="{Binding ModelNames}"
+                      SelectionChanged="ModelCombo_SelectionChanged"
+                      MinWidth="200"
+                      Margin="0,4,6,0" />
+            <Button Grid.Row="1" Grid.Column="2"
+                    x:Name="RefreshButton"
+                    Width="34"
+                    Height="26"
+                    Content="↻"
+                    ToolTip="Refresh models"
+                    Click="RefreshButton_Click"
+                    Margin="0,4,6,0" />
+
+            <!-- Row 3: Options -->
+            <CheckBox Grid.Row="2" Grid.Column="0"
                       Grid.ColumnSpan="2"
                       x:Name="EnterSendsCheckBox"
                       Content="Enter sends (Ctrl+Enter newline)"
@@ -181,7 +193,7 @@
                       Unchecked="EnterSendsCheckBox_Changed"
                       Foreground="#DDD"
                       Margin="0,4,0,0" />
-            <TextBlock Grid.Row="1" Grid.Column="2"
+            <TextBlock Grid.Row="2" Grid.Column="2"
                        Margin="12,6,0,0"
                        Foreground="#888"
                        Text="Reuse: ↺  Copy: 📋" />

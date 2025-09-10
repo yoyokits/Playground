@@ -15,6 +15,7 @@ namespace LLM.Controls
     using System.Windows.Input;
     using System.Windows.Media;
     using LLM.Models;
+    using LLM.Models.Enums;
     using LLM.Services;
     using LLM.Settings;
 
@@ -61,6 +62,7 @@ namespace LLM.Controls
             InitializeComponent();
             ConversationItems.ItemsSource = _conversation;
             DataContext = this;
+            InitializeProviderCombo();
         }
 
         #endregion Constructors
@@ -85,23 +87,66 @@ namespace LLM.Controls
 
         #region Settings / Models
 
+        private void InitializeProviderCombo()
+        {
+            ProviderCombo.Items.Add("GPT4All");
+            ProviderCombo.Items.Add("Ollama");
+            ProviderCombo.SelectedIndex = 0; // Default to GPT4All
+        }
+
         private async Task RefreshModelsAsync()
         {
             try
             {
-                var models = await ModelService.GetAvailableModelsAsync();
-                _modelNames.Clear();
-                foreach (var m in models) _modelNames.Add(m);
+                var provider = SettingsService.Current.SelectedProvider;
+                AppendSystem($"Fetching models from {provider}...");
 
+                var models = await ModelService.GetAvailableModelsAsync(provider);
+                _modelNames.Clear();
+
+                if (models.Length == 0)
+                {
+                    AppendSystem($"No models found for {provider}. Ensure {provider} is running and has models loaded.");
+                    return;
+                }
+
+                foreach (var m in models)
+                {
+                    _modelNames.Add(m);
+                }
+
+                AppendSystem($"Found {models.Length} models: {string.Join(", ", models.Take(3))}{(models.Length > 3 ? "..." : "")}");
+
+                // Auto-select first model if none selected
                 if (string.IsNullOrEmpty(SettingsService.Current.SelectedModel) && _modelNames.Count > 0)
                 {
-                    SettingsService.Current.SelectedModel = _modelNames[0];
-                    SettingsService.RaiseChangedAndSave();
+                    var updatedSettings = new AppSettings
+                    {
+                        SelectedProvider = SettingsService.Current.SelectedProvider,
+                        SelectedModel = _modelNames[0],
+                        MaxTokens = SettingsService.Current.MaxTokens,
+                        Temperature = SettingsService.Current.Temperature,
+                        SystemPrompt = SettingsService.Current.SystemPrompt,
+                        EnterSends = SettingsService.Current.EnterSends
+                    };
+                    SettingsService.Update(updatedSettings);
+                    AppendSystem($"Auto-selected model: {_modelNames[0]}");
                 }
             }
             catch (Exception ex)
             {
                 AppendSystem($"Failed to load models: {ex.Message}");
+
+                // Provide specific troubleshooting for each provider
+                var provider = SettingsService.Current.SelectedProvider;
+                if (provider == LLMProvider.Ollama)
+                {
+                    AppendSystem("Troubleshooting Ollama:\n• Ensure Ollama is running: 'ollama serve'\n• Check if models are installed: 'ollama list'\n• Try pulling a model: 'ollama pull llama3.2'");
+                }
+                else if (provider == LLMProvider.GPT4All)
+                {
+                    AppendSystem("Troubleshooting GPT4All:\n• Ensure GPT4All application is running\n• Enable 'LocalServer' in GPT4All settings\n• Load a model in GPT4All interface");
+                }
             }
         }
 
@@ -114,6 +159,8 @@ namespace LLM.Controls
             try
             {
                 EnterSendsCheckBox.IsChecked = SettingsService.Current.EnterSends;
+                ProviderCombo.SelectedIndex = (int)SettingsService.Current.SelectedProvider;
+
                 if (!string.IsNullOrEmpty(SettingsService.Current.SelectedModel) &&
                     _modelNames.Contains(SettingsService.Current.SelectedModel))
                 {
@@ -208,6 +255,44 @@ namespace LLM.Controls
             }
         }
 
+        private async void ProviderCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_updatingFromSettings) return;
+
+            var newProvider = (LLMProvider)ProviderCombo.SelectedIndex;
+
+            // Update settings properly
+            var currentSettings = SettingsService.Current;
+            var updatedSettings = new AppSettings
+            {
+                SelectedProvider = newProvider,
+                SelectedModel = null, // Clear model when changing provider
+                MaxTokens = currentSettings.MaxTokens,
+                Temperature = currentSettings.Temperature,
+                SystemPrompt = currentSettings.SystemPrompt,
+                EnterSends = currentSettings.EnterSends
+            };
+
+            SettingsService.Update(updatedSettings);
+
+            ResetAccessor();
+            AppendSystem($"LLM Provider changed to {newProvider}. Refreshing models...");
+
+            // Add status feedback
+            StatusBlock.Text = $"Loading {newProvider} models...";
+
+            try
+            {
+                await RefreshModelsAsync();
+                StatusBlock.Text = $"Loaded {_modelNames.Count} {newProvider} models";
+            }
+            catch (Exception ex)
+            {
+                StatusBlock.Text = $"Failed to load {newProvider} models";
+                AppendSystem($"Error loading models: {ex.Message}");
+            }
+        }
+
         private void RefreshButton_Click(object sender, RoutedEventArgs e) => _ = RefreshModelsAsync();
 
         private void ReuseUserMessage_Click(object sender, RoutedEventArgs e)
@@ -247,7 +332,8 @@ namespace LLM.Controls
                 SelectedModel = s.SelectedModel,
                 MaxTokens = s.MaxTokens,
                 Temperature = s.Temperature,
-                SystemPrompt = s.SystemPrompt
+                SystemPrompt = s.SystemPrompt,
+                Provider = s.SelectedProvider
             };
         }
 
@@ -256,7 +342,7 @@ namespace LLM.Controls
             if (_activeAssistantIndex < 0 || _activeAssistantIndex >= _conversation.Count) return;
             var current = _conversation[_activeAssistantIndex];
             _conversation[_activeAssistantIndex] = current with { Content = content };
-            LastOutput = content; // <-- update dependency property
+            LastOutput = content; // Update dependency property
             ScrollToEnd();
             _activeAssistantIndex = -1;
         }
@@ -274,7 +360,7 @@ namespace LLM.Controls
         {
             if (string.IsNullOrWhiteSpace(SettingsService.Current.SelectedModel))
             {
-                AppendSystem("No model selected. Refresh models or load one in GPT4All.");
+                AppendSystem($"No model selected. Refresh models or ensure {SettingsService.Current.SelectedProvider} is running.");
                 return;
             }
 
