@@ -480,6 +480,7 @@ namespace WorldMapControls.Models
                 { Country.EquatorialGuinea, Continent.Africa },
                 { Country.Gabon, Continent.Africa },
                 { Country.SaoTomeAndPrincipe, Continent.Africa },
+                { Country.Somalia, Continent.Africa },
 
                 // Oceania
                 { Country.Australia, Continent.Oceania },
@@ -603,6 +604,7 @@ namespace WorldMapControls.Models
 
             // Continent -> Countries
             ContinentToCountries = CountryToContinent
+                .Where(kv => kv.Key != Country.Unknown && kv.Value != Continent.Unknown)
                 .GroupBy(kv => kv.Value, kv => kv.Key)
                 .ToDictionary(g => g.Key, g => (IReadOnlyList<Country>)g.OrderBy(c => CountryToName[c]).ToList());
 
@@ -730,6 +732,9 @@ namespace WorldMapControls.Models
             // Somalia aliases
             AddAlias(dict, "somalirepublic", Country.Somalia);
             AddAlias(dict, "federalrepublicsomaliaof", Country.Somalia);
+
+            // Kosovo alias
+            AddAlias(dict, "kosovo", Country.Kosovo);
 
             // Additional aliases for missing countries from debug output
             AddAlias(dict, "eswatini", Country.Eswatini);

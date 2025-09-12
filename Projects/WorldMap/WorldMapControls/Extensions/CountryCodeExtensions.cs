@@ -314,10 +314,13 @@ namespace WorldMapControls.Extensions
             // Z
             { CountryCode.ZA, "South Africa" },
             { CountryCode.ZM, "Zambia" },
-            { CountryCode.ZW, "Zimbabwe" }
+            { CountryCode.ZW, "Zimbabwe" },
+
+            // Kosovo (user-assigned code)
+            { CountryCode.XK, "Kosovo" }
         };
 
-        // COMPREHENSIVE mapping from Country enum to CountryCode enum
+        // Country -> CountryCode mapping
         private static readonly Dictionary<Country, CountryCode> CountryToCountryCode = new()
         {
             // North America
@@ -393,6 +396,7 @@ namespace WorldMapControls.Extensions
             { Country.Ireland, CountryCode.IE },
             { Country.Georgia, CountryCode.GE },
             { Country.Armenia, CountryCode.AM },
+            { Country.Kosovo, CountryCode.XK },
 
             // Asia
             { Country.China, CountryCode.CN },
@@ -491,6 +495,8 @@ namespace WorldMapControls.Extensions
             { Country.Togo, CountryCode.TG },
             { Country.Djibouti, CountryCode.DJ },
             { Country.Eritrea, CountryCode.ER },
+
+            // Oceania
             { Country.Australia, CountryCode.AU },
             { Country.NewZealand, CountryCode.NZ },
             { Country.FijiIslands, CountryCode.FJ },
@@ -507,7 +513,7 @@ namespace WorldMapControls.Extensions
             { Country.Nauru, CountryCode.NR },
             { Country.Tuvalu, CountryCode.TV },
 
-            // Additional commonly missing countries
+            // Additional + territories
             { Country.Cyprus, CountryCode.CY },
             { Country.Malta, CountryCode.MT },
             { Country.Luxembourg, CountryCode.LU },
@@ -530,8 +536,6 @@ namespace WorldMapControls.Extensions
             { Country.StKittsNevis, CountryCode.KN },
             { Country.Bahamas, CountryCode.BS },
             { Country.Brunei, CountryCode.BN },
-            
-            // ALL Territories and Dependencies - Complete Mapping
             { Country.Anguilla, CountryCode.AI },
             { Country.Antarctica, CountryCode.AQ },
             { Country.AmericanSamoa, CountryCode.AS },
@@ -586,10 +590,9 @@ namespace WorldMapControls.Extensions
             { Country.Mayotte, CountryCode.YT }
         };
 
-        // COMPREHENSIVE mapping from CountryCode to Country enum (reverse mapping)
+        // Reverse mapping
         private static readonly Dictionary<CountryCode, Country> CountryCodeToCountry = new()
         {
-            // All main countries already mapped - just add the missing small ones
             { CountryCode.US, Country.UnitedStates },
             { CountryCode.CA, Country.Canada },
             { CountryCode.MX, Country.Mexico },
@@ -658,6 +661,7 @@ namespace WorldMapControls.Extensions
             { CountryCode.IE, Country.Ireland },
             { CountryCode.GE, Country.Georgia },
             { CountryCode.AM, Country.Armenia },
+            { CountryCode.XK, Country.Kosovo },
             { CountryCode.CN, Country.China },
             { CountryCode.JP, Country.Japan },
             { CountryCode.KR, Country.SouthKorea },
@@ -765,8 +769,6 @@ namespace WorldMapControls.Extensions
             { CountryCode.KI, Country.Kiribati },
             { CountryCode.NR, Country.Nauru },
             { CountryCode.TV, Country.Tuvalu },
-
-            // Additional commonly missing small countries and territories
             { CountryCode.CY, Country.Cyprus },
             { CountryCode.MT, Country.Malta },
             { CountryCode.LU, Country.Luxembourg },
@@ -789,8 +791,6 @@ namespace WorldMapControls.Extensions
             { CountryCode.KN, Country.StKittsNevis },
             { CountryCode.BS, Country.Bahamas },
             { CountryCode.BN, Country.Brunei },
-            
-            // ALL Territories and Dependencies - Complete Reverse Mapping
             { CountryCode.AI, Country.Anguilla },
             { CountryCode.AQ, Country.Antarctica },
             { CountryCode.AS, Country.AmericanSamoa },
@@ -849,59 +849,26 @@ namespace WorldMapControls.Extensions
 
         #region Methods
 
-        /// <summary>
-        /// Gets all available country codes (excluding Unknown).
-        /// </summary>
-        public static CountryCode[] GetAllCountryCodes()
-        {
-            return Enum.GetValues<CountryCode>()
-                .Where(code => code != CountryCode.Unknown)
-                .OrderBy(code => code.ToString())
+        public static CountryCode[] GetAllCountryCodes() =>
+            Enum.GetValues<CountryCode>()
+                .Where(c => c != CountryCode.Unknown)
+                .OrderBy(c => c.ToString())
                 .ToArray();
-        }
 
-        /// <summary>
-        /// Gets the country code from a country name.
-        /// </summary>
-        public static CountryCode GetCountryCode(string countryName)
-        {
-            var pair = CountryCodeToName.FirstOrDefault(kvp =>
-                string.Equals(kvp.Value, countryName, StringComparison.OrdinalIgnoreCase));
+        public static CountryCode GetCountryCode(string countryName) =>
+            CountryNameVariationsExtensions.ParseCountryName(countryName);
 
-            return pair.Key != default ? pair.Key : CountryCode.Unknown;
-        }
+        public static string GetCountryName(this CountryCode countryCode) =>
+            CountryCodeToName.TryGetValue(countryCode, out var name) ? name : countryCode.ToString();
 
-        /// <summary>
-        /// Gets the country name for the country code.
-        /// </summary>
-        public static string GetCountryName(this CountryCode countryCode)
-        {
-            return CountryCodeToName.TryGetValue(countryCode, out var name) ? name : countryCode.ToString();
-        }
+        public static string ToCode(this CountryCode countryCode) =>
+            countryCode == CountryCode.Unknown ? string.Empty : countryCode.ToString();
 
-        /// <summary>
-        /// Converts the country code to its string representation (2-letter code).
-        /// </summary>
-        public static string ToCode(this CountryCode countryCode)
-        {
-            return countryCode == CountryCode.Unknown ? "" : countryCode.ToString();
-        }
+        public static Country ToCountry(this CountryCode countryCode) =>
+            CountryCodeToCountry.TryGetValue(countryCode, out var c) ? c : Country.Unknown;
 
-        /// <summary>
-        /// Gets the Country enum for the given CountryCode.
-        /// </summary>
-        public static Country ToCountry(this CountryCode countryCode)
-        {
-            return CountryCodeToCountry.TryGetValue(countryCode, out var country) ? country : Country.Unknown;
-        }
-
-        /// <summary>
-        /// Gets the CountryCode for the given Country enum.
-        /// </summary>
-        public static CountryCode ToCountryCode(this Country country)
-        {
-            return CountryToCountryCode.TryGetValue(country, out var code) ? code : CountryCode.Unknown;
-        }
+        public static CountryCode ToCountryCode(this Country country) =>
+            CountryToCountryCode.TryGetValue(country, out var code) ? code : CountryCode.Unknown;
 
         #endregion Methods
     }
