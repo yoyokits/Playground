@@ -5,31 +5,114 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using WorldMapControls.Extensions;
+using WorldMapControls.Models;
 using WorldMapControls.Models.Enums;
 
 namespace WorldMapControls.Services
 {
     /// <summary>
     /// Specialized mapper for handling shortened country names commonly found in GeoJSON files.
-    /// This addresses the issue where GeoJSON uses abbreviated names like "Congo" instead of full names.
+    /// This addresses the issue where GeoJSON uses abbreviated or alternate names that do not match the internal enums directly.
     /// </summary>
     public static class GeoJsonNameMapper
     {
         /// <summary>
         /// Maps commonly shortened GeoJSON country names to their full Country enum values.
-        /// This is the primary fix for countries not being colored due to name mismatches.
         /// </summary>
         private static readonly Dictionary<string, Country> JsonNameToCountry = new(StringComparer.OrdinalIgnoreCase)
         {
-            // CONGO VARIATIONS - Critical fixes
+            // BASIC STANDARD COUNTRY NAMES - Essential for mapping
+            ["Germany"] = Country.Germany,
+            ["France"] = Country.France,
+            ["Italy"] = Country.Italy,
+            ["Spain"] = Country.Spain,
+            ["Japan"] = Country.Japan,
+            ["Brazil"] = Country.Brazil,
+            ["China"] = Country.China,
+            ["India"] = Country.India,
+            ["Russia"] = Country.Russia,
+            ["Russian Federation"] = Country.Russia,
+            ["Russian Fed."] = Country.Russia,
+            ["Canada"] = Country.Canada,
+            ["Australia"] = Country.Australia,
+            ["Mexico"] = Country.Mexico,
+            ["Argentina"] = Country.Argentina,
+            ["Chile"] = Country.Chile,
+            ["Colombia"] = Country.Colombia,
+            ["Peru"] = Country.Peru,
+            ["Venezuela"] = Country.Venezuela,
+            ["Poland"] = Country.Poland,
+            ["Ukraine"] = Country.Ukraine,
+            ["Turkey"] = Country.Turkey,
+            ["Greece"] = Country.Greece,
+            ["Portugal"] = Country.Portugal,
+            ["Belgium"] = Country.Belgium,
+            ["Netherlands"] = Country.Netherlands,
+            ["Switzerland"] = Country.Switzerland,
+            ["Austria"] = Country.Austria,
+            ["Sweden"] = Country.Sweden,
+            ["Norway"] = Country.Norway,
+            ["Finland"] = Country.Finland,
+            ["Denmark"] = Country.Denmark,
+            ["South Africa"] = Country.SouthAfrica,
+            ["Egypt"] = Country.Egypt,
+            ["Nigeria"] = Country.Nigeria,
+            ["Kenya"] = Country.Kenya,
+            ["Ethiopia"] = Country.Ethiopia,
+            ["Morocco"] = Country.Morocco,
+            ["Algeria"] = Country.Algeria,
+            ["Tunisia"] = Country.Tunisia,
+            ["Libya"] = Country.Libya,
+            ["Ghana"] = Country.Ghana,
+            ["Senegal"] = Country.Senegal,
+            ["Mali"] = Country.Mali,
+            ["Niger"] = Country.Niger,
+            ["Chad"] = Country.Chad,
+            ["Cameroon"] = Country.Cameroon,
+            ["Angola"] = Country.Angola,
+            ["Mozambique"] = Country.Mozambique,
+            ["Zambia"] = Country.Zambia,
+            ["Zimbabwe"] = Country.Zimbabwe,
+            ["Botswana"] = Country.Botswana,
+            ["Namibia"] = Country.Namibia,
+            ["Madagascar"] = Country.Madagascar,
+            ["Thailand"] = Country.Thailand,
+            ["Vietnam"] = Country.Vietnam,
+            ["Indonesia"] = Country.Indonesia,
+            ["Malaysia"] = Country.Malaysia,
+            ["Philippines"] = Country.Philippines,
+            ["Singapore"] = Country.Singapore,
+            ["Bangladesh"] = Country.Bangladesh,
+            ["Pakistan"] = Country.Pakistan,
+            ["Afghanistan"] = Country.Afghanistan,
+            ["Nepal"] = Country.Nepal,
+            ["Iran"] = Country.Iran,
+            ["Iraq"] = Country.Iraq,
+            ["Israel"] = Country.Israel,
+            ["Jordan"] = Country.Jordan,
+            ["Lebanon"] = Country.Lebanon,
+            ["Syria"] = Country.Syria,
+            ["Syrian Arab Republic"] = Country.Syria,
+            ["Iran (Islamic Republic of)"] = Country.Iran,
+            ["Venezuela (Bolivarian Republic of)"] = Country.Venezuela,
+            ["Bolivia (Plurinational State of)"] = Country.Bolivia,
+            ["Tanzania, United Republic of"] = Country.Tanzania,
+            ["Korea, Republic of"] = Country.SouthKorea,
+            ["Korea Rep."] = Country.SouthKorea,
+            ["Korea, Dem. People's Rep. of"] = Country.NorthKorea,
+            ["Korea DPR"] = Country.NorthKorea,
+            ["Lao People's Democratic Republic"] = Country.Laos,
+
+            // CONGO VARIATIONS
             ["Congo"] = Country.RepublicOfCongo,
             ["Congo, Rep."] = Country.RepublicOfCongo,
             ["Congo Republic"] = Country.RepublicOfCongo,
             ["Congo-Brazzaville"] = Country.RepublicOfCongo,
             ["Republic of the Congo"] = Country.RepublicOfCongo,
-            
             ["Congo, Dem. Rep."] = Country.DemocraticRepublicOfCongo,
-            ["Dem. Rep. Congo"] = Country.DemocraticRepublicOfCongo, // Added this specific variation
+            ["Dem. Rep. Congo"] = Country.DemocraticRepublicOfCongo,
             ["Democratic Rep. Congo"] = Country.DemocraticRepublicOfCongo,
             ["Congo DR"] = Country.DemocraticRepublicOfCongo,
             ["Congo DRC"] = Country.DemocraticRepublicOfCongo,
@@ -38,23 +121,23 @@ namespace WorldMapControls.Services
             ["Zaire"] = Country.DemocraticRepublicOfCongo,
             ["DRC"] = Country.DemocraticRepublicOfCongo,
 
-            // CENTRAL AFRICAN REPUBLIC VARIATIONS
+            // CENTRAL AFRICAN REPUBLIC
             ["Central African Rep."] = Country.CentralAfricanRepublic,
             ["Central African Republic"] = Country.CentralAfricanRepublic,
             ["CAR"] = Country.CentralAfricanRepublic,
 
-            // SOUTH SUDAN VARIATIONS
+            // SOUTH SUDAN
             ["S. Sudan"] = Country.SouthSudan,
             ["South Sudan"] = Country.SouthSudan,
             ["S Sudan"] = Country.SouthSudan,
             ["Republic of South Sudan"] = Country.SouthSudan,
 
-            // SUDAN VARIATIONS
+            // SUDAN
             ["Sudan"] = Country.Sudan,
             ["Republic of Sudan"] = Country.Sudan,
             ["Republic of the Sudan"] = Country.Sudan,
 
-            // GEORGIA AND ARMENIA
+            // GEORGIA / ARMENIA
             ["Georgia"] = Country.Georgia,
             ["Republic of Georgia"] = Country.Georgia,
             ["Armenia"] = Country.Armenia,
@@ -69,7 +152,7 @@ namespace WorldMapControls.Services
             ["Somali Republic"] = Country.Somalia,
             ["Federal Republic of Somalia"] = Country.Somalia,
 
-            // ICELAND AND IRELAND
+            // ICELAND / IRELAND
             ["Iceland"] = Country.Iceland,
             ["Republic of Iceland"] = Country.Iceland,
             ["Ireland"] = Country.Ireland,
@@ -81,7 +164,7 @@ namespace WorldMapControls.Services
             ["East Timor"] = Country.TimorLeste,
             ["Democratic Republic of Timor-Leste"] = Country.TimorLeste,
 
-            // AFRICAN COUNTRIES WITH COMMON VARIATIONS
+            // AFRICAN VARIATIONS
             ["Ivory Coast"] = Country.IvoryCoast,
             ["Côte d'Ivoire"] = Country.IvoryCoast,
             ["Cote d'Ivoire"] = Country.IvoryCoast,
@@ -94,14 +177,15 @@ namespace WorldMapControls.Services
             ["São Tomé and Príncipe"] = Country.SaoTomeAndPrincipe,
             ["Cape Verde"] = Country.CaboVerde,
             ["Cabo Verde"] = Country.CaboVerde,
+            ["Western Sahara"] = Country.WesternSahara,
 
-            // MIDDLE EASTERN COUNTRIES
+            // MIDDLE EAST
             ["United Arab Emirates"] = Country.UAE,
             ["UAE"] = Country.UAE,
             ["Saudi Arabia"] = Country.SaudiArabia,
             ["Kingdom of Saudi Arabia"] = Country.SaudiArabia,
 
-            // ASIAN COUNTRIES
+            // ASIA
             ["Myanmar"] = Country.Myanmar,
             ["Burma"] = Country.Myanmar,
             ["Sri Lanka"] = Country.SriLanka,
@@ -111,9 +195,9 @@ namespace WorldMapControls.Services
             ["Democratic People's Republic of Korea"] = Country.NorthKorea,
             ["South Korea"] = Country.SouthKorea,
             ["Republic of Korea"] = Country.SouthKorea,
-            ["Korea"] = Country.SouthKorea, // Default Korea to South Korea
+            ["Korea"] = Country.SouthKorea,
 
-            // EUROPEAN COUNTRIES
+            // EUROPEAN SPECIALS
             ["Czech Republic"] = Country.CzechRepublic,
             ["Czechia"] = Country.CzechRepublic,
             ["Bosnia and Herzegovina"] = Country.BosniaAndHerzegovina,
@@ -123,7 +207,7 @@ namespace WorldMapControls.Services
             ["Macedonia"] = Country.NorthMacedonia,
             ["FYROM"] = Country.NorthMacedonia,
 
-            // SMALL ISLAND STATES AND TERRITORIES
+            // SMALL ISLAND STATES & TERRITORIES
             ["Trinidad and Tobago"] = Country.Trinidad,
             ["Trinidad & Tobago"] = Country.Trinidad,
             ["Saint Lucia"] = Country.StLucia,
@@ -133,11 +217,17 @@ namespace WorldMapControls.Services
             ["Saint Kitts and Nevis"] = Country.StKittsNevis,
             ["St. Kitts and Nevis"] = Country.StKittsNevis,
             ["Antigua and Barbuda"] = Country.AntiguaBarbuda,
+            ["Grenada"] = Country.Grenada,
+            ["Dominica"] = Country.Dominica,
+            ["Barbados"] = Country.Barbados,
+            ["Bahamas"] = Country.Bahamas,
+            ["The Bahamas"] = Country.Bahamas,
 
-            // EUROPEAN MICROSTATES
+            // MICROSTATES
             ["San Marino"] = Country.SanMarino,
             ["Vatican City"] = Country.VaticanCity,
             ["Holy See"] = Country.VaticanCity,
+            ["Vatican"] = Country.VaticanCity,
 
             // AMERICAS
             ["United States"] = Country.UnitedStates,
@@ -159,25 +249,12 @@ namespace WorldMapControls.Services
             ["Marshall Islands"] = Country.MarshallIslands,
             ["Fiji"] = Country.FijiIslands,
 
-            // ADDITIONAL MISSING COUNTRIES FROM DEBUG OUTPUT
+            // ADDITIONAL FROM DEBUG OUTPUT
             ["Lesotho"] = Country.Lesotho,
             ["Eswatini"] = Country.Eswatini,
-            ["Swaziland"] = Country.Eswatini, // Alternative name
+            ["Swaziland"] = Country.Eswatini,
             ["Benin"] = Country.Benin,
             ["Togo"] = Country.Togo,
-            
-            // European microstates and small countries
-            ["Cyprus"] = Country.Cyprus,
-            ["Malta"] = Country.Malta,
-            ["Luxembourg"] = Country.Luxembourg,
-            ["Monaco"] = Country.Monaco,
-            ["Liechtenstein"] = Country.Liechtenstein,
-            ["Andorra"] = Country.Andorra,
-            ["San Marino"] = Country.SanMarino,
-            ["Vatican City"] = Country.VaticanCity,
-            ["Holy See"] = Country.VaticanCity,
-            
-            // African countries
             ["Djibouti"] = Country.Djibouti,
             ["Eritrea"] = Country.Eritrea,
             ["Comoros"] = Country.Comoros,
@@ -185,127 +262,193 @@ namespace WorldMapControls.Services
             ["Mauritius"] = Country.Mauritius,
             ["Cabo Verde"] = Country.CaboVerde,
             ["Cape Verde"] = Country.CaboVerde,
-            
-            // Caribbean countries
-            ["Barbados"] = Country.Barbados,
-            ["Trinidad and Tobago"] = Country.Trinidad,
-            ["Grenada"] = Country.Grenada,
-            ["Saint Lucia"] = Country.StLucia,
-            ["St. Lucia"] = Country.StLucia,
-            ["Saint Vincent and the Grenadines"] = Country.StVincent,
-            ["St. Vincent and the Grenadines"] = Country.StVincent,
-            ["Dominica"] = Country.Dominica,
-            ["Antigua and Barbuda"] = Country.AntiguaBarbuda,
-            ["Saint Kitts and Nevis"] = Country.StKittsNevis,
-            ["St. Kitts and Nevis"] = Country.StKittsNevis,
-            ["Bahamas"] = Country.Bahamas,
-            ["The Bahamas"] = Country.Bahamas,
-            
-            // Asian countries
             ["Brunei"] = Country.Brunei,
             ["Brunei Darussalam"] = Country.Brunei,
-            
-            // Additional countries that commonly appear unmapped in debug output
-            ["Lao PDR"] = Country.Laos,
-            ["Lao People's Democratic Republic"] = Country.Laos,
-            ["Laos"] = Country.Laos,
-            
-            // Bosnia variants
-            ["Bosnia and Herzegovina"] = Country.BosniaAndHerzegovina,
+
+            // BOSNIA VARIANTS
             ["Bosnia & Herzegovina"] = Country.BosniaAndHerzegovina,
             ["BiH"] = Country.BosniaAndHerzegovina,
-            
-            // Macedonia variants
-            ["Macedonia"] = Country.NorthMacedonia,
-            ["North Macedonia"] = Country.NorthMacedonia,
-            ["FYROM"] = Country.NorthMacedonia,
+
+            // MACEDONIA VARIANTS
             ["The former Yugoslav Republic of Macedonia"] = Country.NorthMacedonia,
-            
-            // Czech variants
-            ["Czech Republic"] = Country.CzechRepublic,
-            ["Czechia"] = Country.CzechRepublic,
-            
-            // Vatican variants
-            ["Vatican"] = Country.VaticanCity,
+
+            // VATICAN VARIANTS
             ["Vatican City State"] = Country.VaticanCity,
             ["Holy See (Vatican City State)"] = Country.VaticanCity,
-            
-            // Small island states that often appear unmapped
+
+            // SAO TOME VARIANTS
             ["São Tomé and Príncipe"] = Country.SaoTomeAndPrincipe,
             ["Sao Tome & Principe"] = Country.SaoTomeAndPrincipe,
-            
-            // Former country names
-            ["Swaziland"] = Country.Eswatini,
-            ["Kingdom of Swaziland"] = Country.Eswatini,
-            
-            // Additional African country variants
-            ["Central African Republic"] = Country.CentralAfricanRepublic,
-            ["CAR"] = Country.CentralAfricanRepublic,
-            
-            // European country variants
-            ["Republic of Belarus"] = Country.Belarus,
-            ["Republic of Moldova"] = Country.Moldova,
-            ["Republic of Estonia"] = Country.Estonia,
-            ["Republic of Latvia"] = Country.Latvia,
-            ["Republic of Lithuania"] = Country.Lithuania
+
+            // KOSOVO (newly added)
+            ["Kosovo"] = Country.Kosovo,
+            ["Republic of Kosovo"] = Country.Kosovo,
+            ["Kosova"] = Country.Kosovo,
+            ["Kosovë"] = Country.Kosovo,
+
+            // Edge formatting
+            ["United States (USA)"] = Country.UnitedStates,
+            ["United States, The"] = Country.UnitedStates,
+            ["The United States"] = Country.UnitedStates,
+            ["UNITED-STATES"] = Country.UnitedStates,
+            ["United_States"] = Country.UnitedStates,
+            ["United.States"] = Country.UnitedStates,
+
+            // NEW VARIANTS FROM DIAGNOSTIC (previously unmapped)
+            ["Aland"] = Country.AlandIslands,
+            ["Åland"] = Country.AlandIslands,
+            ["Antigua and Barb."] = Country.AntiguaBarbuda,
+            ["Ashmore and Cartier Is."] = Country.Australia,
+            ["Ashmore and Cartier Islands"] = Country.Australia,
+            ["Australian Indian Ocean Territories"] = Country.Australia,
+            ["Bosnia and Herz."] = Country.BosniaAndHerzegovina,
+            ["Br. Indian Ocean Ter."] = Country.BritishIndianOceanTerritory,
+            ["British Virgin Is."] = Country.VirginIslandsBritish,
+            ["British Virgin Islands"] = Country.VirginIslandsBritish,
+            ["Cayman Is."] = Country.CaymanIslands,
+            ["Cook Is."] = Country.CookIslands,
+            ["Dem. Rep. Korea"] = Country.NorthKorea,
+            ["Eq. Guinea"] = Country.EquatorialGuinea,
+            ["Faeroe Is."] = Country.FaroeIslands,
+            ["Faeroe Islands"] = Country.FaroeIslands,
+            ["Falkland Is."] = Country.FalklandIslands,
+            ["Falkland Islands / Malvinas"] = Country.FalklandIslands,
+            ["Federated States of Micronesia"] = Country.Micronesia,
+            ["Fr. Polynesia"] = Country.FrenchPolynesia,
+            ["Fr. S. Antarctic Lands"] = Country.FrenchSouthernTerritories,
+            ["French Southern and Antarctic Lands"] = Country.FrenchSouthernTerritories,
+            ["Heard I. and McDonald Is."] = Country.HeardIslandAndMcDonaldIslands,
+            ["Heard I. and McDonald Islands"] = Country.HeardIslandAndMcDonaldIslands,
+            ["Indian Ocean Ter."] = Country.BritishIndianOceanTerritory,
+            ["Indian Ocean Territories"] = Country.BritishIndianOceanTerritory,
+            ["Kingdom of eSwatini"] = Country.Eswatini,
+            ["Marshall Is."] = Country.MarshallIslands,
+            ["N. Cyprus"] = Country.Cyprus,
+            ["Northern Cyprus"] = Country.Cyprus,
+            ["Turkish Republic of Northern Cyprus"] = Country.Cyprus,
+            ["N. Mariana Is."] = Country.NorthernMarianaIslands,
+            ["People's Republic of China"] = Country.China,
+            ["Pitcairn Is."] = Country.Pitcairn,
+            ["Pitcairn Islands"] = Country.Pitcairn,
+            ["Republic of Cabo Verde"] = Country.CaboVerde,
+            ["Republic of Serbia"] = Country.Serbia,
+            ["S. Geo. and the Is."] = Country.SouthGeorgiaAndSouthSandwichIslands,
+            ["South Georgia and the Islands"] = Country.SouthGeorgiaAndSouthSandwichIslands,
+            ["Saint Barthelemy"] = Country.SaintBarthelemy,
+            ["St-Barthélemy"] = Country.SaintBarthelemy,
+            ["St-Martin"] = Country.SaintMartin,
+            ["Saint Helena"] = Country.SaintHelenaAscensionAndTristanDaCunha,
+            ["São Tomé and Principe"] = Country.SaoTomeAndPrincipe,
+            ["Siachen Glacier"] = Country.India,
+            ["Solomon Is."] = Country.SolomonIslands,
+            ["Somaliland"] = Country.Somalia,
+            ["South Georgia and the South Sandwich Islands"] = Country.SouthGeorgiaAndSouthSandwichIslands,
+            ["St. Pierre and Miquelon"] = Country.SaintPierreAndMiquelon,
+            ["St. Vin. and Gren."] = Country.StVincent,
+            ["The Gambia"] = Country.Gambia,
+            ["Turks and Caicos Is."] = Country.TurksAndCaicosIslands,
+            ["U.S. Virgin Is."] = Country.VirginIslandsUS,
+            ["United States Virgin Islands"] = Country.VirginIslandsUS,
+            ["W. Sahara"] = Country.WesternSahara,
+            ["Wallis and Futuna Is."] = Country.WallisAndFutuna,
+            ["Wallis and Futuna Islands"] = Country.WallisAndFutuna,
         };
 
         /// <summary>
-        /// Attempts to map a GeoJSON country name to a Country enum value.
-        /// This method handles the shortened names commonly found in GeoJSON files.
+        /// Attempts to map a GeoJSON country name to a Country enum value using multiple strategies.
         /// </summary>
-        /// <param name="geoJsonName">The country name as it appears in the GeoJSON file</param>
-        /// <returns>The corresponding Country enum value, or Country.Unknown if no match found</returns>
         public static Country MapGeoJsonNameToCountry(string geoJsonName)
         {
             if (string.IsNullOrWhiteSpace(geoJsonName))
                 return Country.Unknown;
 
-            // Direct lookup first
-            if (JsonNameToCountry.TryGetValue(geoJsonName, out var country))
-                return country;
+            // 1. Direct dictionary lookup
+            if (JsonNameToCountry.TryGetValue(geoJsonName, out var direct))
+                return direct;
 
-            // Fallback to normalized lookup (remove spaces, special chars, lowercase)
+            // 2. Remove parenthetical segments e.g. "Iran (Islamic Republic of)" -> "Iran"
+            var stripped = StripParenthetical(geoJsonName);
+            if (!string.Equals(stripped, geoJsonName, StringComparison.Ordinal))
+            {
+                if (JsonNameToCountry.TryGetValue(stripped, out var parenMatch))
+                    return parenMatch;
+            }
+
+            // 3. Country name variations (maps to CountryCode first)
+            var code = CountryNameVariationsExtensions.ParseCountryName(geoJsonName);
+            if (code != CountryCode.Unknown)
+            {
+                var viaCode = code.ToCountry();
+                if (viaCode != Country.Unknown) return viaCode;
+            }
+
+            // 4. Try stripped version through variations
+            if (!string.Equals(stripped, geoJsonName, StringComparison.Ordinal))
+            {
+                var code2 = CountryNameVariationsExtensions.ParseCountryName(stripped);
+                if (code2 != CountryCode.Unknown)
+                {
+                    var c2 = code2.ToCountry();
+                    if (c2 != Country.Unknown) return c2;
+                }
+            }
+
+            // 5. Normalized dictionary in MapDictionaries
             var normalized = NormalizeName(geoJsonName);
-            var match = JsonNameToCountry.FirstOrDefault(kvp => 
-                NormalizeName(kvp.Key) == normalized);
-            
-            return match.Key != null ? match.Value : Country.Unknown;
+            if (MapDictionaries.NormalizedNameToCountry.TryGetValue(normalized, out var normCountry) && normCountry != Country.Unknown)
+                return normCountry;
+
+            // 6. Try removing commas and retry
+            var noComma = geoJsonName.Replace(",", "").Trim();
+            if (!string.Equals(noComma, geoJsonName, StringComparison.OrdinalIgnoreCase))
+            {
+                var code3 = CountryNameVariationsExtensions.ParseCountryName(noComma);
+                if (code3 != CountryCode.Unknown)
+                {
+                    var c3 = code3.ToCountry();
+                    if (c3 != Country.Unknown) return c3;
+                }
+            }
+
+            // 7. Fallback: exact compare against CountryToName display names
+            foreach (var kvp in MapDictionaries.CountryToName)
+            {
+                if (string.Equals(kvp.Value, geoJsonName, StringComparison.OrdinalIgnoreCase))
+                    return kvp.Key;
+            }
+
+            // 8. Final attempt: normalized compare vs display names
+            var normalizedStripped = NormalizeName(stripped);
+            foreach (var kvp in MapDictionaries.CountryToName)
+            {
+                if (NormalizeName(kvp.Value) == normalized || NormalizeName(kvp.Value) == normalizedStripped)
+                    return kvp.Key;
+            }
+
+            return Country.Unknown;
         }
 
-        /// <summary>
-        /// Gets all known GeoJSON name variations for a given country.
-        /// Useful for testing and validation.
-        /// </summary>
-        /// <param name="country">The country to get variations for</param>
-        /// <returns>List of GeoJSON names that map to this country</returns>
-        public static List<string> GetGeoJsonVariations(Country country)
+        public static List<string> GetGeoJsonVariations(Country country) =>
+            JsonNameToCountry.Where(kvp => kvp.Value == country).Select(kvp => kvp.Key).ToList();
+
+        private static string NormalizeName(string name) =>
+            string.IsNullOrWhiteSpace(name)
+                ? string.Empty
+                : new string(name.Where(c => char.IsLetterOrDigit(c)).ToArray()).ToLowerInvariant();
+
+        private static string StripParenthetical(string name)
         {
-            return JsonNameToCountry
-                .Where(kvp => kvp.Value == country)
-                .Select(kvp => kvp.Key)
-                .ToList();
+            var idx = name.IndexOf('(');
+            if (idx > 0)
+            {
+                var core = name[..idx].Trim();
+                // Remove trailing commas / spaces
+                core = core.Trim().TrimEnd(',').Trim();
+                return core;
+            }
+            return name;
         }
 
-        /// <summary>
-        /// Normalizes a country name for comparison by removing spaces, 
-        /// special characters, and converting to lowercase.
-        /// </summary>
-        private static string NormalizeName(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-                return string.Empty;
-
-            return new string(name
-                .Where(c => char.IsLetterOrDigit(c))
-                .ToArray())
-                .ToLowerInvariant();
-        }
-
-        /// <summary>
-        /// Validates that all countries in the mapping have corresponding Country enum values.
-        /// Returns any countries that are mapped to invalid enum values.
-        /// </summary>
         public static List<string> ValidateMappings()
         {
             var invalid = new List<string>();

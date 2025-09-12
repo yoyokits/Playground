@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldMapControls", "WorldMa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LLM", "LLM\LLM.csproj", "{492F78CD-17A3-40B5-9C6B-3EF410691453}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldMapTest", "WorldMapTest\WorldMapTest.csproj", "{10D41322-2514-45D7-9C99-D402E4DCDA90}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{492F78CD-17A3-40B5-9C6B-3EF410691453}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{492F78CD-17A3-40B5-9C6B-3EF410691453}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{492F78CD-17A3-40B5-9C6B-3EF410691453}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10D41322-2514-45D7-9C99-D402E4DCDA90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10D41322-2514-45D7-9C99-D402E4DCDA90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10D41322-2514-45D7-9C99-D402E4DCDA90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10D41322-2514-45D7-9C99-D402E4DCDA90}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

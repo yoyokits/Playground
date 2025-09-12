@@ -3,231 +3,468 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using WorldMapControls.Models.Enums;
+
 namespace WorldMapControls.Extensions
 {
-    using System;
-    using WorldMapControls.Models.Enums;
-
     /// <summary>
-    /// Provides country name variations for GeoJSON mapping.
+    /// Provides comprehensive country name variations and parsing capabilities.
+    /// This addresses the issue where country names in data sources don't exactly match enum values.
     /// </summary>
     public static class CountryNameVariationsExtensions
     {
-        #region Methods
+        #region Fields
 
         /// <summary>
-        /// Gets all possible name variations for a country that might appear in GeoJSON data.
+        /// Comprehensive mapping from various country name formats to CountryCode enum values.
+        /// This dictionary handles multiple name variations for each country, including:
+        /// - Official names, common names, historical names
+        /// - UN format names with parentheses
+        /// - Shortened forms and abbreviations
+        /// - Alternative spellings and transliterations
         /// </summary>
-        /// <param name="country">The country enum value</param>
-        /// <returns>Array of possible country names</returns>
-        public static string[] GetGeoJsonNameVariations(this Country country)
+        private static readonly Dictionary<string, CountryCode> CountryNameToCodeMapping = 
+            BuildComprehensiveCountryNameDictionary();
+
+        #endregion
+
+        #region Public Methods
+
+        /// <summary>
+        /// Gets the CountryCode for a given country name, handling various name formats and variations.
+        /// This is the primary method for parsing country names from any source.
+        /// </summary>
+        /// <param name="countryName">The country name to parse</param>
+        /// <returns>The corresponding CountryCode, or CountryCode.Unknown if not found</returns>
+        public static CountryCode ParseCountryName(string countryName)
         {
-            return country switch
-            {
-                Country.UnitedStates => new[] { "United States of America", "United States", "USA", "US", "America" },
-                Country.UnitedKingdom => new[] { "United Kingdom", "UK", "Great Britain", "Britain", "England", "Scotland", "Wales", "Northern Ireland" },
-                Country.DemocraticRepublicOfCongo => new[] { 
-                    "Democratic Republic of the Congo", "Congo (Democratic Republic)", 
-                    "DRC", "Congo-Kinshasa", "Zaire", "Congo, Dem. Rep.", "Congo DR", "Congo DRC",
-                    "Dem. Rep. Congo", "Democratic Rep. Congo" 
-                },
-                Country.RepublicOfCongo => new[] { 
-                    "Republic of the Congo", "Congo", "Congo-Brazzaville", "Congo, Rep.", "Congo Republic" 
-                },
-                Country.CentralAfricanRepublic => new[] { 
-                    "Central African Republic", "CAR", "Central African Rep." 
-                },
-                Country.SouthAfrica => new[] { "South Africa", "Republic of South Africa", "RSA" },
-                Country.IvoryCoast => new[] { "Ivory Coast", "Côte d'Ivoire", "Cote d'Ivoire" },
-                Country.UAE => new[] { "United Arab Emirates", "UAE" },
-                Country.SaudiArabia => new[] { "Saudi Arabia", "Kingdom of Saudi Arabia" },
-                Country.NorthKorea => new[] { "North Korea", "Democratic People's Republic of Korea", "DPRK" },
-                Country.SouthKorea => new[] { "South Korea", "Republic of Korea", "Korea, South" },
-                Country.NewZealand => new[] { "New Zealand", "NZ" },
-                Country.PapuaNewGuinea => new[] { "Papua New Guinea", "PNG" },
-                Country.SriLanka => new[] { "Sri Lanka", "Ceylon" },
-                Country.Myanmar => new[] { "Myanmar", "Burma" },
-                Country.CzechRepublic => new[] { "Czech Republic", "Czechia" },
-                Country.NorthMacedonia => new[] { "North Macedonia", "Macedonia", "Republic of North Macedonia", "FYROM" },
-                Country.BosniaAndHerzegovina => new[] { "Bosnia and Herzegovina", "Bosnia & Herzegovina", "BiH" },
-                Country.SaoTomeAndPrincipe => new[] { "Sao Tome and Principe", "São Tomé and Príncipe" },
-                Country.TimorLeste => new[] { "Timor-Leste", "East Timor", "Democratic Republic of Timor-Leste" },
+            if (string.IsNullOrWhiteSpace(countryName))
+                return CountryCode.Unknown;
 
-                // Caribbean countries
-                Country.Jamaica => new[] { "Jamaica" },
-                Country.Cuba => new[] { "Cuba", "Republic of Cuba" },
-                Country.Haiti => new[] { "Haiti", "Republic of Haiti" },
-                Country.DominicanRepublic => new[] { "Dominican Republic", "DR" },
+            // Try direct lookup first
+            if (CountryNameToCodeMapping.TryGetValue(countryName, out var directMatch))
+                return directMatch;
 
-                // African countries (enhanced with more variations)
-                Country.BurkinaFaso => new[] { "Burkina Faso" },
-                Country.Guinea => new[] { "Guinea", "Republic of Guinea" },
-                Country.GuineaBissau => new[] { "Guinea-Bissau", "Guinea Bissau" },
-                Country.SierraLeone => new[] { "Sierra Leone" },
-                Country.EquatorialGuinea => new[] { "Equatorial Guinea" },
-                Country.SouthSudan => new[] { 
-                    "South Sudan", "Republic of South Sudan", "S. Sudan", "S Sudan" 
-                },
-                Country.Ethiopia => new[] { "Ethiopia", "Federal Democratic Republic of Ethiopia" },
-                Country.Tanzania => new[] { "Tanzania", "United Republic of Tanzania" },
-                Country.Kenya => new[] { "Kenya", "Republic of Kenya" },
-                Country.Uganda => new[] { "Uganda", "Republic of Uganda" },
-                Country.Rwanda => new[] { "Rwanda", "Republic of Rwanda" },
-                Country.Burundi => new[] { "Burundi", "Republic of Burundi" },
-                Country.Chad => new[] { "Chad", "Republic of Chad" },
-                Country.Sudan => new[] { 
-                    "Sudan", "Republic of the Sudan", "Republic of Sudan" 
-                },
-                Country.Libya => new[] { "Libya", "State of Libya" },
-                Country.Tunisia => new[] { "Tunisia", "Republic of Tunisia" },
-                Country.Algeria => new[] { "Algeria", "People's Democratic Republic of Algeria" },
-                Country.Morocco => new[] { "Morocco", "Kingdom of Morocco" },
-                Country.Ghana => new[] { "Ghana", "Republic of Ghana" },
-                Country.Mali => new[] { "Mali", "Republic of Mali" },
-                Country.Niger => new[] { "Niger", "Republic of the Niger" },
-                Country.Senegal => new[] { "Senegal", "Republic of Senegal" },
-                Country.Liberia => new[] { "Liberia", "Republic of Liberia" },
-                Country.Gambia => new[] { "Gambia", "The Gambia", "Republic of The Gambia" },
-                Country.Mauritania => new[] { "Mauritania", "Islamic Republic of Mauritania" },
-                Country.Madagascar => new[] { "Madagascar", "Republic of Madagascar" },
-                Country.Mozambique => new[] { "Mozambique", "Republic of Mozambique" },
-                Country.Zimbabwe => new[] { "Zimbabwe", "Republic of Zimbabwe" },
-                Country.Botswana => new[] { "Botswana", "Republic of Botswana" },
-                Country.Namibia => new[] { "Namibia", "Republic of Namibia" },
-                Country.Zambia => new[] { "Zambia", "Republic of Zambia" },
-                Country.Malawi => new[] { "Malawi", "Republic of Malawi" },
-                Country.Angola => new[] { "Angola", "Republic of Angola" },
-                Country.Cameroon => new[] { "Cameroon", "Republic of Cameroon" },
-                Country.Gabon => new[] { "Gabon", "Gabonese Republic" },
-                Country.Nigeria => new[] { "Nigeria", "Federal Republic of Nigeria" },
-                Country.Egypt => new[] { "Egypt", "Arab Republic of Egypt" },
-                Country.Somalia => new[] { 
-                    "Somalia", "Somali Republic", "Federal Republic of Somalia" 
-                }, // Added Somalia variations
-
-                // European countries (enhanced)
-                Country.Germany => new[] { "Germany", "Federal Republic of Germany", "Deutschland" },
-                Country.France => new[] { "France", "French Republic" },
-                Country.Italy => new[] { "Italy", "Italian Republic" },
-                Country.Spain => new[] { "Spain", "Kingdom of Spain" },
-                Country.Portugal => new[] { "Portugal", "Portuguese Republic" },
-                Country.Netherlands => new[] { "Netherlands", "Kingdom of the Netherlands", "Holland" },
-                Country.Belgium => new[] { "Belgium", "Kingdom of Belgium" },
-                Country.Switzerland => new[] { "Switzerland", "Swiss Confederation" },
-                Country.Austria => new[] { "Austria", "Republic of Austria" },
-                Country.Sweden => new[] { "Sweden", "Kingdom of Sweden" },
-                Country.Norway => new[] { "Norway", "Kingdom of Norway" },
-                Country.Finland => new[] { "Finland", "Republic of Finland" },
-                Country.Denmark => new[] { "Denmark", "Kingdom of Denmark" },
-                Country.Poland => new[] { "Poland", "Republic of Poland" },
-                Country.Russia => new[] { "Russia", "Russian Federation", "USSR" },
-                Country.Ukraine => new[] { "Ukraine" },
-                Country.Turkey => new[] { "Turkey", "Republic of Turkey" },
-                Country.Greece => new[] { "Greece", "Hellenic Republic" },
-                Country.Romania => new[] { "Romania" },
-                Country.Bulgaria => new[] { "Bulgaria", "Republic of Bulgaria" },
-                Country.Hungary => new[] { "Hungary", "Republic of Hungary" },
-                Country.Slovakia => new[] { "Slovakia", "Slovak Republic" },
-                Country.Slovenia => new[] { "Slovenia", "Republic of Slovenia" },
-                Country.Croatia => new[] { "Croatia", "Republic of Croatia" },
-                Country.Serbia => new[] { "Serbia", "Republic of Serbia" },
-                Country.Montenegro => new[] { "Montenegro" },
-                Country.Albania => new[] { "Albania", "Republic of Albania" },
-                Country.Estonia => new[] { "Estonia", "Republic of Estonia" },
-                Country.Latvia => new[] { "Latvia", "Republic of Latvia" },
-                Country.Lithuania => new[] { "Lithuania", "Republic of Lithuania" },
-                Country.Belarus => new[] { "Belarus", "Republic of Belarus" },
-                Country.Moldova => new[] { "Moldova", "Republic of Moldova" },
-                Country.Azerbaijan => new[] { "Azerbaijan", "Republic of Azerbaijan" },
-                Country.Iceland => new[] { "Iceland", "Republic of Iceland" },
-                Country.Ireland => new[] { "Ireland", "Republic of Ireland", "Éire" },
-                Country.Georgia => new[] { 
-                    "Georgia", "Republic of Georgia" 
-                }, // Added Georgia variations
-                Country.Armenia => new[] { 
-                    "Armenia", "Republic of Armenia" 
-                }, // Added Armenia variations
-
-                // Asian countries
-                Country.China => new[] { "China", "People's Republic of China", "PRC" },
-                Country.Japan => new[] { "Japan" },
-                Country.India => new[] { "India", "Republic of India" },
-                Country.Indonesia => new[] { "Indonesia", "Republic of Indonesia" },
-                Country.Vietnam => new[] { "Vietnam", "Socialist Republic of Vietnam", "Viet Nam" },
-                Country.Thailand => new[] { "Thailand", "Kingdom of Thailand" },
-                Country.Malaysia => new[] { "Malaysia" },
-                Country.Singapore => new[] { "Singapore", "Republic of Singapore" },
-                Country.Philippines => new[] { "Philippines", "Republic of the Philippines" },
-                Country.Cambodia => new[] { "Cambodia", "Kingdom of Cambodia" },
-                Country.Laos => new[] { "Laos", "Lao People's Democratic Republic" },
-                Country.Bangladesh => new[] { "Bangladesh", "People's Republic of Bangladesh" },
-                Country.Pakistan => new[] { "Pakistan", "Islamic Republic of Pakistan" },
-                Country.Afghanistan => new[] { "Afghanistan", "Islamic Republic of Afghanistan" },
-                Country.Nepal => new[] { "Nepal", "Federal Democratic Republic of Nepal" },
-                Country.Bhutan => new[] { "Bhutan", "Kingdom of Bhutan" },
-                Country.Maldives => new[] { "Maldives", "Republic of Maldives" },
-                Country.Mongolia => new[] { "Mongolia" },
-
-                // Central Asian countries
-                Country.Kazakhstan => new[] { "Kazakhstan", "Republic of Kazakhstan" },
-                Country.Uzbekistan => new[] { "Uzbekistan", "Republic of Uzbekistan" },
-                Country.Turkmenistan => new[] { 
-                    "Turkmenistan", "Turkmen" 
-                }, // Added Turkmenistan variations
-                Country.Kyrgyzstan => new[] { "Kyrgyzstan", "Kyrgyz Republic" },
-                Country.Tajikistan => new[] { "Tajikistan", "Republic of Tajikistan" },
-
-                // Middle Eastern countries
-                Country.Iran => new[] { "Iran", "Islamic Republic of Iran" },
-                Country.Iraq => new[] { "Iraq", "Republic of Iraq" },
-                Country.Israel => new[] { "Israel", "State of Israel" },
-                Country.Palestine => new[] { "Palestine", "State of Palestine" },
-                Country.Jordan => new[] { "Jordan", "Hashemite Kingdom of Jordan" },
-                Country.Lebanon => new[] { "Lebanon", "Lebanese Republic" },
-                Country.Syria => new[] { "Syria", "Syrian Arab Republic" },
-                Country.Yemen => new[] { "Yemen", "Republic of Yemen" },
-                Country.Oman => new[] { "Oman", "Sultanate of Oman" },
-                Country.Qatar => new[] { "Qatar", "State of Qatar" },
-                Country.Bahrain => new[] { "Bahrain", "Kingdom of Bahrain" },
-                Country.Kuwait => new[] { "Kuwait", "State of Kuwait" },
-
-                // American countries
-                Country.Canada => new[] { "Canada" },
-                Country.Mexico => new[] { "Mexico", "United Mexican States" },
-                Country.Greenland => new[] { "Greenland", "Kalaallit Nunaat" },
-                Country.Brazil => new[] { "Brazil", "Federative Republic of Brazil" },
-                Country.Argentina => new[] { "Argentina", "Argentine Republic" },
-                Country.Chile => new[] { "Chile", "Republic of Chile" },
-                Country.Colombia => new[] { "Colombia", "Republic of Colombia" },
-                Country.Venezuela => new[] { "Venezuela", "Bolivarian Republic of Venezuela" },
-                Country.Peru => new[] { "Peru", "Republic of Peru" },
-                Country.Ecuador => new[] { "Ecuador", "Republic of Ecuador" },
-                Country.Bolivia => new[] { "Bolivia", "Plurinational State of Bolivia" },
-                Country.Paraguay => new[] { "Paraguay", "Republic of Paraguay" },
-                Country.Uruguay => new[] { "Uruguay", "Oriental Republic of Uruguay" },
-                Country.Guyana => new[] { "Guyana", "Co-operative Republic of Guyana" },
-                Country.Suriname => new[] { "Suriname", "Republic of Suriname" },
-
-                // Oceania
-                Country.Australia => new[] { "Australia", "Commonwealth of Australia" },
-                Country.FijiIslands => new[] { "Fiji", "Republic of Fiji" },
-                Country.SolomonIslands => new[] { "Solomon Islands" },
-                Country.Vanuatu => new[] { "Vanuatu", "Republic of Vanuatu" },
-                Country.NewCaledonia => new[] { "New Caledonia" },
-                Country.Samoa => new[] { "Samoa", "Independent State of Samoa" },
-                Country.Tonga => new[] { "Tonga", "Kingdom of Tonga" },
-                Country.Palau => new[] { "Palau", "Republic of Palau" },
-                Country.MarshallIslands => new[] { "Marshall Islands", "Republic of the Marshall Islands" },
-                Country.Micronesia => new[] { "Micronesia", "Federated States of Micronesia" },
-                Country.Kiribati => new[] { "Kiribati", "Republic of Kiribati" },
-                Country.Nauru => new[] { "Nauru", "Republic of Nauru" },
-                Country.Tuvalu => new[] { "Tuvalu" },
-
-                // Default fallback
-                _ => new[] { country.ToString() }
-            };
+            // Try normalized lookup (remove special characters, case insensitive)
+            var normalized = NormalizeCountryName(countryName);
+            var match = CountryNameToCodeMapping.FirstOrDefault(kvp => 
+                NormalizeCountryName(kvp.Key) == normalized);
+            
+            return match.Key != null ? match.Value : CountryCode.Unknown;
         }
 
-        #endregion Methods
+        /// <summary>
+        /// Gets all known name variations for a given CountryCode.
+        /// Useful for testing and validation purposes.
+        /// </summary>
+        /// <param name="countryCode">The country code to get variations for</param>
+        /// <returns>List of all known name variations for the country</returns>
+        public static List<string> GetNameVariations(CountryCode countryCode)
+        {
+            return CountryNameToCodeMapping
+                .Where(kvp => kvp.Value == countryCode)
+                .Select(kvp => kvp.Key)
+                .OrderBy(name => name)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Gets the complete country name to country code mapping dictionary.
+        /// </summary>
+        /// <returns>Read-only dictionary of all country name variations to country codes</returns>
+        public static IReadOnlyDictionary<string, CountryCode> GetAllNameMappings()
+        {
+            return CountryNameToCodeMapping;
+        }
+
+        /// <summary>
+        /// Validates that a country name can be parsed and provides suggestions if not.
+        /// </summary>
+        /// <param name="countryName">The country name to validate</param>
+        /// <returns>Validation result with success status and suggestions</returns>
+        public static CountryNameValidationResult ValidateCountryName(string countryName)
+        {
+            var result = new CountryNameValidationResult
+            {
+                InputName = countryName,
+                IsValid = false,
+                ParsedCountryCode = CountryCode.Unknown,
+                Suggestions = new List<string>()
+            };
+
+            if (string.IsNullOrWhiteSpace(countryName))
+            {
+                result.ErrorMessage = "Country name cannot be empty";
+                return result;
+            }
+
+            var parsedCode = ParseCountryName(countryName);
+            if (parsedCode != CountryCode.Unknown)
+            {
+                result.IsValid = true;
+                result.ParsedCountryCode = parsedCode;
+                result.ParsedCountry = parsedCode.ToCountry();
+                return result;
+            }
+
+            // Provide suggestions for similar names
+            result.ErrorMessage = $"Country name '{countryName}' could not be parsed";
+            result.Suggestions = FindSimilarCountryNames(countryName);
+            
+            return result;
+        }
+
+        /// <summary>
+        /// Attempts to parse multiple country names from a single string (e.g., "United States, Canada, Mexico").
+        /// </summary>
+        /// <param name="multipleCountryNames">String containing multiple country names separated by delimiters</param>
+        /// <param name="delimiters">Characters to use as delimiters (default: comma, semicolon, pipe)</param>
+        /// <returns>List of parsed country codes</returns>
+        public static List<CountryCode> ParseMultipleCountryNames(
+            string multipleCountryNames, 
+            char[]? delimiters = null)
+        {
+            delimiters ??= new[] { ',', ';', '|' };
+
+            if (string.IsNullOrWhiteSpace(multipleCountryNames))
+                return new List<CountryCode>();
+
+            return multipleCountryNames
+                .Split(delimiters, StringSplitOptions.RemoveEmptyEntries)
+                .Select(name => ParseCountryName(name.Trim()))
+                .Where(code => code != CountryCode.Unknown)
+                .Distinct()
+                .ToList();
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        private static Dictionary<string, CountryCode> BuildComprehensiveCountryNameDictionary()
+        {
+            var dictionary = new Dictionary<string, CountryCode>(StringComparer.OrdinalIgnoreCase);
+
+            // Start with all standard country code names
+            var allCodes = Enum.GetValues<CountryCode>().Where(c => c != CountryCode.Unknown);
+            foreach (var code in allCodes)
+            {
+                var standardName = code.GetCountryName();
+                if (!string.IsNullOrWhiteSpace(standardName))
+                {
+                    dictionary[standardName] = code;
+                }
+            }
+
+            // Add comprehensive variations for each country
+            AddCountryVariations(dictionary);
+
+            return dictionary;
+        }
+
+        private static void AddCountryVariations(Dictionary<string, CountryCode> dictionary)
+        {
+            // Helper method to safely add variations
+            void AddVariation(string name, CountryCode code)
+            {
+                if (!string.IsNullOrWhiteSpace(name) && !dictionary.ContainsKey(name))
+                {
+                    dictionary[name] = code;
+                }
+            }
+
+            // DOMINICAN REPUBLIC - Critical fix for the user's issue
+            AddVariation("Dominican Republic", CountryCode.DO);
+            AddVariation("Dominican Rep.", CountryCode.DO);
+            AddVariation("Dominicana", CountryCode.DO);
+            AddVariation("Rep. Dominicana", CountryCode.DO);
+            AddVariation("República Dominicana", CountryCode.DO);
+
+            // CONGO VARIATIONS - Critical disambiguation
+            AddVariation("Congo", CountryCode.CG); // Default to Republic of Congo
+            AddVariation("Congo, Rep.", CountryCode.CG);
+            AddVariation("Congo Republic", CountryCode.CG);
+            AddVariation("Congo-Brazzaville", CountryCode.CG);
+            AddVariation("Republic of the Congo", CountryCode.CG);
+            AddVariation("Republic of Congo", CountryCode.CG);
+            AddVariation("Congo (Brazzaville)", CountryCode.CG);
+            
+            AddVariation("Congo, Dem. Rep.", CountryCode.CD);
+            AddVariation("Dem. Rep. Congo", CountryCode.CD);
+            AddVariation("Democratic Rep. Congo", CountryCode.CD);
+            AddVariation("Congo DR", CountryCode.CD);
+            AddVariation("Congo DRC", CountryCode.CD);
+            AddVariation("Congo-Kinshasa", CountryCode.CD);
+            AddVariation("Democratic Republic of the Congo", CountryCode.CD);
+            AddVariation("Democratic Republic of Congo", CountryCode.CD);
+            AddVariation("Congo (Kinshasa)", CountryCode.CD);
+            AddVariation("Zaire", CountryCode.CD);
+            AddVariation("DRC", CountryCode.CD);
+
+            // RUSSIA VARIATIONS
+            AddVariation("Russia", CountryCode.RU);
+            AddVariation("Russian Federation", CountryCode.RU);
+            AddVariation("Russian Fed.", CountryCode.RU);
+            AddVariation("Russia Fed.", CountryCode.RU);
+            AddVariation("Rossiya", CountryCode.RU);
+            AddVariation("??????", CountryCode.RU);
+
+            // KOREA VARIATIONS
+            AddVariation("Korea", CountryCode.KR); // Default to South Korea
+            AddVariation("South Korea", CountryCode.KR);
+            AddVariation("Korea, Republic of", CountryCode.KR);
+            AddVariation("Republic of Korea", CountryCode.KR);
+            AddVariation("Korea Rep.", CountryCode.KR);
+            AddVariation("ROK", CountryCode.KR);
+            AddVariation("S. Korea", CountryCode.KR);
+            
+            AddVariation("North Korea", CountryCode.KP);
+            AddVariation("Korea, Dem. People's Rep. of", CountryCode.KP);
+            AddVariation("Democratic People's Republic of Korea", CountryCode.KP);
+            AddVariation("Korea DPR", CountryCode.KP);
+            AddVariation("DPRK", CountryCode.KP);
+            AddVariation("N. Korea", CountryCode.KP);
+
+            // OFFICIAL UN NAMES (with parentheses)
+            AddVariation("Iran (Islamic Republic of)", CountryCode.IR);
+            AddVariation("Iran, Islamic Republic of", CountryCode.IR);
+            AddVariation("Venezuela (Bolivarian Republic of)", CountryCode.VE);
+            AddVariation("Venezuela, Bolivarian Republic of", CountryCode.VE);
+            AddVariation("Tanzania, United Republic of", CountryCode.TZ);
+            AddVariation("United Republic of Tanzania", CountryCode.TZ);
+            AddVariation("Bolivia (Plurinational State of)", CountryCode.BO);
+            AddVariation("Bolivia, Plurinational State of", CountryCode.BO);
+            AddVariation("Syrian Arab Republic", CountryCode.SY);
+            AddVariation("Lao People's Democratic Republic", CountryCode.LA);
+            AddVariation("Lao PDR", CountryCode.LA);
+
+            // UNITED STATES VARIATIONS
+            AddVariation("United States", CountryCode.US);
+            AddVariation("United States of America", CountryCode.US);
+            AddVariation("USA", CountryCode.US);
+            AddVariation("US", CountryCode.US);
+            AddVariation("America", CountryCode.US);
+            AddVariation("U.S.A.", CountryCode.US);
+            AddVariation("U.S.", CountryCode.US);
+            AddVariation("Estados Unidos", CountryCode.US);
+
+            // UNITED KINGDOM VARIATIONS
+            AddVariation("United Kingdom", CountryCode.GB);
+            AddVariation("UK", CountryCode.GB);
+            AddVariation("Great Britain", CountryCode.GB);
+            AddVariation("Britain", CountryCode.GB);
+            AddVariation("U.K.", CountryCode.GB);
+            AddVariation("England", CountryCode.GB); // Often used incorrectly
+            AddVariation("Scotland", CountryCode.GB);
+            AddVariation("Wales", CountryCode.GB);
+            AddVariation("Northern Ireland", CountryCode.GB);
+
+            // EUROPEAN COUNTRIES
+            AddVariation("Czech Republic", CountryCode.CZ);
+            AddVariation("Czechia", CountryCode.CZ);
+            AddVariation("Czech Rep.", CountryCode.CZ);
+            
+            AddVariation("Bosnia and Herzegovina", CountryCode.BA);
+            AddVariation("Bosnia & Herzegovina", CountryCode.BA);
+            AddVariation("Bosnia-Herzegovina", CountryCode.BA);
+            AddVariation("BiH", CountryCode.BA);
+            
+            AddVariation("North Macedonia", CountryCode.MK);
+            AddVariation("Macedonia", CountryCode.MK);
+            AddVariation("FYROM", CountryCode.MK);
+            AddVariation("Former Yugoslav Republic of Macedonia", CountryCode.MK);
+            AddVariation("The former Yugoslav Republic of Macedonia", CountryCode.MK);
+
+            // ASIAN COUNTRIES
+            AddVariation("Myanmar", CountryCode.MM);
+            AddVariation("Burma", CountryCode.MM);
+            AddVariation("Myanmar (Burma)", CountryCode.MM);
+            
+            AddVariation("Sri Lanka", CountryCode.LK);
+            AddVariation("Ceylon", CountryCode.LK);
+            
+            AddVariation("United Arab Emirates", CountryCode.AE);
+            AddVariation("UAE", CountryCode.AE);
+            AddVariation("U.A.E.", CountryCode.AE);
+            
+            AddVariation("Saudi Arabia", CountryCode.SA);
+            AddVariation("Kingdom of Saudi Arabia", CountryCode.SA);
+            AddVariation("KSA", CountryCode.SA);
+
+            // AFRICAN COUNTRIES
+            AddVariation("Central African Republic", CountryCode.CF);
+            AddVariation("Central African Rep.", CountryCode.CF);
+            AddVariation("CAR", CountryCode.CF);
+            AddVariation("Centrafrique", CountryCode.CF);
+            
+            AddVariation("South Sudan", CountryCode.SS);
+            AddVariation("S. Sudan", CountryCode.SS);
+            AddVariation("S Sudan", CountryCode.SS);
+            AddVariation("Republic of South Sudan", CountryCode.SS);
+            
+            AddVariation("Ivory Coast", CountryCode.CI);
+            AddVariation("Côte d'Ivoire", CountryCode.CI);
+            AddVariation("Cote d'Ivoire", CountryCode.CI);
+
+            // OCEANIA COUNTRIES
+            AddVariation("New Zealand", CountryCode.NZ);
+            AddVariation("NZ", CountryCode.NZ);
+            
+            AddVariation("Papua New Guinea", CountryCode.PG);
+            AddVariation("PNG", CountryCode.PG);
+
+            // SMALL ISLAND STATES
+            AddVariation("Saint Lucia", CountryCode.LC);
+            AddVariation("St. Lucia", CountryCode.LC);
+            AddVariation("St Lucia", CountryCode.LC);
+            
+            AddVariation("Saint Vincent and the Grenadines", CountryCode.VC);
+            AddVariation("St. Vincent and the Grenadines", CountryCode.VC);
+            AddVariation("St Vincent and the Grenadines", CountryCode.VC);
+            AddVariation("Saint Vincent & the Grenadines", CountryCode.VC);
+            AddVariation("St. Vincent & the Grenadines", CountryCode.VC);
+            
+            AddVariation("Saint Kitts and Nevis", CountryCode.KN);
+            AddVariation("St. Kitts and Nevis", CountryCode.KN);
+            AddVariation("St Kitts and Nevis", CountryCode.KN);
+            AddVariation("Saint Kitts & Nevis", CountryCode.KN);
+            AddVariation("St. Kitts & Nevis", CountryCode.KN);
+            
+            AddVariation("Trinidad and Tobago", CountryCode.TT);
+            AddVariation("Trinidad & Tobago", CountryCode.TT);
+            
+            AddVariation("Antigua and Barbuda", CountryCode.AG);
+            AddVariation("Antigua & Barbuda", CountryCode.AG);
+
+            // VATICAN VARIATIONS
+            AddVariation("Vatican City", CountryCode.VA);
+            AddVariation("Vatican", CountryCode.VA);
+            AddVariation("Vatican City State", CountryCode.VA);
+            AddVariation("Holy See", CountryCode.VA);
+            AddVariation("Holy See (Vatican City State)", CountryCode.VA);
+            AddVariation("Holy See (Vatican City)", CountryCode.VA);
+
+            // HISTORICAL NAMES
+            AddVariation("Swaziland", CountryCode.SZ); // Now Eswatini
+            AddVariation("Burma", CountryCode.MM); // Now Myanmar
+            AddVariation("Ceylon", CountryCode.LK); // Now Sri Lanka
+            AddVariation("Zaire", CountryCode.CD); // Now DRC
+            AddVariation("East Timor", CountryCode.TL); // Also Timor-Leste
+            AddVariation("Timor-Leste", CountryCode.TL);
+
+            // SPECIAL CASES AND TERRITORIES
+            AddVariation("Taiwan", CountryCode.TW);
+            AddVariation("Republic of China", CountryCode.TW);
+            AddVariation("Chinese Taipei", CountryCode.TW);
+            
+            AddVariation("Hong Kong", CountryCode.HK);
+            AddVariation("Hong Kong SAR", CountryCode.HK);
+            AddVariation("Hong Kong, China", CountryCode.HK);
+            
+            AddVariation("Macao", CountryCode.MO);
+            AddVariation("Macau", CountryCode.MO);
+            AddVariation("Macao SAR", CountryCode.MO);
+            AddVariation("Macau SAR", CountryCode.MO);
+
+            // COMMON ABBREVIATIONS AND ALTERNATIVE SPELLINGS
+            foreach (var code in Enum.GetValues<CountryCode>().Where(c => c != CountryCode.Unknown))
+            {
+                // Add the two-letter code itself as a variation
+                AddVariation(code.ToString(), code);
+            }
+
+            // KOSOVO VARIATIONS
+            AddVariation("Kosovo", CountryCode.XK);
+            AddVariation("Republic of Kosovo", CountryCode.XK);
+            AddVariation("Kosova", CountryCode.XK);
+            AddVariation("Kosovë", CountryCode.XK);
+        }
+
+        private static string NormalizeCountryName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return string.Empty;
+
+            return new string(name
+                .Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))
+                .ToArray())
+                .Replace(" ", "")
+                .ToLowerInvariant();
+        }
+
+        private static List<string> FindSimilarCountryNames(string inputName)
+        {
+            if (string.IsNullOrWhiteSpace(inputName))
+                return new List<string>();
+
+            var inputNormalized = NormalizeCountryName(inputName);
+            var suggestions = new List<string>();
+
+            foreach (var countryName in CountryNameToCodeMapping.Keys)
+            {
+                var normalizedCountryName = NormalizeCountryName(countryName);
+                
+                // Simple similarity check - contains or is contained by
+                if (inputNormalized.Length >= 3 && normalizedCountryName.Length >= 3)
+                {
+                    if (normalizedCountryName.Contains(inputNormalized) || 
+                        inputNormalized.Contains(normalizedCountryName))
+                    {
+                        suggestions.Add(countryName);
+                    }
+                }
+            }
+
+            return suggestions.Take(5).ToList(); // Limit to top 5 suggestions
+        }
+
+        #endregion
+
+        #region Helper Classes
+
+        public class CountryNameValidationResult
+        {
+            public string InputName { get; set; } = string.Empty;
+            public bool IsValid { get; set; }
+            public CountryCode ParsedCountryCode { get; set; } = CountryCode.Unknown;
+            public Country ParsedCountry { get; set; } = Country.Unknown;
+            public string ErrorMessage { get; set; } = string.Empty;
+            public List<string> Suggestions { get; set; } = new();
+        }
+
+        #endregion
+
+        #region Country Enum Extensions
+
+        /// <summary>
+        /// Gets all known GeoJSON name variations for a given Country enum value.
+        /// This is useful for mapping Country enum values back to their various name representations.
+        /// </summary>
+        /// <param name="country">The country to get GeoJSON name variations for</param>
+        /// <returns>List of all known GeoJSON name variations for the country</returns>
+        public static List<string> GetGeoJsonNameVariations(this Country country)
+        {
+            var countryCode = country.ToCountryCode();
+            if (countryCode == CountryCode.Unknown)
+                return new List<string>();
+                
+            return GetNameVariations(countryCode);
+        }
+
+        /// <summary>
+        /// Gets all known name variations for a given Country enum value.
+        /// </summary>
+        /// <param name="country">The country to get variations for</param>
+        /// <returns>List of all known name variations for the country</returns>
+        public static List<string> GetNameVariations(this Country country)
+        {
+            var countryCode = country.ToCountryCode();
+            return GetNameVariations(countryCode);
+        }
+
+        #endregion
     }
 }

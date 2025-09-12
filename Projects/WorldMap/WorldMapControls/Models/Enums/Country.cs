@@ -11,7 +11,6 @@ namespace WorldMapControls.Models.Enums
 
         // North America
         UnitedStates,
-
         Canada,
         Mexico,
         Greenland,
@@ -29,7 +28,6 @@ namespace WorldMapControls.Models.Enums
 
         // South America
         Brazil,
-
         Argentina,
         Chile,
         Colombia,
@@ -44,7 +42,6 @@ namespace WorldMapControls.Models.Enums
 
         // Europe
         UnitedKingdom,
-
         France,
         Germany,
         Italy,
@@ -85,10 +82,10 @@ namespace WorldMapControls.Models.Enums
         Ireland, // Added missing Ireland
         Georgia, // Added missing Georgia (GE)
         Armenia, // Added missing Armenia (AM)
+        Kosovo, // Added partially recognized Kosovo (XK)
 
         // Asia
         China,
-
         Japan,
         SouthKorea,
         NorthKorea,
@@ -119,7 +116,6 @@ namespace WorldMapControls.Models.Enums
 
         // Middle East
         SaudiArabia,
-
         Iran,
         Iraq,
         Israel,
@@ -136,7 +132,6 @@ namespace WorldMapControls.Models.Enums
 
         // Africa
         SouthAfrica,
-
         Egypt,
         Nigeria,
         Kenya,
@@ -183,7 +178,6 @@ namespace WorldMapControls.Models.Enums
 
         // Oceania
         Australia,
-
         NewZealand,
         FijiIslands,
         PapuaNewGuinea,

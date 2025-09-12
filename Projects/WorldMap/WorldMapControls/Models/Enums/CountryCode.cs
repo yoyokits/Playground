@@ -7,6 +7,7 @@ namespace WorldMapControls.Models.Enums
 {
     /// <summary>
     /// ISO 3166-1 alpha-2 country codes (2-letter internet country codes).
+    /// Includes XK (Kosovo) as a user-assigned code commonly used in datasets.
     /// </summary>
     public enum CountryCode
     {
@@ -332,6 +333,7 @@ namespace WorldMapControls.Models.Enums
         ZA, // South Africa
 
         ZM, // Zambia
-        ZW  // Zimbabwe
+        ZW, // Zimbabwe
+        XK  // Kosovo (user-assigned, widely used code)
     }
 }
