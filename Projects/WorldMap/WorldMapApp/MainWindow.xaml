@@ -6,51 +6,13 @@
         Title="World Map Viewer"
         Width="1200"
         Height="750"
-        Loaded="Window_Loaded">
-    <Grid>
+        Background="{StaticResource BgWindow}">
+    <Grid Margin="0">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <!-- Toolbar -->
             <RowDefinition Height="*" />
-            <!-- Content -->
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" LastChildFill="False" Background="#2A2A2A" Height="40" Margin="0,0,0,4">
-            <Button x:Name="ApplyColorButton"
-                    Content="Apply Color"
-                    Width="110"
-                    Height="26"
-                    Margin="8,7,0,7"
-                    IsEnabled="False"
-                    Click="ApplyColorButton_Click" />
-
-            <Separator Margin="8,0" Background="#555" Width="1" />
-
-            <TextBlock Text="ColorMap:"
-                       Foreground="White"
-                       VerticalAlignment="Center"
-                       Margin="8,0,4,0" />
-
-            <ComboBox x:Name="ColorMapCombo"
-                      Width="120"
-                      Height="24"
-                      VerticalAlignment="Center"
-                      SelectionChanged="ColorMapCombo_SelectionChanged" />
-
-            <Button x:Name="ApplyColorMapButton"
-                    Content="Apply ColorMap"
-                    Width="120"
-                    Height="26"
-                    Margin="8,7,0,7"
-                    Click="ApplyColorMapButton_Click" />
-
-            <TextBlock Text="LLM → Map Colors"
-                       Foreground="White"
-                       VerticalAlignment="Center"
-                       Margin="16,0,0,0" />
-        </DockPanel>
-
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="0" Margin="8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="430" />
@@ -58,11 +20,7 @@
 
             <controls:WorldMapViewer x:Name="Viewer" Grid.Column="0" />
 
-            <Border Grid.Column="1"
-                    BorderBrush="#444"
-                    BorderThickness="1"
-                    Background="#1E1E1E"
-                    Padding="4">
+            <Border Grid.Column="1" Style="{StaticResource Card}" Padding="8">
                 <llm:LlmChatControl x:Name="LlmChat" />
             </Border>
         </Grid>

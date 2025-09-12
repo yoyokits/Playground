@@ -7,227 +7,161 @@ namespace WorldMapApp
 {
     using System;
     using System.ComponentModel;
-    using System.Linq;
-    using System.Collections.Generic;
     using System.Windows;
-    using System.Windows.Controls;
-    using System.Windows.Media;
-    using LLM.Controls;
-    using WorldMapControls.Models;
-    using WorldMapControls.Models.Enums;
-    using WorldMapControls.Services;
+    using LLM.Settings;
+    using WorldMapControls.Services; // for JsonInputExtractor
+    using WorldMapControls.Controls;
 
     public partial class MainWindow : Window
     {
-        #region Fields
-
-        private readonly Random _rand = new();
-        private DependencyPropertyDescriptor? _lastOutputDescriptor;
-        private ColorMapType _selectedColorMapType = ColorMapType.Jet;
-
-        #endregion Fields
-
-        #region Constructors
+        private DateTime _lastPersist = DateTime.MinValue;
 
         public MainWindow()
         {
             InitializeComponent();
-            InitializeColorMapCombo();
+            ApplySavedBounds();
+            ApplyMapSettings();
+            if (Viewer != null) 
+            {
+                Viewer.OutlineThicknessChanged += Viewer_OutlineThicknessChanged;
+                Viewer.OutlineColorChanged += Viewer_OutlineColorChanged;
+                Viewer.DefaultFillColorChanged += Viewer_DefaultFillColorChanged;
+            }
+            Closing += OnClosingSaveWindowBounds;
+            LocationChanged += (_, _) => PersistBoundsThrottled();
+            SizeChanged += (_, _) => PersistBoundsThrottled();
+            StateChanged += (_, _) => PersistBoundsThrottled();
+            if (LlmChat != null) LlmChat.OutputSelected += OnChatOutputSelected; // hook chat output
+            SettingsService.SettingsChanged += SettingsService_SettingsChanged;
         }
 
-        #endregion Constructors
-
-        #region Methods
-
-        private static Color HslToRgb(double h, double s, double l)
+        private void Viewer_OutlineThicknessChanged(object? sender, double e)
         {
-            // Convert HSL to RGB (0..1)
-            double c = (1 - Math.Abs(2 * l - 1)) * s;
-            double hp = h / 60.0;
-            double x = c * (1 - Math.Abs(hp % 2 - 1));
+            var s = SettingsService.Current;
+            if (Math.Abs(s.OutlineThickness - e) > 0.0001)
+            {
+                s.OutlineThickness = e;
+                SettingsService.RaiseChangedAndSave();
+            }
+        }
 
-            double r, g, b;
-            if (hp < 1)
+        private void Viewer_OutlineColorChanged(object? sender, System.Windows.Media.Color e)
+        {
+            var hexColor = $"#{e.R:X2}{e.G:X2}{e.B:X2}";
+            SettingsService.SetOutlineColor(hexColor);
+        }
+
+        private void Viewer_DefaultFillColorChanged(object? sender, System.Windows.Media.Color e)
+        {
+            var hexColor = $"#{e.R:X2}{e.G:X2}{e.B:X2}";
+            SettingsService.SetDefaultFillColor(hexColor);
+        }
+
+        private void SettingsService_SettingsChanged(object? sender, EventArgs e)
+        {
+            ApplyMapSettings();
+        }
+
+        private void ApplyMapSettings()
+        {
+            if (Viewer == null) return;
+            var s = SettingsService.Current;
+            
+            // Apply thickness using the new method
+            if (Math.Abs(Viewer.GetOutlineThickness() - s.OutlineThickness) > 0.001)
             {
-                (r, g, b) = (c, x, 0);
+                Viewer.SetOutlineThickness(s.OutlineThickness);
             }
-            else if (hp < 2)
+            
+            // Apply outline color
+            if (!string.IsNullOrWhiteSpace(s.OutlineColor))
             {
-                (r, g, b) = (x, c, 0);
+                try
+                {
+                    var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(s.OutlineColor);
+                    Viewer.SetOutlineColor(color);
+                }
+                catch
+                {
+                    // Invalid color format, ignore
+                }
             }
-            else if (hp < 3)
+            
+            // Apply default fill color
+            if (!string.IsNullOrWhiteSpace(s.DefaultFillColor))
             {
-                (r, g, b) = (0, c, x);
+                try
+                {
+                    var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(s.DefaultFillColor);
+                    Viewer.SetDefaultFillColor(color);
+                }
+                catch
+                {
+                    // Invalid color format, ignore
+                }
             }
-            else if (hp < 4)
+        }
+
+        private void OnChatOutputSelected(object? sender, string text)
+        {
+            // Try extract JSON region mapping and apply to map viewer
+            var json = JsonInputExtractor.ExtractJson(text);
+            Viewer.Json = json; // can be null -> clears map overrides internally
+        }
+
+        private void ApplySavedBounds()
+        {
+            var s = SettingsService.Current;
+            if (s.WindowWidth > 0 && s.WindowHeight > 0)
+            { Width = s.WindowWidth; Height = s.WindowHeight; }
+            if (s.WindowLeft >= 0 && s.WindowTop >= 0)
+            { Left = s.WindowLeft; Top = s.WindowTop; }
+            if (s.WindowMaximized)
+                WindowState = WindowState.Maximized;
+        }
+
+        private void PersistBoundsThrottled()
+        {
+            if ((DateTime.UtcNow - _lastPersist).TotalMilliseconds < 250) return;
+            _lastPersist = DateTime.UtcNow;
+            PersistWindowBounds();
+            if (!SettingsService.ApplicationOwnsPersistence)
+                _ = SettingsService.SaveAsync();
+        }
+
+        public void PersistWindowBounds()
+        {
+            var s = SettingsService.Current;
+            s.WindowMaximized = WindowState == WindowState.Maximized;
+            if (WindowState == WindowState.Normal)
             {
-                (r, g, b) = (0, x, c);
-            }
-            else if (hp < 5)
-            {
-                (r, g, b) = (x, 0, c);
+                s.WindowWidth = Width;
+                s.WindowHeight = Height;
+                s.WindowLeft = Left;
+                s.WindowTop = Top;
             }
             else
             {
-                (r, g, b) = (c, 0, x);
-            }
-
-            double m = l - c / 2;
-            byte R = (byte)Math.Round((r + m) * 255);
-            byte G = (byte)Math.Round((g + m) * 255);
-            byte B = (byte)Math.Round((b + m) * 255);
-            return Color.FromRgb(R, G, B);
-        }
-
-        private void ApplyColorButton_Click(object sender, RoutedEventArgs e)
-        {
-            var json = LlmChat.LastOutput;
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                MessageBox.Show("No LLM output to apply.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-
-            // Use the old property name - the smart parser will handle both formats
-            Viewer.CountryColorsJson = json;
-        }
-
-        private void ApplyColorMapButton_Click(object sender, RoutedEventArgs e)
-        {
-            ApplyColorMapToAllCountries(_selectedColorMapType);
-        }
-
-        private void ApplyColorMapToAllCountries(ColorMapType colorMapType)
-        {
-            try
-            {
-                // Get ALL countries from the enum (ignore MapDictionaries limitations)
-                // Use Country enum directly to ensure ALL countries get colored
-                var allCountries = Enum.GetValues<Country>()
-                    .Where(c => c != Country.Unknown)
-                    .OrderBy(c => (int)c) // Sort by enum integer value
-                    .ToArray();
-
-                if (allCountries.Length == 0)
-                {
-                    MessageBox.Show("No countries available to apply colormap.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-
-                // Create sequential values (0, 1, 2, ..., n-1) for each country
-                var values = Enumerable.Range(0, allCountries.Length)
-                    .Select(i => (double)i)
-                    .ToArray();
-
-                // Map values to colors using the selected colormap
-                var colors = ColorMapCalculator.MapValues(values, colorMapType);
-
-                // Create color mappings for ALL countries in the enum
-                var colorMappings = new List<CountryColorMapping>();
-                for (int i = 0; i < allCountries.Length; i++)
-                {
-                    var countryEnum = allCountries[i];
-                    var color = colors[i];
-                    var brush = new SolidColorBrush(color);
-                    brush.Freeze(); // Freeze for performance
-                    colorMappings.Add(new CountryColorMapping(countryEnum, brush));
-                }
-
-                // Apply to map - this will color ALL countries in the enum
-                Viewer.CountryColorOverrides = colorMappings;
-
-                // Debug: Show that we're coloring ALL countries by enum ID
-                var sample = allCountries.Take(5)
-                    .Select(c => $"{c}({(int)c})")
-                    .ToArray();
-
-                var debugMessage = $"Applied {colorMapType} colormap to ALL {colorMappings.Count} countries by enum ID.\n" +
-                                  $"Sample: {string.Join(", ", sample)}...\n" +
-                                  $"Range: {allCountries.First()}({(int)allCountries.First()}) to {allCountries.Last()}({(int)allCountries.Last()})";
-
-                MessageBox.Show(debugMessage, "ColorMap Applied", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error applying colormap: {ex.Message}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                var b = RestoreBounds; // previous normal bounds
+                s.WindowWidth = b.Width;
+                s.WindowHeight = b.Height;
+                s.WindowLeft = b.Left;
+                s.WindowTop = b.Top;
             }
         }
 
-        private void ApplyRandomPastelCountryColors()
+        private void OnClosingSaveWindowBounds(object? sender, CancelEventArgs e)
         {
-            // Generate a pastel brush per country (excluding Unknown)
-            var mappings = Enum.GetValues<Country>()
-                .Where(c => c != Country.Unknown)
-                .Select(c =>
-                {
-                    var brush = new SolidColorBrush(GeneratePastelColor());
-                    if (brush.CanFreeze) brush.Freeze();
-                    return new CountryColorMapping(c, brush);
-                })
-                .ToList();
-
-            Viewer.CountryColorOverrides = mappings;
-        }
-
-        private void ColorMapCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (ColorMapCombo.SelectedItem is string selectedName &&
-                Enum.TryParse<ColorMapType>(selectedName, out var colorMapType))
+            PersistWindowBounds();
+            if (!SettingsService.ApplicationOwnsPersistence)
+                _ = SettingsService.SaveAsync();
+            SettingsService.SettingsChanged -= SettingsService_SettingsChanged;
+            if (Viewer != null) 
             {
-                _selectedColorMapType = colorMapType;
+                Viewer.OutlineThicknessChanged -= Viewer_OutlineThicknessChanged;
+                Viewer.OutlineColorChanged -= Viewer_OutlineColorChanged;
+                Viewer.DefaultFillColorChanged -= Viewer_DefaultFillColorChanged;
             }
         }
-
-        // Add this method to debug country mapping issues
-        private void DiagnoseCountryMappings()
-        {
-            var allEnumCountries = Enum.GetValues<Country>().Where(c => c != Country.Unknown).ToArray();
-            var mappedCountries = MapDictionaries.CountryToName.Keys.Where(c => c != Country.Unknown).ToArray();
-
-            var unmappedEnums = allEnumCountries.Except(mappedCountries).ToArray();
-            var extraMapped = mappedCountries.Except(allEnumCountries).ToArray();
-
-            var message = $"Total enum countries: {allEnumCountries.Length}\n" +
-                          $"Mapped countries: {mappedCountries.Length}\n" +
-                          $"Unmapped enums: {unmappedEnums.Length} - {string.Join(", ", unmappedEnums.Take(5))}\n" +
-                          $"Extra mapped: {extraMapped.Length}";
-
-            MessageBox.Show(message, "Country Mapping Diagnosis", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
-        private Color GeneratePastelColor()
-        {
-            // HSL: hue random, saturation fixed moderate, lightness high
-            double h = _rand.NextDouble() * 360.0;
-            const double s = 0.45;
-            const double l = 0.75;
-            return HslToRgb(h, s, l);
-        }
-
-        private void InitializeColorMapCombo()
-        {
-            var colorMapTypes = Enum.GetValues<ColorMapType>();
-            foreach (var colorMap in colorMapTypes)
-            {
-                ColorMapCombo.Items.Add(colorMap.ToString());
-            }
-            ColorMapCombo.SelectedIndex = 0; // Default to Jet
-        }
-
-        private void Window_Loaded(object sender, RoutedEventArgs e)
-        {
-            // Monitor LastOutput changes to enable/disable Apply button
-            _lastOutputDescriptor = DependencyPropertyDescriptor.FromProperty(
-                LlmChatControl.LastOutputProperty,
-                typeof(LlmChatControl));
-
-            _lastOutputDescriptor?.AddValueChanged(LlmChat, (_, _) =>
-            {
-                ApplyColorButton.IsEnabled = !string.IsNullOrWhiteSpace(LlmChat.LastOutput);
-            });
-        }
-
-        #endregion Methods
     }
 }

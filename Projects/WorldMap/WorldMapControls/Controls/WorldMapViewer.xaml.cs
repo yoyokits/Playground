@@ -15,18 +15,17 @@ namespace WorldMapControls.Controls
     using System.Windows.Controls;
     using System.Windows.Input;
     using System.Windows.Media;
+    using System.Windows.Shapes;
+    using System.Windows.Threading;
+    using WorldMapControls.Extensions;
     using WorldMapControls.Models;
     using WorldMapControls.Models.Enums;
     using WorldMapControls.Rendering;
     using WorldMapControls.Services;
-    using WorldMapControls.Extensions;
     using CountryEnum = WorldMapControls.Models.Enums.Country;
 
-    // IMPORTANT: Must inherit from Grid because XAML root element is <Grid>
     public partial class WorldMapViewer : Grid
     {
-        #region Fields
-
         private const double MAP_HEIGHT = 1200;
         private const double MAP_WIDTH = 2000;
         private const double MAX_ZOOM = 8.0;
@@ -35,423 +34,457 @@ namespace WorldMapControls.Controls
 
         private readonly MapRenderer _mapRenderer;
         private readonly ResourceLoader _resourceLoader;
-        private readonly ZoomController _zoomController;
+        private readonly ZoomState _zoomState = new(0.55, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP);
 
         private ColorMapType _selectedColorMapType = ColorMapType.Jet;
+        private double _legendMin = 0;
+        private double _legendMax = 100;
+        private bool _hasNumericRange = false;
+        private DispatcherTimer? _colorMapDebounceTimer;
+        private ColorMapType _pendingColorMapType;
+        private IReadOnlyDictionary<CountryEnum, double> _numericCountryValues = new Dictionary<CountryEnum, double>();
 
-        #endregion Fields
+        // Panning state
+        private Point? _dragOriginViewport;
+        private Point? _dragOriginTranslate;
+
+        private LegendManager? _legendManager;
+
+        private double _outlineMultiplier = 1.0;
+
+        // Event to notify host app of outline thickness changes (host persists setting)
+        public event EventHandler<double>? OutlineThicknessChanged;
+
+        // Event to notify host app of outline color changes (host persists setting)
+        public event EventHandler<Color>? OutlineColorChanged;
+
+        // Event to notify host app of default fill color changes (host persists setting)
+        public event EventHandler<Color>? DefaultFillColorChanged;
 
         #region Dependency Properties
+        public static readonly DependencyProperty JsonProperty = DependencyProperty.Register(
+            nameof(Json), typeof(string), typeof(WorldMapViewer), new PropertyMetadata(null, OnJsonChanged));
 
-        public static readonly DependencyProperty CountryCodeColorsJsonProperty =
-            DependencyProperty.Register(
-                nameof(CountryCodeColorsJson),
-                typeof(string),
-                typeof(WorldMapViewer),
-                new PropertyMetadata(null, OnCountryCodeColorsJsonChanged));
+        public static readonly DependencyProperty CountryColorOverridesProperty = DependencyProperty.Register(
+            nameof(CountryColorOverrides), typeof(IEnumerable<CountryColorMapping>), typeof(WorldMapViewer), new PropertyMetadata(null, OnCountryColorOverridesChanged));
 
-        public static readonly DependencyProperty CountryColorOverridesProperty =
-            DependencyProperty.Register(
-                nameof(CountryColorOverrides),
-                typeof(IEnumerable<CountryColorMapping>),
-                typeof(WorldMapViewer),
-                new PropertyMetadata(null, OnCountryColorOverridesChanged));
+        public static readonly DependencyProperty ColorMapTypeProperty = DependencyProperty.Register(
+            nameof(ColorMapType), typeof(ColorMapType), typeof(WorldMapViewer), new PropertyMetadata(ColorMapType.Jet, OnColorMapTypeChanged));
 
-        public static readonly DependencyProperty CountryColorsJsonProperty =
-            DependencyProperty.Register(
-                nameof(CountryColorsJson),
-                typeof(string),
-                typeof(WorldMapViewer),
-                new PropertyMetadata(null, OnCountryColorsJsonChanged));
+        public string? Json { get => (string?)GetValue(JsonProperty); set => SetValue(JsonProperty, value); }
+        public IEnumerable<CountryColorMapping>? CountryColorOverrides { get => (IEnumerable<CountryColorMapping>?)GetValue(CountryColorOverridesProperty); set => SetValue(CountryColorOverridesProperty, value); }
+        public ColorMapType ColorMapType { get => (ColorMapType)GetValue(ColorMapTypeProperty); set => SetValue(ColorMapTypeProperty, value); }
 
-        public string? CountryCodeColorsJson
-        {
-            get => (string?)GetValue(CountryCodeColorsJsonProperty);
-            set => SetValue(CountryCodeColorsJsonProperty, value);
-        }
-
-        public IEnumerable<CountryColorMapping>? CountryColorOverrides
-        {
-            get => (IEnumerable<CountryColorMapping>?)GetValue(CountryColorOverridesProperty);
-            set => SetValue(CountryColorOverridesProperty, value);
-        }
-
-        public string? CountryColorsJson
-        {
-            get => (string?)GetValue(CountryColorsJsonProperty);
-            set => SetValue(CountryColorsJsonProperty, value);
-        }
-
-        private static void OnCountryCodeColorsJsonChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is WorldMapViewer v)
-                v.ApplyCountryColorsJson(e.NewValue as string);
-        }
-
+        private static void OnJsonChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        { if (d is WorldMapViewer v) v.ApplyRegionJson(e.NewValue as string); }
         private static void OnCountryColorOverridesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is WorldMapViewer viewer) viewer.ApplyCountryColorOverrides();
-        }
-
-        private static void OnCountryColorsJsonChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is WorldMapViewer v)
-                v.ApplyCountryColorsJson(e.NewValue as string);
-        }
-
-        #endregion Dependency Properties
-
-        #region Constructors
+        { if (d is WorldMapViewer v) v.ApplyCountryColorOverrides(); }
+        private static void OnColorMapTypeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        { if (d is not WorldMapViewer v) return; var nt = (ColorMapType)e.NewValue; if (v._selectedColorMapType == nt) return; v._selectedColorMapType = nt; if (!string.IsNullOrWhiteSpace(v.Json)) v.ApplyRegionJson(v.Json); else v.UpdateLegendGradient(); }
+        #endregion
 
         public WorldMapViewer()
         {
             InitializeComponent();
             _resourceLoader = new ResourceLoader();
             _mapRenderer = new MapRenderer(MapCanvas, StatusText);
-            _zoomController = new ZoomController(MIN_ZOOM, MAX_ZOOM, ZOOM_STEP);
-
-            // Initialize ColorMap ComboBox
-            InitializeColorMapCombo();
-        }
-
-        #endregion Constructors
-
-        #region Methods
-
-        private static CountryEnum MapToEnum(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-                return CountryEnum.Unknown;
-
-            // Log ALL country names from GeoJSON for debugging
-            System.Diagnostics.Debug.WriteLine($"[GeoJSON Country] Processing: '{name}'");
-
-            // First try the specialized GeoJSON name mapper for shortened names
-            var mappedCountry = GeoJsonNameMapper.MapGeoJsonNameToCountry(name);
-            if (mappedCountry != Country.Unknown)
-            {
-                System.Diagnostics.Debug.WriteLine($"[GeoJSON Mapped] '{name}' -> {mappedCountry}");
-                return (CountryEnum)mappedCountry; // Cast to CountryEnum alias
-            }
-
-            // Fallback to the existing normalized name lookup
-            var normalized = new string(name.Where(ch => char.IsLetterOrDigit(ch)).ToArray()).ToLowerInvariant();
+            PopulateColorMapItems();
+            AddHandler(MouseWheelEvent, new MouseWheelEventHandler(OnViewerMouseWheel), true);
+            MapViewport.PreviewMouseLeftButtonDown += OnViewportMouseDown;
+            MapViewport.PreviewMouseLeftButtonUp += OnViewportMouseUp;
+            MapViewport.PreviewMouseMove += OnViewportMouseMove;
+            _legendManager = new LegendManager(LegendGradient, LegendMinText, LegendMaxText, LegendTicks);
             
-            if (MapDictionaries.NormalizedNameToCountry.TryGetValue(normalized, out var country))
+            // Initialize color preview when loaded
+            Loaded += (s, e) => 
             {
-                System.Diagnostics.Debug.WriteLine($"[Dictionary Mapped] '{name}' (normalized: '{normalized}') -> {country}");
-                return (CountryEnum)country; // Cast to CountryEnum alias
-            }
-
-            // Log unmatched names for debugging - this is critical for finding missing mappings
-            System.Diagnostics.Debug.WriteLine($"❌ [UNMAPPED COUNTRY] '{name}' (normalized: '{normalized}') -> NOT FOUND");
-            return CountryEnum.Unknown;
+                var defaultOutlineColor = _mapRenderer.PathStyler.GetOutlineColor();
+                UpdateOutlineColorPreview(defaultOutlineColor);
+                
+                var defaultFillColor = _mapRenderer.PathStyler.GetDefaultFillColor();
+                UpdateDefaultFillColorPreview(defaultFillColor);
+            };
         }
 
-        private void ApplyColorMapButton_Click(object sender, RoutedEventArgs e)
+        #region Zoom & Pan
+        private void ApplyZoom(double newZoom, Point? pivot = null)
         {
-            ApplyColorMapToCountries(_selectedColorMapType);
+            if (!_zoomState.Set(newZoom)) return;
+            if (ScaleTx == null || TranslateTx == null) return;
+            var scale = _zoomState.Zoom;
+            if (pivot.HasValue)
+            {
+                var vp = pivot.Value;
+                var worldX = (vp.X - TranslateTx.X) / ScaleTx.ScaleX;
+                var worldY = (vp.Y - TranslateTx.Y) / ScaleTx.ScaleY;
+                ScaleTx.ScaleX = scale; ScaleTx.ScaleY = scale;
+                TranslateTx.X = vp.X - worldX * scale;
+                TranslateTx.Y = vp.Y - worldY * scale;
+            }
+            else { ScaleTx.ScaleX = scale; ScaleTx.ScaleY = scale; }
+            ZoomText.Text = $"{Math.Round(scale * 100, 0)}%";
+            _mapRenderer.PathStyler.AdjustForZoom(scale);
+            ClampPan();
         }
 
-        private void ApplyColorMapToCountries(ColorMapType colorMapType)
+        private void ClampPan()
         {
-            try
-            {
-                var mappings = CountryCodeColorService.BuildColorMappings(colorMapType);
-                if (mappings.Count == 0)
-                {
-                    StatusText.Text = "No country codes available to apply colormap.";
-                    return;
-                }
-
-                CountryColorOverrides = mappings;
-                StatusText.Text = $"Applied {colorMapType} colormap using {mappings.Count} country codes.";
-            }
-            catch (System.Exception ex)
-            {
-                StatusText.Text = $"Error applying colormap: {ex.Message}";
-            }
+            if (TranslateTx == null || ScaleTx == null) return;
+            var scale = _zoomState.Zoom;
+            var viewW = MapViewport.ActualWidth;
+            var viewH = MapViewport.ActualHeight;
+            var contentW = MAP_WIDTH * scale;
+            var contentH = MAP_HEIGHT * scale;
+            double minX = Math.Min(0, viewW - contentW);
+            double maxX = 0;
+            double minY = Math.Min(0, viewH - contentH);
+            double maxY = 0;
+            // Center if content smaller
+            if (contentW < viewW) { TranslateTx.X = (viewW - contentW) / 2.0; } else { TranslateTx.X = Math.Clamp(TranslateTx.X, minX, maxX); }
+            if (contentH < viewH) { TranslateTx.Y = (viewH - contentH) / 2.0; } else { TranslateTx.Y = Math.Clamp(TranslateTx.Y, minY, maxY); }
         }
 
-        private void ApplyCountryColorOverrides()
-        {
-            if (_mapRenderer?.PathStyler == null) return;
+        private void CenterIfSmaller() => ClampPan();
 
-            var dict = new Dictionary<string, Brush>(StringComparer.OrdinalIgnoreCase);
-            if (CountryColorOverrides != null)
+        private void OnViewerMouseWheel(object? sender, MouseWheelEventArgs e)
+        { ApplyZoom(_zoomState.Zoom + (e.Delta > 0 ? ZOOM_STEP : -ZOOM_STEP), e.GetPosition(MapViewport)); e.Handled = true; }
+
+        private void OnViewportMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
             {
-                foreach (var mapping in CountryColorOverrides)
-                {
-                    // Strategy 1: Use MapDictionaries mapping if available
-                    if (MapDictionaries.CountryToName.TryGetValue(mapping.Country, out var display))
-                    {
-                        dict[display] = mapping.Fill;
-                    }
-
-                    // Strategy 2: Add common GeoJSON name variations for the country
-                    var countryVariations = mapping.Country.GetGeoJsonNameVariations();
-                    foreach (var variation in countryVariations)
-                    {
-                        dict[variation] = mapping.Fill;
-                    }
-
-                    // Strategy 3: Use enum name as fallback
-                    dict[mapping.Country.ToString()] = mapping.Fill;
-                }
+                _dragOriginViewport = e.GetPosition(MapViewport);
+                _dragOriginTranslate = new Point(TranslateTx.X, TranslateTx.Y);
+                MapViewport.Cursor = System.Windows.Input.Cursors.SizeAll;
+                // Capture only the viewport (previously captured parent Grid causing lost Up event)
+                MapViewport.CaptureMouse();
             }
-
-            _mapRenderer.PathStyler.OverrideFillResolver = name =>
-                dict.TryGetValue(name, out var brush) ? brush : null;
-
-            _mapRenderer.PathStyler.RefreshOverrides();
         }
-
-        private void ApplyCountryColorsJson(string? json)
+        private void OnViewportMouseUp(object sender, MouseButtonEventArgs e)
         {
-            // Delegate JSON parsing to the dedicated service
-            var result = CountryColorJsonParser.Parse(json);
+            _dragOriginViewport = null;
+            _dragOriginTranslate = null;
+            MapViewport.Cursor = System.Windows.Input.Cursors.Arrow;
+            if (Mouse.Captured == MapViewport)
+                Mouse.Capture(null);
+        }
+        private void OnViewportMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (_dragOriginViewport.HasValue && _dragOriginTranslate.HasValue && e.LeftButton == MouseButtonState.Pressed)
+            {
+                var cur = e.GetPosition(MapViewport);
+                var dx = cur.X - _dragOriginViewport.Value.X;
+                var dy = cur.Y - _dragOriginViewport.Value.Y;
+                TranslateTx.X = _dragOriginTranslate.Value.X + dx;
+                TranslateTx.Y = _dragOriginTranslate.Value.Y + dy;
+                ClampPan();
+            }
+        }
+        private void MapViewport_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (Mouse.Captured == MapViewport)
+            {
+                _dragOriginViewport = null;
+                _dragOriginTranslate = null;
+                MapViewport.Cursor = System.Windows.Input.Cursors.Arrow;
+                Mouse.Capture(null);
+            }
+        }
+        private void MapViewport_SizeChanged(object sender, SizeChangedEventArgs e) => CenterIfSmaller();
+        #endregion
 
+        #region Legend & Formatting
+        private static string FormatLegendValue(double v)
+        { double av = Math.Abs(v); string suffix; double scaled; if (av >= 1_000_000_000_000d) { scaled = v / 1_000_000_000_000d; suffix = "T"; } else if (av >= 1_000_000_000d) { scaled = v / 1_000_000_000d; suffix = "B"; } else if (av >= 1_000_000d) { scaled = v / 1_000_000d; suffix = "M"; } else if (av >= 1_000d) { scaled = v / 1_000d; suffix = "K"; } else { scaled = v; suffix = string.Empty; } return scaled.ToString("0.##") + suffix; }
+
+        private void UpdateLegendGradient()
+        { _legendManager?.Update(_legendMin, _legendMax, _selectedColorMapType); }
+        #endregion
+
+        #region Parsing / JSON / ColorMap
+        private void ApplyRegionJson(string? json)
+        {
+            var extracted = JsonInputExtractor.ExtractJson(json);
+            if (extracted == null)
+            {
+                CountryColorOverrides = null;
+                _numericCountryValues = new Dictionary<CountryEnum, double>();
+                _legendMin = 0; _legendMax = 100; _hasNumericRange = false;
+                StatusText.Text = "No JSON detected.";
+                UpdateLegendGradient();
+                return;
+            }
+            var result = CountryColorJsonParser.Parse(extracted, _selectedColorMapType);
             CountryColorOverrides = result.ColorMappings.Length > 0 ? result.ColorMappings : null;
-
-            if (StatusText != null)
-                StatusText.Text = result.Message;
+            _numericCountryValues = result.NumericValues.ToDictionary(kv => (CountryEnum)kv.Key, kv => kv.Value);
+            if (StatusText != null) StatusText.Text = result.Message;
+            var nm = ExtractNumericPairs(extracted);
+            if (nm.Count > 0) { _legendMin = nm.Min(kv => kv.Value); _legendMax = nm.Max(kv => kv.Value); _hasNumericRange = true; }
+            else { _legendMin = 0; _legendMax = 100; _hasNumericRange = false; }
+            UpdateLegendGradient();
+            ApplyCountryColorOverrides();
         }
 
-        private void ApplyZoomTransform(ZoomResult zr, Point mouse)
-        {
-            ZoomTransform.ScaleX = zr.NewZoom;
-            ZoomTransform.ScaleY = zr.NewZoom;
+        private Dictionary<string, double> ExtractNumericPairs(string? json)
+        { var dict = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase); if (string.IsNullOrWhiteSpace(json)) return dict; try { using var doc = JsonDocument.Parse(json); var root = doc.RootElement; if (root.ValueKind == JsonValueKind.Object) foreach (var p in root.EnumerateObject()) { if (p.Value.ValueKind == JsonValueKind.Number && p.Value.TryGetDouble(out var d)) dict[p.Name] = d; else if (p.Value.ValueKind == JsonValueKind.String && double.TryParse(p.Value.GetString(), out var ds)) dict[p.Name] = ds; } } catch { } return dict; }
 
-            var sv = MapScrollViewer;
-            var factor = zr.NewZoom / zr.PreviousZoom;
-
-            var newH = mouse.X * factor - (mouse.X - sv.HorizontalOffset);
-            var newV = mouse.Y * factor - (mouse.Y - sv.VerticalOffset);
-
-            sv.ScrollToHorizontalOffset(newH);
-            sv.ScrollToVerticalOffset(newV);
-        }
+        private void EnsureColorMapDebounceTimer()
+        { if (_colorMapDebounceTimer != null) return; _colorMapDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) }; _colorMapDebounceTimer.Tick += (_, _) => { _colorMapDebounceTimer!.Stop(); if (ColorMapType != _pendingColorMapType) ColorMapType = _pendingColorMapType; else UpdateLegendGradient(); }; }
 
         private void ColorMapCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (ColorMapCombo.SelectedItem is string selectedName &&
-                Enum.TryParse<ColorMapType>(selectedName, out var colorMapType))
+            if (ColorMapCombo.SelectedItem is ColorMapPreview preview && Enum.TryParse<ColorMapType>(preview.Name, out var type))
             {
-                _selectedColorMapType = colorMapType;
-                StatusText.Text = $"ColorMap changed to {selectedName}";
+                _pendingColorMapType = type;
+                EnsureColorMapDebounceTimer();
+                _colorMapDebounceTimer!.Stop();
+                _colorMapDebounceTimer.Start();
+                StatusText.Text = $"ColorMap (pending) {preview.Name}";
+                PreviewLegend(type);
             }
         }
 
-        private void InitializeColorMapCombo()
-        {
-            var colorMapTypes = Enum.GetValues<ColorMapType>();
-            foreach (var colorMap in colorMapTypes)
-            {
-                ColorMapCombo.Items.Add(colorMap.ToString());
-            }
-            ColorMapCombo.SelectedIndex = 0; // Default to Jet
-        }
+        private void PreviewLegend(ColorMapType previewType)
+        { var rect = LegendGradient; if (rect == null) return; var stops = new GradientStopCollection(); const int steps = 24; for (int i = 0; i <= steps; i++) { double t = (double)i / steps; var c = ColorMapCalculator.GetColorAtPosition(t, previewType); stops.Add(new GradientStop(c, t)); } rect.Fill = new LinearGradientBrush(stops, new Point(0, 0.5), new Point(1, 0.5)); }
+        #endregion
 
-        #if DEBUG
-        private void RunMappingDiagnostics()
-        {
-            // Run final verification first
-            FinalMappingVerification.RunFinalVerification();
-            
-            // Run the comprehensive CountryCode investigation
-            CountryCodeMappingInvestigator.RunDebugDiagnostics();
-            
-            // Run the comprehensive test suite
-            var testReport = CountryMappingTestSuite.GenerateTestReport();
-            System.Diagnostics.Debug.WriteLine("=== COMPREHENSIVE MAPPING TEST RESULTS ===");
-            System.Diagnostics.Debug.WriteLine(testReport);
-            
-            var report = CountryMappingValidator.GenerateValidationReport();
-            System.Diagnostics.Debug.WriteLine("=== COUNTRY MAPPING DIAGNOSTICS ===");
-            System.Diagnostics.Debug.WriteLine(report);
-            
-            // Test the GeoJSON name mapper with common problematic names INCLUDING the exact "Dem. Rep. Congo"
-            var testNames = new[]
-            {
-                "Congo", "Congo, Rep.", "Congo, Dem. Rep.", 
-                "Dem. Rep. Congo", "Democratic Rep. Congo", // CRITICAL TEST CASES
-                "Central African Rep.", "S. Sudan", "Sudan",
-                "Georgia", "Armenia", "Turkmenistan", "Somalia",
-                "Iceland", "Ireland", "Lesotho", "Eswatini", "Swaziland",
-                "Benin", "Togo", "Djibouti", "Eritrea", "Comoros",
-                "Seychelles", "Mauritius", "Brunei", "Bahamas", "Barbados",
-                "North Macedonia", "Macedonia", "FYROM", "Czech Republic", "Czechia",
-                "Bosnia and Herzegovina", "Vatican City", "Holy See"
-            };
-            
-            System.Diagnostics.Debug.WriteLine("=== GEOJSON NAME MAPPING TEST ===");
-            foreach (var testName in testNames)
-            {
-                var mapped = GeoJsonNameMapper.MapGeoJsonNameToCountry(testName);
-                var status = mapped != Country.Unknown ? "✅" : "❌";
-                System.Diagnostics.Debug.WriteLine($"{status} '{testName}' -> {mapped}");
-            }
-            
-            // Test the normalized lookup as well
-            System.Diagnostics.Debug.WriteLine("=== NORMALIZED NAME LOOKUP TEST ===");
-            foreach (var testName in testNames)
-            {
-                var normalized = new string(testName.Where(ch => char.IsLetterOrDigit(ch)).ToArray()).ToLowerInvariant();
-                var found = MapDictionaries.NormalizedNameToCountry.TryGetValue(normalized, out var country);
-                var status = found ? "✅" : "❌";
-                System.Diagnostics.Debug.WriteLine($"{status} '{testName}' (normalized: '{normalized}') -> {(found ? country : "NOT FOUND")}");
-            }
-
-            // Test CountryCode to Country mappings
-            System.Diagnostics.Debug.WriteLine("=== COUNTRYCODE TO COUNTRY MAPPING TEST ===");
-            var problematicCodes = new[]
-            {
-                CountryCode.CD, CountryCode.CG, CountryCode.CF, CountryCode.SS, CountryCode.SD,
-                CountryCode.GE, CountryCode.AM, CountryCode.TM, CountryCode.SO, CountryCode.IS,
-                CountryCode.IE, CountryCode.LS, CountryCode.SZ, CountryCode.BJ, CountryCode.TG,
-                CountryCode.DJ, CountryCode.ER, CountryCode.KM, CountryCode.SC, CountryCode.MU,
-                CountryCode.BN, CountryCode.BS, CountryCode.BB, CountryCode.MK, CountryCode.BA,
-                CountryCode.CZ, CountryCode.VA
-            };
-
-            foreach (var code in problematicCodes)
-            {
-                var country = code.ToCountry();
-                var status = country != Country.Unknown ? "✅" : "❌";
-                System.Diagnostics.Debug.WriteLine($"{status} {code} -> {country}");
-            }
-        }
-        #endif
-
+        #region Data Loading
         private async Task LoadAndRenderMapAsync()
-        {
-            try
-            {
-                StatusText.Text = "Loading world map data...";
-                var geoJson = await _resourceLoader.LoadGeoJsonAsync();
-                
-                #if DEBUG
-                // CRITICAL: Extract and log ALL country names from the actual GeoJSON
-                System.Diagnostics.Debug.WriteLine("=== ANALYZING ACTUAL GEOJSON COUNTRY NAMES ===");
-                var geoJsonReport = GeoJsonCountryExtractor.GenerateCountryNamesReport(geoJson);
-                System.Diagnostics.Debug.WriteLine(geoJsonReport);
-                #endif
-                
-                var mapData = ParseGeoJsonData(geoJson);
-                _mapRenderer.RenderMap(mapData, MAP_WIDTH, MAP_HEIGHT);
-                ApplyCountryColorOverrides();
-                StatusText.Text = $"Loaded {mapData.Countries.Count} countries. Hover for details.";
-                
-                #if DEBUG
-                // Run comprehensive mapping diagnostics
-                RunMappingDiagnostics();
-                
-                // Generate fix verification report
-                var fixReport = CountryMappingVerifier.GenerateFixReport();
-                System.Diagnostics.Debug.WriteLine(fixReport);
-                
-                // Also run the detailed coverage diagnostics
-                var detailed = CountryCodeColorService.DiagnoseDetailed(mapData);
-                System.Diagnostics.Debug.WriteLine($"[Coverage] Countries in enum: {detailed.EnumCountries.Count}");
-                System.Diagnostics.Debug.WriteLine($"[Coverage] Countries in map: {detailed.MappedCountries.Count}");
-                System.Diagnostics.Debug.WriteLine($"[Coverage] Unknown feature names: {detailed.UnknownFeatureNames.Count}");
-                
-                if (detailed.UnknownFeatureNames.Count > 0)
-                {
-                    System.Diagnostics.Debug.WriteLine("=== UNMAPPED COUNTRIES FROM PARSED DATA ===");
-                    foreach (var name in detailed.UnknownFeatureNames)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"❌ UNMAPPED: '{name}'");
-                    }
-                }
-                #endif
-            }
-            catch (Exception ex)
-            {
-                StatusText.Text = $"Failed to load map: {ex.Message}";
-                _mapRenderer.RenderFallbackMap();
-            }
-        }
+        { try { StatusText.Text = "Loading world map data..."; var geoJson = await _resourceLoader.LoadGeoJsonAsync(); var mapData = ParseGeoJsonData(geoJson); _mapRenderer.RenderMap(mapData, MAP_WIDTH, MAP_HEIGHT); ApplyCountryColorOverrides(); ApplyZoom(_zoomState.Zoom, new Point(MapViewport.ActualWidth / 2, MapViewport.ActualHeight / 2)); StatusText.Text = $"Loaded {mapData.Countries.Count} countries. Hover for details."; UpdateLegendGradient(); } catch (Exception ex) { StatusText.Text = $"Failed to load map: {ex.Message}"; _mapRenderer.RenderFallbackMap(); } }
+        #endregion
 
-        private void MapScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
-        {
-            try
-            {
-                var pos = e.GetPosition(MapCanvas);
-                var result = _zoomController.HandleZoom(e.Delta, pos);
-                if (result.ZoomChanged)
-                {
-                    ApplyZoomTransform(result, pos);
-                    UpdateZoomDisplay(result.NewZoom);
-                }
-                e.Handled = true;
-            }
-            catch (Exception ex)
-            {
-                StatusText.Text = $"Zoom error: {ex.Message}";
-            }
-        }
-
+        #region GeoJSON Helpers
         private CountryInfo? ParseCountryFeature(JsonNode? feature)
-        {
-            if (feature == null) return null;
-            var properties = feature["properties"];
-            var geometry = feature["geometry"];
+        { if (feature == null) return null; var props = feature["properties"]; var geom = feature["geometry"]; var name = props?["NAME"]?.ToString() ?? props?["Name"]?.ToString() ?? props?["name"]?.ToString() ?? props?["ADMIN"]?.ToString() ?? props?["NAME_EN"]?.ToString() ?? props?["NAME_LONG"]?.ToString() ?? props?["COUNTRY"]?.ToString() ?? props?["ADM0_A3"]?.ToString() ?? "Unknown"; var ev = MapToEnum(name); return geom?["type"]?.ToString() switch { "Polygon" => new CountryInfo(name, ev, CountryGeometryType.Polygon, geom), "MultiPolygon" => new CountryInfo(name, ev, CountryGeometryType.MultiPolygon, geom), _ => null }; }
 
-            // Try multiple property names that might contain the country name
-            var name =
-                properties?["NAME"]?.ToString() ??
-                properties?["Name"]?.ToString() ??
-                properties?["name"]?.ToString() ??
-                properties?["ADMIN"]?.ToString() ??
-                properties?["NAME_EN"]?.ToString() ??
-                properties?["NAME_LONG"]?.ToString() ??
-                properties?["COUNTRY"]?.ToString() ??
-                properties?["ADM0_A3"]?.ToString() ??
-                "Unknown";
-
-            var enumValue = MapToEnum(name);
-
-            // Debug output to see what countries are being parsed
-            if (enumValue == CountryEnum.Unknown && name != "Unknown")
-            {
-                System.Diagnostics.Debug.WriteLine($"[MapParsing] Unmapped country: '{name}'");
-            }
-
-            return geometry?["type"]?.ToString() switch
-            {
-                "Polygon" => new CountryInfo(name, enumValue, CountryGeometryType.Polygon, geometry),
-                "MultiPolygon" => new CountryInfo(name, enumValue, CountryGeometryType.MultiPolygon, geometry),
-                _ => null
-            };
-        }
+        private static CountryEnum MapToEnum(string name)
+        { if (string.IsNullOrWhiteSpace(name)) return CountryEnum.Unknown; var mapped = GeoJsonNameMapper.MapGeoJsonNameToCountry(name); if (mapped != Country.Unknown) return (CountryEnum)mapped; var norm = new string(name.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant(); if (MapDictionaries.NormalizedNameToCountry.TryGetValue(norm, out var c)) return (CountryEnum)c; return CountryEnum.Unknown; }
 
         private MapData ParseGeoJsonData(string json)
-        {
-            var root = JsonNode.Parse(json) ?? throw new InvalidOperationException("Invalid GeoJSON format");
-            var features = root["features"] as JsonArray ?? throw new InvalidOperationException("No features found in GeoJSON");
+        { var root = JsonNode.Parse(json) ?? throw new InvalidOperationException("Invalid GeoJSON format"); var features = root["features"] as JsonArray ?? throw new InvalidOperationException("No features found in GeoJSON"); var list = new List<CountryInfo>(); foreach (var f in features) { var c = ParseCountryFeature(f); if (c != null) list.Add(c); } return new MapData(list); }
+        #endregion
 
-            var countries = new List<CountryInfo>();
-            foreach (var feature in features)
+        #region Initialization
+        private void PopulateColorMapItems()
+        {
+            if (ColorMapCombo == null) return;
+            var list = new List<ColorMapPreview>();
+            foreach (var cm in Enum.GetValues<ColorMapType>())
             {
-                var c = ParseCountryFeature(feature);
-                if (c != null) countries.Add(c);
+                var stops = new GradientStopCollection();
+                const int steps = 24;
+                for (int i = 0; i <= steps; i++)
+                {
+                    double t = (double)i / steps;
+                    var c = ColorMapCalculator.GetColorAtPosition(t, cm);
+                    stops.Add(new GradientStop(c, t));
+                }
+                var brush = new LinearGradientBrush(stops, new Point(0, 0.5), new Point(1, 0.5));
+                brush.Freeze();
+                list.Add(new ColorMapPreview(cm.ToString(), brush));
             }
-            return new MapData(countries);
+            ColorMapCombo.ItemsSource = list;
+            ColorMapCombo.SelectedIndex = 0;
+        }
+        private void RefreshColorMapItemGradients()
+        {
+            for (int i = 0; i < ColorMapCombo.Items.Count; i++)
+            {
+                var item = ColorMapCombo.ItemContainerGenerator.ContainerFromIndex(i) as ComboBoxItem;
+                if (item == null) continue;
+                var border = FindDescendant<Border>(item);
+                if (border == null) continue;
+                if (border.Background is LinearGradientBrush lgb)
+                {
+                    lgb.GradientStops.Clear();
+                    const int steps = 16;
+                    if (Enum.TryParse<ColorMapType>(ColorMapCombo.Items[i].ToString(), out var mapType))
+                    {
+                        for (int s = 0; s <= steps; s++)
+                        {
+                            double t = (double)s / steps;
+                            var c = ColorMapCalculator.GetColorAtPosition(t, mapType);
+                            lgb.GradientStops.Add(new GradientStop(c, t));
+                        }
+                    }
+                }
+            }
+        }
+        private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+        {
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is T t) return t;
+                var d = FindDescendant<T>(child);
+                if (d != null) return d;
+            }
+            return null;
         }
 
-        private void UpdateZoomDisplay(double zoom) =>
-            ZoomText.Text = $"{Math.Round(zoom * 100, 0, MidpointRounding.AwayFromZero)}%";
+        private void ApplyCountryColorOverrides()
+        { var dict = new Dictionary<string, Brush>(StringComparer.OrdinalIgnoreCase); if (CountryColorOverrides != null) { foreach (var m in CountryColorOverrides) { if (MapDictionaries.CountryToName.TryGetValue(m.Country, out var display)) dict[display] = m.Fill; foreach (var v in m.Country.GetGeoJsonNameVariations()) dict[v] = m.Fill; dict[m.Country.ToString()] = m.Fill; } } _mapRenderer.PathStyler.OverrideFillResolver = name => dict.TryGetValue(name, out var b) ? b : null; _mapRenderer.PathStyler.NumericValueResolver = name => { var norm = new string(name.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant(); if (MapDictionaries.NormalizedNameToCountry.TryGetValue(norm, out var ctry)) { var ev = (CountryEnum)ctry; if (_numericCountryValues.TryGetValue(ev, out var val)) return val; } return null; }; _mapRenderer.PathStyler.NumericFormatter = v => v.ToString("0.##"); _mapRenderer.PathStyler.RefreshOverrides(); _mapRenderer.PathStyler.AdjustForZoom(_zoomState.Zoom); }
 
-        private async void Window_Loaded(object sender, RoutedEventArgs e)
+        private async void Window_Loaded(object sender, RoutedEventArgs e) { await LoadAndRenderMapAsync(); }
+        #endregion
+
+        internal sealed class ZoomState
         {
-            try { await LoadAndRenderMapAsync(); }
-            catch (Exception ex)
+            public double Zoom { get; private set; }
+            public double MinZoom { get; }
+            public double MaxZoom { get; }
+            public double Step { get; }
+            public ZoomState(double initial, double min, double max, double step)
+            { Zoom = initial; MinZoom = min; MaxZoom = max; Step = step; }
+            public bool Set(double value)
+            { var clamped = Math.Clamp(value, MinZoom, MaxZoom); if (Math.Abs(clamped - Zoom) < 0.0001) return false; Zoom = clamped; return true; }
+            public bool Increment(int wheelDelta) => Set(Zoom + (wheelDelta > 0 ? Step : -Step));
+        }
+
+        private record ColorMapPreview(string Name, LinearGradientBrush Brush);
+
+        private void OutlineSlider_ValueChanged(object sender, System.Windows.RoutedPropertyChangedEventArgs<double> e)
+        {
+            _outlineMultiplier = e.NewValue; // 0-5
+            var tb = FindName("OutlineValueText") as TextBlock;
+            if (tb != null) tb.Text = _outlineMultiplier.ToString("0.0");
+            _mapRenderer?.PathStyler.SetOutlineMultiplier(_outlineMultiplier);
+            _mapRenderer?.PathStyler.AdjustForZoom(_zoomState.Zoom); // reapply with current zoom
+            OutlineThicknessChanged?.Invoke(this, _outlineMultiplier);
+        }
+
+        private void OutlineSlider_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is Slider s)
             {
-                MessageBox.Show($"Initialization error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                s.Minimum = 0;
+                s.Maximum = 5;
+                s.SmallChange = 0.1;
+                s.LargeChange = 0.5;
+                s.TickFrequency = 0.5;
+                s.IsSnapToTickEnabled = false; // Allow continuous movement
+                if (s.Value <= 0) s.Value = 1.0; // default
+                _outlineMultiplier = s.Value;
+                var tb = FindName("OutlineValueText") as TextBlock;
+                if (tb != null) tb.Text = _outlineMultiplier.ToString("0.0");
+                _mapRenderer?.PathStyler.SetOutlineMultiplier(_outlineMultiplier);
+                _mapRenderer?.PathStyler.AdjustForZoom(_zoomState.Zoom);
             }
         }
 
-        #endregion Methods
+        private void OutlineColorPicker_Click(object sender, RoutedEventArgs e)
+        {
+            // Create a WPF color picker dialog
+            var currentColor = _mapRenderer?.PathStyler.GetOutlineColor() ?? Colors.Gray;
+            var colorDialog = new ColorPickerDialog(currentColor)
+            {
+                Owner = Window.GetWindow(this),
+                Title = "Select Outline Color"
+            };
+            
+            if (colorDialog.ShowDialog() == true)
+            {
+                var selectedColor = colorDialog.SelectedColor;
+                
+                // Apply the color
+                _mapRenderer?.PathStyler.SetOutlineColor(selectedColor);
+                
+                // Update the color preview button
+                UpdateOutlineColorPreview(selectedColor);
+                
+                // Notify host app
+                OutlineColorChanged?.Invoke(this, selectedColor);
+            }
+        }
+
+        private void DefaultFillColorPicker_Click(object sender, RoutedEventArgs e)
+        {
+            // Create a WPF color picker dialog
+            var currentColor = _mapRenderer?.PathStyler.GetDefaultFillColor() ?? Color.FromRgb(245, 245, 245);
+            var colorDialog = new ColorPickerDialog(currentColor)
+            {
+                Owner = Window.GetWindow(this),
+                Title = "Select Default Fill Color"
+            };
+            
+            if (colorDialog.ShowDialog() == true)
+            {
+                var selectedColor = colorDialog.SelectedColor;
+                
+                // Apply the color
+                _mapRenderer?.PathStyler.SetDefaultFillColor(selectedColor);
+                
+                // Update the color preview button
+                UpdateDefaultFillColorPreview(selectedColor);
+                
+                // Notify host app
+                DefaultFillColorChanged?.Invoke(this, selectedColor);
+            }
+        }
+
+        private void UpdateOutlineColorPreview(Color color)
+        {
+            if (FindName("OutlineColorPicker") is System.Windows.Controls.Button colorButton && 
+                colorButton.Template?.FindName("ColorPreview", colorButton) is System.Windows.Shapes.Rectangle colorRect)
+            {
+                colorRect.Fill = new SolidColorBrush(color);
+            }
+        }
+
+        private void UpdateDefaultFillColorPreview(Color color)
+        {
+            if (FindName("DefaultFillColorPicker") is System.Windows.Controls.Button colorButton && 
+                colorButton.Template?.FindName("ColorPreview", colorButton) is System.Windows.Shapes.Rectangle colorRect)
+            {
+                colorRect.Fill = new SolidColorBrush(color);
+            }
+        }
+
+        /// <summary>
+        /// Sets the outline color programmatically (e.g., from saved settings)
+        /// </summary>
+        public void SetOutlineColor(Color color)
+        {
+            _mapRenderer?.PathStyler.SetOutlineColor(color);
+            UpdateOutlineColorPreview(color);
+        }
+
+        /// <summary>
+        /// Sets the default fill color programmatically (e.g., from saved settings)
+        /// </summary>
+        public void SetDefaultFillColor(Color color)
+        {
+            _mapRenderer?.PathStyler.SetDefaultFillColor(color);
+            UpdateDefaultFillColorPreview(color);
+        }
+
+        /// <summary>
+        /// Gets the current outline thickness value
+        /// </summary>
+        public double GetOutlineThickness() => _outlineMultiplier;
+
+        /// <summary>
+        /// Sets the outline thickness programmatically (e.g., from saved settings)
+        /// </summary>
+        public void SetOutlineThickness(double thickness)
+        {
+            if (Math.Abs(_outlineMultiplier - thickness) < 0.001) return;
+            
+            _outlineMultiplier = thickness;
+            _mapRenderer?.PathStyler.SetOutlineMultiplier(_outlineMultiplier);
+            _mapRenderer?.PathStyler.AdjustForZoom(_zoomState.Zoom);
+            
+            // Update slider if it exists
+            var slider = FindName("OutlineSlider") as Slider;
+            if (slider != null && Math.Abs(slider.Value - thickness) > 0.001)
+            {
+                slider.Value = thickness;
+            }
+            
+            // Update text display
+            var tb = FindName("OutlineValueText") as TextBlock;
+            if (tb != null) tb.Text = thickness.ToString("0.0");
+        }
     }
 }

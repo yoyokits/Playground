@@ -3,9 +3,8 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 
-namespace WorldMapViewer
+namespace WorldMapApp
 {
-    using System.Threading.Tasks;
     using System.Windows;
     using LLM.Settings;
 
@@ -18,14 +17,20 @@ namespace WorldMapViewer
 
         protected override async void OnExit(ExitEventArgs e)
         {
-            await SettingsService.SaveAsync();
+            // ensure final bounds persisted and single forced save
+            if (Current?.MainWindow is MainWindow mw)
+                mw.PersistWindowBounds();
+            await SettingsService.SaveAsync(force: true);
             base.OnExit(e);
         }
 
         protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+            SettingsService.ApplicationOwnsPersistence = true; // app controls when to write disk
             await SettingsService.LoadAsync();
+            var win = new MainWindow();
+            win.Show();
         }
 
         #endregion Methods

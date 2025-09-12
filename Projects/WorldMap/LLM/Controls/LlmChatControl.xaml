@@ -6,273 +6,116 @@
              MinWidth="420"
              MinHeight="300">
     <UserControl.Resources>
-        <!-- Message Template (User messages: reuse ↺, all: copy 📋) -->
-        <DataTemplate x:Key="MessageTemplate">
-            <Border Margin="0,3"
-                    Padding="6"
-                    CornerRadius="4"
-                    BorderBrush="#444"
-                    BorderThickness="1">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Background" Value="#303030" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding Role}" Value="System">
-                                <Setter Property="Background" Value="#3C3C3C" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding Role}" Value="User">
-                                <Setter Property="Background" Value="#2D466E" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding Role}" Value="Assistant">
-                                <Setter Property="Background" Value="#465A2D" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Role -->
-                    <TextBlock Grid.Row="0"
-                               Grid.Column="0"
-                               Text="{Binding Role}"
-                               FontWeight="Bold"
-                               Foreground="#DDD" />
-
-                    <!-- Reuse (only for User) -->
-                    <Button Grid.Row="0"
-                            Grid.Column="1"
-                            Width="24"
-                            Height="20"
-                            Margin="4,0,0,0"
-                            Content="↺"
-                            FontSize="12"
-                            Tag="{Binding Content}"
-                            ToolTip="Reuse this input"
-                            Click="ReuseUserMessage_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="BorderBrush" Value="#666" />
-                                <Setter Property="Opacity" Value="0.65" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Role}" Value="User">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Opacity" Value="1" />
-                                        <Setter Property="Background" Value="#55607A" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-
-                    <!-- Copy -->
-                    <Button Grid.Row="0"
-                            Grid.Column="2"
-                            Width="24"
-                            Height="20"
-                            Margin="4,0,0,0"
-                            Content="📋"
-                            FontSize="12"
-                            Tag="{Binding Content}"
-                            ToolTip="Copy message"
-                            Click="CopyMessage_Click">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="BorderBrush" Value="#666" />
-                                <Setter Property="Opacity" Value="0.6" />
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Opacity" Value="1.0" />
-                                        <Setter Property="Background" Value="#555" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-
-                    <!-- Content -->
-                    <TextBlock Grid.Row="1"
-                               Grid.Column="0"
-                               Grid.ColumnSpan="3"
-                               Margin="0,4,0,0"
-                               Text="{Binding Content}"
-                               TextWrapping="Wrap"
-                               Foreground="#DDD" />
-                </Grid>
-            </Border>
-        </DataTemplate>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/WPF;component/Themes/SharedStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <!-- Conversation (history) list items: black text for light panel -->
+            <DataTemplate x:Key="ConversationListTemplate">
+                <StackPanel Orientation="Vertical" Margin="2" ToolTip="{Binding Title}">
+                    <TextBlock Text="{Binding Title}" Foreground="Black" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding LastUpdated, StringFormat={}{0:HH:mm}}" Foreground="#555" FontSize="10" />
+                </StackPanel>
+            </DataTemplate>
+            <!-- Chat message template: revert to light themed brushes -->
+            <DataTemplate x:Key="MessageTemplate">
+                <Border Style="{StaticResource ChatMessageContainerStyle}" MouseLeftButtonUp="MessageBorder_MouseLeftButtonUp">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Role}" FontWeight="Bold" Foreground="{StaticResource ChatTextBrush}" />
+                        <Button Grid.Row="0" Grid.Column="1" Content="↺" Tag="{Binding Content}" ToolTip="Reuse" Style="{StaticResource ReuseButtonStyle}" />
+                        <Button Grid.Row="0" Grid.Column="2" Content="📋" Tag="{Binding Content}" ToolTip="Copy" Style="{StaticResource IconButtonCompact}" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,4,0,0" Text="{Binding Content}" TextWrapping="Wrap" Foreground="{StaticResource ChatTextBrush}" />
+                    </Grid>
+                </Border>
+            </DataTemplate>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <!-- Top controls -->
-            <RowDefinition Height="*" />
-            <!-- Conversation -->
-            <RowDefinition Height="Auto" />
-            <!-- Input -->
-            <RowDefinition Height="Auto" />
-            <!-- Command bar -->
-        </Grid.RowDefinitions>
-
-        <!-- Top controls (3 rows now) -->
-        <Grid Grid.Row="0" Margin="0,0,0,4">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="170" />
+            <ColumnDefinition Width="5" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <!-- History / Conversations Panel -->
+        <Border Grid.Column="0" Style="{StaticResource PanelBorderStyle}" Padding="6">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6" HorizontalAlignment="Left">
+                    <Button Content="＋" Style="{StaticResource IconMiniButtonStyle}" Click="NewConversation_Click" ToolTip="New" />
+                    <Button Content="⚙" Style="{StaticResource IconMiniButtonStyle}" Margin="4,0,0,0" Click="SettingsButton_Click" ToolTip="Settings" />
+                </StackPanel>
+                <ScrollViewer DockPanel.Dock="Bottom" VerticalScrollBarVisibility="Auto">
+                    <ListBox x:Name="ConversationList"
+                             ItemsSource="{Binding Conversations}"
+                             ItemTemplate="{StaticResource ConversationListTemplate}"
+                             SelectedItem="{Binding ActiveConversation, Mode=TwoWay}"
+                             SelectionChanged="ConversationList_SelectionChanged"
+                             ItemContainerStyle="{StaticResource ChatListBoxItemStyle}" />
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+        <GridSplitter Grid.Column="1" Width="5" Background="#333" />
+        <Grid Grid.Column="2">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
 
-            <!-- Row 1: Provider selection -->
-            <TextBlock Grid.Row="0" Grid.Column="0"
-                       Text="Provider:"
-                       VerticalAlignment="Center"
-                       Margin="0,0,4,0"
-                       Foreground="#DDD" />
-            <ComboBox Grid.Row="0" Grid.Column="1"
-                      x:Name="ProviderCombo"
-                      SelectionChanged="ProviderCombo_SelectionChanged"
-                      MinWidth="120"
-                      Margin="0,0,6,0" />
-            <Button Grid.Row="0" Grid.Column="3"
-                    x:Name="SettingsButton"
-                    Content="Settings"
-                    Width="90"
-                    Height="26"
-                    Click="SettingsButton_Click"
-                    Margin="0,0,6,0" />
+            <!-- Conversation -->
+            <Border Grid.Row="0" Style="{StaticResource PanelBorderStyle}">
+                <ScrollViewer x:Name="ConversationScroll" VerticalScrollBarVisibility="Auto" Padding="6">
+                    <ItemsControl x:Name="ConversationItems" ItemTemplate="{StaticResource MessageTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
 
-            <!-- Row 2: Model selection -->
-            <TextBlock Grid.Row="1" Grid.Column="0"
-                       Text="Model:"
-                       VerticalAlignment="Center"
-                       Margin="0,4,4,0"
-                       Foreground="#DDD" />
-            <ComboBox Grid.Row="1" Grid.Column="1"
-                      x:Name="ModelCombo"
-                      ItemsSource="{Binding ModelNames}"
-                      SelectionChanged="ModelCombo_SelectionChanged"
-                      MinWidth="200"
-                      Margin="0,4,6,0" />
-            <Button Grid.Row="1" Grid.Column="2"
-                    x:Name="RefreshButton"
-                    Width="34"
-                    Height="26"
-                    Content="↻"
-                    ToolTip="Refresh models"
-                    Click="RefreshButton_Click"
-                    Margin="0,4,6,0" />
+            <!-- Input (multiline) -->
+            <Border Grid.Row="1" Style="{StaticResource PanelBorderStyle}" Margin="0,6,0,6">
+                <TextBox x:Name="InputBox"
+                         AcceptsReturn="False"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         MinHeight="70"
+                         MaxHeight="220"
+                         Background="Transparent"
+                         Foreground="{StaticResource ChatTextBrush}"
+                         CaretBrush="{StaticResource ChatTextBrush}"
+                         BorderThickness="0"
+                         Padding="8"
+                         FontFamily="Consolas"
+                         FontSize="13"
+                         PreviewKeyDown="InputBox_PreviewKeyDown"
+                         ToolTip="Enter to send. Ctrl+Enter for newline." />
+            </Border>
 
-            <!-- Row 3: Options -->
-            <CheckBox Grid.Row="2" Grid.Column="0"
-                      Grid.ColumnSpan="2"
-                      x:Name="EnterSendsCheckBox"
-                      Content="Enter sends (Ctrl+Enter newline)"
-                      Checked="EnterSendsCheckBox_Changed"
-                      Unchecked="EnterSendsCheckBox_Changed"
-                      Foreground="#DDD"
-                      Margin="0,4,0,0" />
-            <TextBlock Grid.Row="2" Grid.Column="2"
-                       Margin="12,6,0,0"
-                       Foreground="#888"
-                       Text="Reuse: ↺  Copy: 📋" />
+            <!-- Command bar -->
+            <DockPanel Grid.Row="2" LastChildFill="False" Margin="0,0,0,0" Height="40">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,0,0">
+                    <Button x:Name="SendButton" Style="{StaticResource IconMiniButtonStyle}" Content="➤" ToolTip="Send (Enter)" Click="SendButton_Click" />
+                    <Button x:Name="CancelButton" Style="{StaticResource IconMiniButtonStyle}" Content="◼" ToolTip="Cancel" IsEnabled="False" Click="CancelButton_Click" />
+                    <Button x:Name="ClearButton" Style="{StaticResource IconMiniButtonStyle}" Content="🗑" ToolTip="Clear" Click="ClearButton_Click" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                    <ProgressBar x:Name="Progress" Width="100" Height="8" IsIndeterminate="True" Visibility="Collapsed" />
+                    <CheckBox x:Name="EnterSendsCheckBox" Content="↵" Margin="10,0,0,0" Checked="EnterSendsCheckBox_Changed" Unchecked="EnterSendsCheckBox_Changed" Foreground="{StaticResource ChatTextBrush}" ToolTip="Enter sends" />
+                </StackPanel>
+                <TextBlock x:Name="StatusBlock" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource SubtleTextBrush}" Text="Ready" />
+            </DockPanel>
         </Grid>
-
-        <!-- Conversation -->
-        <Border Grid.Row="1"
-                BorderBrush="#444"
-                BorderThickness="1"
-                Background="#1E1E1E">
-            <ScrollViewer x:Name="ConversationScroll"
-                          VerticalScrollBarVisibility="Auto"
-                          Padding="4">
-                <ItemsControl x:Name="ConversationItems"
-                              ItemTemplate="{StaticResource MessageTemplate}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                </ItemsControl>
-            </ScrollViewer>
-        </Border>
-
-        <!-- Input (multiline) -->
-        <Border Grid.Row="2"
-                BorderBrush="#444"
-                BorderThickness="1"
-                Margin="0,4,0,4"
-                Background="#252526">
-            <TextBox x:Name="InputBox"
-                     AcceptsReturn="True"
-                     TextWrapping="Wrap"
-                     VerticalScrollBarVisibility="Auto"
-                     MinHeight="80"
-                     MaxHeight="240"
-                     Background="Transparent"
-                     Foreground="#DDD"
-                     BorderThickness="0"
-                     Padding="6"
-                     FontFamily="Consolas"
-                     FontSize="13"
-                     PreviewKeyDown="InputBox_PreviewKeyDown"
-                     ToolTip="Type message. Enter sends (if enabled). Ctrl+Enter newline." />
-        </Border>
-
-        <!-- Command bar -->
-        <StackPanel Grid.Row="3"
-                    Orientation="Horizontal">
-            <Button x:Name="SendButton"
-                    Width="80"
-                    Height="28"
-                    Margin="0,0,4,0"
-                    Content="Send"
-                    Click="SendButton_Click" />
-            <Button x:Name="CancelButton"
-                    Width="80"
-                    Height="28"
-                    Margin="0,0,4,0"
-                    Content="Cancel"
-                    IsEnabled="False"
-                    Click="CancelButton_Click" />
-            <Button x:Name="ClearButton"
-                    Width="80"
-                    Height="28"
-                    Margin="0,0,10,0"
-                    Content="Clear"
-                    Click="ClearButton_Click" />
-            <ProgressBar x:Name="Progress"
-                         Width="120"
-                         Height="6"
-                         Margin="0,0,10,0"
-                         IsIndeterminate="True"
-                         Visibility="Collapsed"
-                         VerticalAlignment="Center" />
-            <TextBlock x:Name="StatusBlock"
-                       VerticalAlignment="Center"
-                       Foreground="#999"
-                       Text="Ready" />
-        </StackPanel>
     </Grid>
 </UserControl>
