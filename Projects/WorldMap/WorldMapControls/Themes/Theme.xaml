@@ -1,0 +1,184 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Color / Brush Tokens -->
+    <SolidColorBrush x:Key="BgWindow" Color="#1E1F24" />
+    <SolidColorBrush x:Key="BgSurface" Color="#23252B" />
+    <SolidColorBrush x:Key="CardBg" Color="#2B2E36" />
+    <SolidColorBrush x:Key="CardBgMuted" Color="#333743" />
+    <SolidColorBrush x:Key="CardBorder" Color="#3F424D" />
+    <SolidColorBrush x:Key="TextPrimary" Color="#ECEEF3" />
+    <SolidColorBrush x:Key="TextSecondary" Color="#AEB2BF" />
+    <!-- Added alias for legacy key referenced in existing XAML -->
+    <SolidColorBrush x:Key="TextSecondaryDark" Color="#B0B0B0" />
+    <SolidColorBrush x:Key="AccentBlue" Color="#4DA3FF" />
+    <SolidColorBrush x:Key="AccentIndigo" Color="#6C63FF" />
+    <SolidColorBrush x:Key="AccentCyan" Color="#00D3D6" />
+    <SolidColorBrush x:Key="SuccessGreen" Color="#27AE60" />
+    <SolidColorBrush x:Key="Divider" Color="#2F3340" />
+
+    <!-- Typography Styles -->
+    <Style x:Key="Title1Text" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="28" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style x:Key="Title2Text" TargetType="TextBlock" BasedOn="{StaticResource Title1Text}">
+        <Setter Property="FontSize" Value="20" />
+    </Style>
+    <Style x:Key="BodyText" TargetType="TextBlock" BasedOn="{StaticResource Title1Text}">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="Regular" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+    </Style>
+    <Style x:Key="CaptionText" TargetType="TextBlock" BasedOn="{StaticResource BodyText}">
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!-- Card Style -->
+    <Style x:Key="Card" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CardBg}" />
+        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect BlurRadius="20" Direction="270" ShadowDepth="8" Opacity="0.2" Color="#000000" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Primary Button -->
+    <Style x:Key="PrimaryButton" TargetType="Button">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+        <Setter Property="Background" Value="{StaticResource AccentIndigo}" />
+        <Setter Property="Padding" Value="12,4" />
+        <Setter Property="Height" Value="44" />
+        <Setter Property="MinWidth" Value="120" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root" CornerRadius="12" Background="{TemplateBinding Background}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#7A73FF" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#584FE0" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.4" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Root" Property="BorderThickness" Value="2" />
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentBlue}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Flat Progress -->
+    <Style x:Key="FlatProgress" TargetType="ProgressBar">
+        <Setter Property="Height" Value="10" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Border CornerRadius="5" Background="{StaticResource CardBgMuted}">
+                        <Grid x:Name="PART_Track">
+                            <Border x:Name="PART_Indicator" Background="{StaticResource AccentBlue}" CornerRadius="5" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- RadioCard (ToggleButton) -->
+    <Style x:Key="RadioCard" TargetType="ToggleButton">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="Background" Value="{StaticResource CardBg}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Root" CornerRadius="16" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{StaticResource CardBgMuted}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#3A3F4B" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentIndigo}" />
+                            <Setter TargetName="Root" Property="Background" Value="#383C49" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentBlue}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ItemsControl (Chrome-less) -->
+    <Style x:Key="FlatItemsControl" TargetType="ItemsControl">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ItemsControl">
+                    <ItemsPresenter />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Append modern base styles -->
+    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}" />
+
+    <Style x:Key="SliderThumbStyle" TargetType="Thumb">
+        <Setter Property="Width" Value="18" />
+        <Setter Property="Height" Value="18" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Ellipse Fill="{StaticResource AccentIndigo}" StrokeThickness="2" Stroke="{StaticResource BgSurface}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="Slider">
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid Margin="4,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Border Height="6" VerticalAlignment="Center" CornerRadius="3" Background="{StaticResource CardBgMuted}" />
+                        <ProgressBar x:Name="PART_SelectionRange" Height="6" Margin="0" Foreground="{StaticResource AccentIndigo}" Background="Transparent" IsHitTestVisible="False" />
+                        <Thumb x:Name="PART_TrackThumb" Style="{StaticResource SliderThumbStyle}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

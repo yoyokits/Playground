@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OutputType>Library</OutputType>
+    <AssemblyName>WPF</AssemblyName>
+    <RootNamespace>WPF</RootNamespace>
+  </PropertyGroup>
+  <!-- Remove application-specific XAML to satisfy library constraints -->
+  <ItemGroup>
+    <Compile Remove="App.xaml.cs" />
+    <Compile Remove="MainWindow.xaml.cs" />
+    <Page Remove="App.xaml" />
+    <Page Remove="MainWindow.xaml" />
+    <None Remove="App.xaml" />
+    <None Remove="MainWindow.xaml" />
+  </ItemGroup>
+</Project>

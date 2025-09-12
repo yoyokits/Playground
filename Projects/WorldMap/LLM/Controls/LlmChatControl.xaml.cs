@@ -7,6 +7,8 @@ namespace LLM.Controls
 {
     using System;
     using System.Collections.ObjectModel;
+    using System.ComponentModel; // Added for INotifyPropertyChanged
+    using System.Linq;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
@@ -14,13 +16,16 @@ namespace LLM.Controls
     using System.Windows.Controls;
     using System.Windows.Input;
     using System.Windows.Media;
+    using System.Diagnostics; // for debug logging
     using LLM.Models;
     using LLM.Models.Enums;
     using LLM.Services;
     using LLM.Settings;
 
-    public partial class LlmChatControl : UserControl
+    public partial class LlmChatControl : UserControl, INotifyPropertyChanged
     {
+        public event EventHandler<string>? OutputSelected; // fired when a previous assistant/system output is clicked
+
         #region Dependency Properties
 
         public static readonly DependencyProperty LastOutputProperty =
@@ -40,18 +45,41 @@ namespace LLM.Controls
 
         #region Fields
 
+        public ObservableCollection<Conversation> Conversations => ConversationStore.Conversations;
+
+        private Conversation? _activeConversation;
+        private bool _updatingActiveConversation;
+
         private readonly ObservableCollection<ChatMessage> _conversation = new();
-        private readonly ObservableCollection<string> _modelNames = new();
         private LLMAccessor? _accessor;
         private int _activeAssistantIndex = -1;
         private CancellationTokenSource? _cts;
         private bool _updatingFromSettings;
+        private bool _loadingConversation;
 
         #endregion Fields
 
         #region Properties
 
-        public ObservableCollection<string> ModelNames => _modelNames;
+        public Conversation? ActiveConversation
+        {
+            get => _activeConversation;
+            set
+            {
+                if (ReferenceEquals(_activeConversation, value)) return;
+                if (_activeConversation != null)
+                {
+                    _ = SaveActiveConversationAsync(generateTitle: true);
+                }
+                _activeConversation = value;
+                OnPropertyChanged(nameof(ActiveConversation));
+                if (!_updatingActiveConversation && value != null && !ReferenceEquals(ConversationStore.ActiveConversation, value))
+                {
+                    ConversationStore.Activate(value);
+                }
+                LoadActiveConversationMessages();
+            }
+        }
 
         #endregion Properties
 
@@ -62,7 +90,11 @@ namespace LLM.Controls
             InitializeComponent();
             ConversationItems.ItemsSource = _conversation;
             DataContext = this;
-            InitializeProviderCombo();
+            ConversationStore.ActiveConversationChanged += ConversationStore_ActiveConversationChanged;
+            Loaded += async (_, _) => await ConversationStore.LoadAsync();
+            Unloaded += async (_, _) => await ConversationStore.SaveAsync();
+            _activeConversation = ConversationStore.ActiveConversation;
+            OnPropertyChanged(nameof(ActiveConversation));
         }
 
         #endregion Constructors
@@ -72,12 +104,13 @@ namespace LLM.Controls
         private async void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
             SettingsService.SettingsChanged += SettingsService_SettingsChanged;
-
             if (!SettingsService.IsLoaded)
                 await Task.Delay(100);
-
-            await RefreshModelsAsync();
             UpdateUIFromSettings();
+            _updatingActiveConversation = true;
+            try { ActiveConversation = ConversationStore.ActiveConversation; }
+            finally { _updatingActiveConversation = false; }
+            LoadActiveConversationMessages();
         }
 
         private void UserControl_Unloaded(object sender, RoutedEventArgs e) =>
@@ -85,70 +118,7 @@ namespace LLM.Controls
 
         #endregion Lifecycle
 
-        #region Settings / Models
-
-        private void InitializeProviderCombo()
-        {
-            ProviderCombo.Items.Add("GPT4All");
-            ProviderCombo.Items.Add("Ollama");
-            ProviderCombo.SelectedIndex = 0; // Default to GPT4All
-        }
-
-        private async Task RefreshModelsAsync()
-        {
-            try
-            {
-                var provider = SettingsService.Current.SelectedProvider;
-                AppendSystem($"Fetching models from {provider}...");
-
-                var models = await ModelService.GetAvailableModelsAsync(provider);
-                _modelNames.Clear();
-
-                if (models.Length == 0)
-                {
-                    AppendSystem($"No models found for {provider}. Ensure {provider} is running and has models loaded.");
-                    return;
-                }
-
-                foreach (var m in models)
-                {
-                    _modelNames.Add(m);
-                }
-
-                AppendSystem($"Found {models.Length} models: {string.Join(", ", models.Take(3))}{(models.Length > 3 ? "..." : "")}");
-
-                // Auto-select first model if none selected
-                if (string.IsNullOrEmpty(SettingsService.Current.SelectedModel) && _modelNames.Count > 0)
-                {
-                    var updatedSettings = new AppSettings
-                    {
-                        SelectedProvider = SettingsService.Current.SelectedProvider,
-                        SelectedModel = _modelNames[0],
-                        MaxTokens = SettingsService.Current.MaxTokens,
-                        Temperature = SettingsService.Current.Temperature,
-                        SystemPrompt = SettingsService.Current.SystemPrompt,
-                        EnterSends = SettingsService.Current.EnterSends
-                    };
-                    SettingsService.Update(updatedSettings);
-                    AppendSystem($"Auto-selected model: {_modelNames[0]}");
-                }
-            }
-            catch (Exception ex)
-            {
-                AppendSystem($"Failed to load models: {ex.Message}");
-
-                // Provide specific troubleshooting for each provider
-                var provider = SettingsService.Current.SelectedProvider;
-                if (provider == LLMProvider.Ollama)
-                {
-                    AppendSystem("Troubleshooting Ollama:\n• Ensure Ollama is running: 'ollama serve'\n• Check if models are installed: 'ollama list'\n• Try pulling a model: 'ollama pull llama3.2'");
-                }
-                else if (provider == LLMProvider.GPT4All)
-                {
-                    AppendSystem("Troubleshooting GPT4All:\n• Ensure GPT4All application is running\n• Enable 'LocalServer' in GPT4All settings\n• Load a model in GPT4All interface");
-                }
-            }
-        }
+        #region Settings
 
         private void SettingsService_SettingsChanged(object? sender, EventArgs e) =>
             Dispatcher.Invoke(UpdateUIFromSettings);
@@ -159,21 +129,11 @@ namespace LLM.Controls
             try
             {
                 EnterSendsCheckBox.IsChecked = SettingsService.Current.EnterSends;
-                ProviderCombo.SelectedIndex = (int)SettingsService.Current.SelectedProvider;
-
-                if (!string.IsNullOrEmpty(SettingsService.Current.SelectedModel) &&
-                    _modelNames.Contains(SettingsService.Current.SelectedModel))
-                {
-                    ModelCombo.SelectedItem = SettingsService.Current.SelectedModel;
-                }
             }
-            finally
-            {
-                _updatingFromSettings = false;
-            }
+            finally { _updatingFromSettings = false; }
         }
 
-        #endregion Settings / Models
+        #endregion Settings
 
         #region UI Event Handlers
 
@@ -207,8 +167,7 @@ namespace LLM.Controls
                     btn.Content = original;
                     btn.Background = Brushes.Transparent;
                     timer.Stop();
-                };
-                timer.Start();
+                }; timer.Start();
             }
             catch (Exception ex)
             {
@@ -243,58 +202,6 @@ namespace LLM.Controls
             }
         }
 
-        private void ModelCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (_updatingFromSettings) return;
-            if (ModelCombo.SelectedItem is string name)
-            {
-                SettingsService.Current.SelectedModel = name;
-                SettingsService.RaiseChangedAndSave();
-                ResetAccessor();
-                AppendSystem($"Model selected: {name}");
-            }
-        }
-
-        private async void ProviderCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (_updatingFromSettings) return;
-
-            var newProvider = (LLMProvider)ProviderCombo.SelectedIndex;
-
-            // Update settings properly
-            var currentSettings = SettingsService.Current;
-            var updatedSettings = new AppSettings
-            {
-                SelectedProvider = newProvider,
-                SelectedModel = null, // Clear model when changing provider
-                MaxTokens = currentSettings.MaxTokens,
-                Temperature = currentSettings.Temperature,
-                SystemPrompt = currentSettings.SystemPrompt,
-                EnterSends = currentSettings.EnterSends
-            };
-
-            SettingsService.Update(updatedSettings);
-
-            ResetAccessor();
-            AppendSystem($"LLM Provider changed to {newProvider}. Refreshing models...");
-
-            // Add status feedback
-            StatusBlock.Text = $"Loading {newProvider} models...";
-
-            try
-            {
-                await RefreshModelsAsync();
-                StatusBlock.Text = $"Loaded {_modelNames.Count} {newProvider} models";
-            }
-            catch (Exception ex)
-            {
-                StatusBlock.Text = $"Failed to load {newProvider} models";
-                AppendSystem($"Error loading models: {ex.Message}");
-            }
-        }
-
-        private void RefreshButton_Click(object sender, RoutedEventArgs e) => _ = RefreshModelsAsync();
-
         private void ReuseUserMessage_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string text && !string.IsNullOrWhiteSpace(text))
@@ -311,15 +218,102 @@ namespace LLM.Controls
         {
             var dlg = new SettingsDialog { Owner = Window.GetWindow(this) };
             if (dlg.ShowDialog() == true)
-                ResetAccessor();
+            {
+                _accessor = null; // force rebuild with new settings
+            }
+        }
+
+        private void NewConversation_Click(object sender, RoutedEventArgs e) => _ = CreateNewConversationAsync();
+
+        private async Task CreateNewConversationAsync()
+        {
+            await SaveActiveConversationAsync(generateTitle: true);
+            ConversationStore.AddNew();
+        }
+
+        private async void ConversationList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_loadingConversation) return;
+            await Task.CompletedTask; // logic handled by binding
+        }
+
+        private void ConversationStore_ActiveConversationChanged(object? sender, EventArgs e)
+        {
+            _updatingActiveConversation = true;
+            try
+            {
+                _activeConversation = ConversationStore.ActiveConversation;
+                OnPropertyChanged(nameof(ActiveConversation));
+                LoadActiveConversationMessages();
+            }
+            finally { _updatingActiveConversation = false; }
+        }
+
+        private void MessageBorder_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Border b && b.DataContext is ChatMessage msg)
+            {
+                if (msg.Role == ChatRole.Assistant || msg.Role == ChatRole.System)
+                {
+                    if (!string.IsNullOrWhiteSpace(msg.Content))
+                    {
+                        Debug.WriteLine($"[LlmChatControl] OutputSelected click FULL TEXT:\n{msg.Content}");
+                        OutputSelected?.Invoke(this, msg.Content);
+                        LastOutput = msg.Content; // reflect selection
+                    }
+                }
+            }
         }
 
         #endregion UI Event Handlers
 
-        #region Core Chat Logic
+        #region Conversation Logic
+
+        private void LoadActiveConversationMessages()
+        {
+            _loadingConversation = true;
+            try
+            {
+                _conversation.Clear();
+                var conv = ConversationStore.ActiveConversation;
+                if (conv != null)
+                {
+                    foreach (var m in conv.Messages)
+                        _conversation.Add(m);
+                }
+                StatusBlock.Text = conv == null ? "No conversation" : conv.Title;
+            }
+            finally { _loadingConversation = false; }
+        }
+
+        private async Task SaveActiveConversationAsync(bool generateTitle = false)
+        {
+            if (ConversationStore.ActiveConversation == null) return;
+            ConversationStore.UpdateFromMessages(_conversation);
+            if (generateTitle)
+                await TryGenerateTitleAsync(ConversationStore.ActiveConversation);
+            await ConversationStore.SaveAsync();
+        }
+
+        private async Task TryGenerateTitleAsync(Conversation conv)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(conv.Title) && conv.Title != "New Conversation" && conv.Title.Length < 60) return;
+                var userTexts = conv.Messages.Where(m => m.Role == ChatRole.User).Select(m => m.Content).Where(c => !string.IsNullOrWhiteSpace(c)).Take(3).ToArray();
+                if (userTexts.Length == 0) return;
+                var prompt = "Create a very short (max 6 words) title summarizing this chat: \n" + string.Join("\n", userTexts) + "\nTitle:";
+                _accessor ??= await LLMAccessor.CreateAsync(BuildOptions());
+                var titleRaw = await _accessor.GetAnswerAsync(prompt, null);
+                var title = new string(titleRaw.Trim().Trim('"').Take(60).ToArray());
+                if (!string.IsNullOrWhiteSpace(title)) conv.Title = title;
+            }
+            catch { }
+        }
 
         private void AppendSystem(string text)
         {
+            if (_loadingConversation) return;
             _conversation.Add(new ChatMessage(ChatRole.System, text));
             ScrollToEnd();
         }
@@ -342,25 +336,19 @@ namespace LLM.Controls
             if (_activeAssistantIndex < 0 || _activeAssistantIndex >= _conversation.Count) return;
             var current = _conversation[_activeAssistantIndex];
             _conversation[_activeAssistantIndex] = current with { Content = content };
-            LastOutput = content; // Update dependency property
+            LastOutput = content;
             ScrollToEnd();
             _activeAssistantIndex = -1;
+            _ = SaveActiveConversationAsync();
         }
 
-        private void ResetAccessor()
-        {
-            _accessor = null;
-            AppendSystem("Accessor reset. Next send will reconnect.");
-        }
-
-        private void ScrollToEnd() =>
-            Dispatcher.InvokeAsync(() => ConversationScroll?.ScrollToEnd());
+        private void ScrollToEnd() => Dispatcher.InvokeAsync(() => ConversationScroll?.ScrollToEnd());
 
         private async Task SendAsync()
         {
             if (string.IsNullOrWhiteSpace(SettingsService.Current.SelectedModel))
             {
-                AppendSystem($"No model selected. Refresh models or ensure {SettingsService.Current.SelectedProvider} is running.");
+                AppendSystem($"No model selected. Open Settings and pick a model for {SettingsService.Current.SelectedProvider}.");
                 return;
             }
 
@@ -394,16 +382,11 @@ namespace LLM.Controls
                     {
                         sb.Append(token);
                         UpdateAssistantStreaming(sb.ToString());
-                    },
-                    ct);
-
+                    }, ct);
                 FinalizeAssistant(final);
                 StatusBlock.Text = $"Done ({final.Length} chars)";
             }
-            catch (OperationCanceledException)
-            {
-                StatusBlock.Text = "Canceled";
-            }
+            catch (OperationCanceledException) { StatusBlock.Text = "Canceled"; }
             catch (Exception ex)
             {
                 StatusBlock.Text = "Error";
@@ -430,6 +413,11 @@ namespace LLM.Controls
             });
         }
 
-        #endregion Core Chat Logic
+        #endregion Conversation Logic
+
+        #region INotifyPropertyChanged
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        #endregion INotifyPropertyChanged
     }
 }
