@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LLM", "LLM\LLM.csproj", "{4
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorldMapTest", "WorldMapTest\WorldMapTest.csproj", "{10D41322-2514-45D7-9C99-D402E4DCDA90}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WPF", "WPF\WPF.csproj", "{68245C1E-B56E-9570-FC88-BA8BDDA8077B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{10D41322-2514-45D7-9C99-D402E4DCDA90}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{10D41322-2514-45D7-9C99-D402E4DCDA90}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{10D41322-2514-45D7-9C99-D402E4DCDA90}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68245C1E-B56E-9570-FC88-BA8BDDA8077B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68245C1E-B56E-9570-FC88-BA8BDDA8077B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68245C1E-B56E-9570-FC88-BA8BDDA8077B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68245C1E-B56E-9570-FC88-BA8BDDA8077B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

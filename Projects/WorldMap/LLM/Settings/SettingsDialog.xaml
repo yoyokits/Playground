@@ -3,11 +3,12 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="LLM Settings"
-    Width="540"
-    Height="420"
+    Width="520"
+    Height="500"
     ResizeMode="CanResize"
-    WindowStartupLocation="CenterOwner">
-    <Grid Margin="12">
+    WindowStartupLocation="CenterOwner"
+    Loaded="Window_Loaded">
+    <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -15,53 +16,77 @@
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
+                <!-- Provider & Model Selection -->
+                <GroupBox Header="Model Provider" Margin="0,0,0,10">
+                    <StackPanel Margin="6">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <TextBlock Text="Provider:" VerticalAlignment="Center" Width="62" />
+                            <ComboBox Width="150"
+                                      ItemsSource="{Binding ProviderValues}"
+                                      SelectedItem="{Binding Working.SelectedProvider, Mode=TwoWay}"
+                                      SelectionChanged="ProviderCombo_SelectionChanged" />
+                            <Button Width="58" Height="24" Margin="10,0,0,0" Content="Refresh" Click="RefreshModels_Click" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                            <TextBlock Text="Model:" VerticalAlignment="Center" Width="62" />
+                            <ComboBox Width="280"
+                                      ItemsSource="{Binding AvailableModels}"
+                                      SelectedItem="{Binding Working.SelectedModel, Mode=TwoWay}"
+                                      SelectionChanged="ModelCombo_SelectionChanged" />
+                        </StackPanel>
+                        <TextBlock FontSize="10" Foreground="#888" Margin="0,4,0,0" TextWrapping="Wrap">
+                            Select the provider (GPT4All requires Local Server; Ollama requires 'ollama serve').
+                        </TextBlock>
+                    </StackPanel>
+                </GroupBox>
 
                 <TextBlock FontWeight="Bold" Text="System Prompt" />
                 <TextBox
-                    Height="100"
-                    Margin="0,4,0,12"
+                    Height="90"
+                    Margin="0,4,0,10"
                     AcceptsReturn="True"
                     Text="{Binding Working.SystemPrompt}"
                     TextWrapping="Wrap"
                     VerticalScrollBarVisibility="Auto" />
 
                 <UniformGrid
-                    Margin="0,0,0,12"
+                    Margin="0,0,0,10"
                     Columns="2"
                     Rows="2">
-                    <StackPanel Margin="0,0,12,0">
+                    <StackPanel Margin="0,0,10,0">
                         <TextBlock FontWeight="Bold" Text="Max Tokens" />
-                        <TextBox Text="{Binding Working.MaxTokens}" />
+                        <TextBox Text="{Binding Working.MaxTokens}" Width="120" />
                     </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
+                    <StackPanel Margin="0,0,10,0">
                         <TextBlock FontWeight="Bold" Text="Temperature" />
-                        <TextBox Text="{Binding Working.Temperature}" />
+                        <TextBox Text="{Binding Working.Temperature}" Width="120" />
                     </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <CheckBox Content="Enter sends message" IsChecked="{Binding Working.EnterSends}" />
+                    <StackPanel Margin="0,0,10,0">
+                        <CheckBox Content="Enter sends" IsChecked="{Binding Working.EnterSends}" />
                     </StackPanel>
                 </UniformGrid>
 
                 <TextBlock
-                    FontSize="11"
+                    FontSize="10"
                     Foreground="#888"
-                    Text="Note: Models are managed directly in GPT4All application. Ensure GPT4All is running with Local Server enabled."
+                    Text="Note: Models list is fetched from the local provider."
                     TextWrapping="Wrap" />
             </StackPanel>
         </ScrollViewer>
 
         <StackPanel
             Grid.Row="1"
-            Margin="0,12,0,0"
+            Margin="0,10,0,0"
             HorizontalAlignment="Right"
             Orientation="Horizontal">
+            <TextBlock Text="Status:" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="#888" />
+            <TextBlock Text="{Binding ModelStatus}" Width="160" VerticalAlignment="Center" Foreground="#aaa" />
             <Button
-                Width="90"
-                Margin="0,0,6,0"
+                Width="70" Height="26" Margin="10,0,4,0"
                 Click="Save_Click"
                 Content="Save" />
             <Button
-                Width="90"
+                Width="70" Height="26"
                 Content="Cancel"
                 IsCancel="True" />
         </StackPanel>
