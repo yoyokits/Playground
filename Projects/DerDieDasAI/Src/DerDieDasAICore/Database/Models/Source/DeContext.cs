@@ -5,6 +5,7 @@
 
 namespace DerDieDasAICore.Database.Models.Source;
 
+using DerDieDasAICore.Properties;
 using Microsoft.EntityFrameworkCore;
 
 public partial class DeContext : DbContext
@@ -13,11 +14,13 @@ public partial class DeContext : DbContext
 
     public DeContext()
     {
+        this.Initialize();
     }
 
     public DeContext(DbContextOptions<DeContext> options)
         : base(options)
     {
+        this.Initialize();
     }
 
     #endregion Constructors
@@ -42,7 +45,7 @@ public partial class DeContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-            => optionsBuilder.UseSqlite("Data Source=C:\\Temp\\de.sqlite3");
+            => optionsBuilder.UseSqlite("Data Source=C:\\Temp\\DerDieDas\\de.sqlite3");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -129,6 +132,54 @@ public partial class DeContext : DbContext
         });
 
         ////OnModelCreatingPartial(modelBuilder);
+    }
+
+    private static void CopyFile(string resourceFile, string dbPath)
+    {
+        if (!System.IO.File.Exists(dbPath))
+        {
+            Console.WriteLine($"Copy resourceFile: {resourceFile} to {dbPath}");
+
+            var assembly = typeof(DeContext).Assembly;
+            using var stream = assembly.GetManifestResourceStream(resourceFile);
+
+            if (stream == null)
+            {
+                var availableResources = assembly.GetManifestResourceNames();
+                Console.WriteLine($"ERROR: Embedded resource '{resourceFile}' not found!");
+                Console.WriteLine($"Available embedded resources in assembly {assembly.FullName}:");
+                foreach (var resource in availableResources)
+                {
+                    Console.WriteLine($"  - {resource}");
+                }
+                throw new FileNotFoundException($"Embedded resource '{resourceFile}' not found. Available resources: {string.Join(", ", availableResources)}");
+            }
+
+            using var fileStream = new FileStream(dbPath, FileMode.Create, FileAccess.Write);
+            stream.CopyTo(fileStream);
+            Console.WriteLine($"Successfully copied {resourceFile} to {dbPath} ({stream.Length} bytes)");
+        }
+        else
+        {
+            var fileInfo = new FileInfo(dbPath);
+            Console.WriteLine($"File already exists: {dbPath} ({fileInfo.Length} bytes)");
+        }
+    }
+
+    private void Initialize()
+    {
+        var rootDir = Settings.Default.RootDirectory;
+        if (!Directory.Exists(rootDir))
+        {
+            Directory.CreateDirectory(rootDir);
+        }
+
+        // If files de.sqlite3 and de-en.sqlite3 don't exist in C:\Temp\DerDieDas, copy them from the embedded resources.
+        // Use the actual embedded resource names found in the assembly
+        var deDbPath = Path.Combine(Settings.Default.RootDirectory, "de.sqlite3");
+        var deEnDbPath = Path.Combine(Settings.Default.RootDirectory, "de-en.sqlite3");
+        CopyFile("DerDieDasAICore.Database.Models.Source.de.sqlite3", deDbPath);
+        CopyFile("DerDieDasAICore.Database.Models.Source.de-en.sqlite3", deEnDbPath);
     }
 
     #endregion Methods
