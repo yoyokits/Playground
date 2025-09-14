@@ -9,13 +9,14 @@ namespace DerDieDasAIApp.UI.Models
     using DerDieDasAICore.Database.Models.Source;
     using DerDieDasAICore.Extensions;
     using DerDieDasAICore.Helpers;
+    using DerDieDasAICore.Properties;
     using System.Linq;
 
     public class GenerateNounsTableProcess : ProcessItem
     {
         #region Fields
 
-        private string _outputFolder = @"C:\Temp";
+        private string _outputFolder = Settings.Default.RootDirectory;
 
         #endregion Fields
 
