@@ -12,10 +12,32 @@
             </ResourceDictionary.MergedDictionaries>
             <!-- Conversation (history) list items: black text for light panel -->
             <DataTemplate x:Key="ConversationListTemplate">
-                <StackPanel Orientation="Vertical" Margin="2" ToolTip="{Binding Title}">
-                    <TextBlock Text="{Binding Title}" Foreground="Black" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding LastUpdated, StringFormat={}{0:HH:mm}}" Foreground="#555" FontSize="10" />
-                </StackPanel>
+                <Grid Margin="2" ToolTip="{Binding Title}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Vertical">
+                        <TextBlock Text="{Binding Title}" Foreground="Black" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding LastUpdated, StringFormat={}{0:HH:mm}}" Foreground="#555" FontSize="10" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="🗑️" ToolTip="Delete Conversation" 
+                            Click="DeleteConversation_Click" Tag="{Binding}"
+                            Margin="2,0,0,0" Width="20" Height="20" FontSize="10" Opacity="0.7">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource IconButtonCompact}">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#FFE5E5" />
+                                        <Setter Property="Opacity" Value="1.0" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
             </DataTemplate>
             <!-- Chat message template: revert to light themed brushes -->
             <DataTemplate x:Key="MessageTemplate">
@@ -29,11 +51,82 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Role}" FontWeight="Bold" Foreground="{StaticResource ChatTextBrush}" />
-                        <Button Grid.Row="0" Grid.Column="1" Content="↺" Tag="{Binding Content}" ToolTip="Reuse" Style="{StaticResource ReuseButtonStyle}" />
-                        <Button Grid.Row="0" Grid.Column="2" Content="📋" Tag="{Binding Content}" ToolTip="Copy" Style="{StaticResource IconButtonCompact}" />
-                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,4,0,0" Text="{Binding Content}" TextWrapping="Wrap" Foreground="{StaticResource ChatTextBrush}" />
+                        <Button Grid.Row="0" Grid.Column="1" Content="↺" Tag="{Binding Content}" ToolTip="Reuse" Click="ReuseUserMessage_Click" Style="{StaticResource ReuseButtonStyle}" />
+                        <Button Grid.Row="0" Grid.Column="2" Content="📋" Tag="{Binding Content}" ToolTip="Copy" Click="CopyMessage_Click" Style="{StaticResource IconButtonCompact}" />
+                        <Button Grid.Row="0" Grid.Column="3" Content="🗺️" Tag="{Binding Content}" ToolTip="Apply to Map" Click="ApplyToMap_Click">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource IconButtonCompact}">
+                                    <Style.Triggers>
+                                        <!-- Only show for Assistant and System messages -->
+                                        <DataTrigger Binding="{Binding Role}" Value="User">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Grid.Row="0" Grid.Column="4" Content="🗑️" Tag="{Binding}" ToolTip="Delete Message" Click="DeleteMessage_Click" Opacity="0.6">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource IconButtonCompact}">
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="BorderThickness" Value="0" />
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#FFE5E5" />
+                                            <Setter Property="Opacity" Value="1.0" />
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="5" 
+                                 Margin="0,4,0,0" 
+                                 Text="{Binding Content}" 
+                                 TextWrapping="Wrap" 
+                                 Foreground="{StaticResource ChatTextBrush}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 IsReadOnly="True"
+                                 IsTabStop="False"
+                                 Cursor="IBeam"
+                                 Padding="0"
+                                 ContextMenuService.IsEnabled="True"
+                                 KeyDown="MessageTextBox_KeyDown">
+                            <TextBox.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Copy" Click="CopyMessage_Click" Tag="{Binding Content}" />
+                                    <MenuItem Header="Select All" Click="SelectAllMessage_Click" />
+                                    <Separator>
+                                        <Separator.Style>
+                                            <Style TargetType="Separator">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Role}" Value="User">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Separator.Style>
+                                    </Separator>
+                                    <MenuItem Header="Apply to Map" Click="ApplyToMap_Click" Tag="{Binding Content}">
+                                        <MenuItem.Style>
+                                            <Style TargetType="MenuItem">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Role}" Value="User">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </MenuItem.Style>
+                                    </MenuItem>
+                                    <Separator />
+                                    <MenuItem Header="Delete Message" Click="DeleteMessage_Click" Tag="{Binding}" />
+                                </ContextMenu>
+                            </TextBox.ContextMenu>
+                        </TextBox>
                     </Grid>
                 </Border>
             </DataTemplate>
