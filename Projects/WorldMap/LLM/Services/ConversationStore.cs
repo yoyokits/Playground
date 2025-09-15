@@ -53,6 +53,28 @@ namespace LLM.Services
             ActiveConversationChanged?.Invoke(null, EventArgs.Empty);
         }
 
+        public static bool RemoveConversation(Conversation conversation)
+        {
+            if (conversation == null) return false;
+            
+            var removed = Conversations.Remove(conversation);
+            if (removed && conversation == ActiveConversation)
+            {
+                // If we removed the active conversation, set a new active one
+                ActiveConversation = Conversations.FirstOrDefault();
+                if (ActiveConversation == null)
+                {
+                    // If no conversations left, create a new one
+                    EnsureActive();
+                }
+                else
+                {
+                    ActiveConversationChanged?.Invoke(null, EventArgs.Empty);
+                }
+            }
+            return removed;
+        }
+
         public static void UpdateFromMessages(IEnumerable<ChatMessage> messages)
         {
             if (ActiveConversation == null) return;

@@ -154,24 +154,85 @@ namespace LLM.Controls
 
         private void CopyMessage_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.Tag is not string text || string.IsNullOrEmpty(text)) return;
+            string? text = null;
+            
+            // Handle both button clicks and menu item clicks
+            if (sender is Button btn && btn.Tag is string buttonText)
+            {
+                text = buttonText;
+            }
+            else if (sender is MenuItem menuItem && menuItem.Tag is string menuText)
+            {
+                text = menuText;
+            }
+            
+            if (string.IsNullOrEmpty(text)) return;
+            
             try
             {
                 Clipboard.SetText(text);
-                var original = btn.Content;
-                btn.Content = "\u2713";
-                btn.Background = Brushes.Green;
-                var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
-                timer.Tick += (_, _) =>
+                
+                // Only show visual feedback for buttons, not menu items
+                if (sender is Button button)
                 {
-                    btn.Content = original;
-                    btn.Background = Brushes.Transparent;
-                    timer.Stop();
-                }; timer.Start();
+                    var original = button.Content;
+                    button.Content = "\u2713";
+                    button.Background = Brushes.Green;
+                    var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
+                    timer.Tick += (_, _) =>
+                    {
+                        button.Content = original;
+                        button.Background = Brushes.Transparent;
+                        timer.Stop();
+                    };
+                    timer.Start();
+                }
             }
             catch (Exception ex)
             {
                 AppendSystem($"Failed to copy: {ex.Message}");
+            }
+        }
+
+        private void SelectAllMessage_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem)
+            {
+                // Find the TextBox that owns this context menu
+                var contextMenu = menuItem.Parent as ContextMenu;
+                if (contextMenu?.PlacementTarget is TextBox textBox)
+                {
+                    textBox.SelectAll();
+                    textBox.Focus();
+                }
+            }
+        }
+
+        private void MessageTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (sender is TextBox textBox)
+            {
+                // Handle Ctrl+A for Select All
+                if (e.Key == Key.A && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+                {
+                    textBox.SelectAll();
+                    e.Handled = true;
+                }
+                // Handle Ctrl+C for Copy (this is usually handled by default, but we can ensure it works)
+                else if (e.Key == Key.C && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+                {
+                    if (!string.IsNullOrEmpty(textBox.SelectedText))
+                    {
+                        Clipboard.SetText(textBox.SelectedText);
+                        e.Handled = true;
+                    }
+                    else if (!string.IsNullOrEmpty(textBox.Text))
+                    {
+                        // If no text is selected, copy all text
+                        Clipboard.SetText(textBox.Text);
+                        e.Handled = true;
+                    }
+                }
             }
         }
 
@@ -265,6 +326,58 @@ namespace LLM.Controls
             }
         }
 
+        private void MessageTextBox_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is TextBox textBox && textBox.DataContext is ChatMessage msg)
+            {
+                // Only trigger message selection if user didn't select any text
+                // This allows for both text selection and message selection functionality
+                if (string.IsNullOrEmpty(textBox.SelectedText))
+                {
+                    // Check if this is an assistant or system message
+                    if (msg.Role == ChatRole.Assistant || msg.Role == ChatRole.System)
+                    {
+                        if (!string.IsNullOrWhiteSpace(msg.Content))
+                        {
+                            Debug.WriteLine($"[LlmChatControl] OutputSelected from TextBox click FULL TEXT:\n{msg.Content}");
+                            OutputSelected?.Invoke(this, msg.Content);
+                            LastOutput = msg.Content; // reflect selection
+                        }
+                    }
+                }
+                // If text was selected, don't trigger message selection to allow for copy operations
+            }
+        }
+
+        private void ApplyToMap_Click(object sender, RoutedEventArgs e)
+        {
+            string? content = null;
+            
+            // Handle both button clicks and menu item clicks
+            if (sender is Button btn && btn.Tag is string buttonContent)
+            {
+                content = buttonContent;
+            }
+            else if (sender is MenuItem menuItem && menuItem.Tag is string menuContent)
+            {
+                content = menuContent;
+            }
+            
+            if (string.IsNullOrWhiteSpace(content)) return;
+            
+            Debug.WriteLine($"[LlmChatControl] ApplyToMap click FULL TEXT:\n{content}");
+            OutputSelected?.Invoke(this, content);
+            LastOutput = content; // reflect selection
+            
+            // Update status to indicate message was applied to map
+            StatusBlock.Text = "Applied to map";
+            
+            // Provide visual feedback only for buttons, not menu items
+            if (sender is Button button)
+            {
+                ShowApplyToMapFeedback(button);
+            }
+        }
         #endregion UI Event Handlers
 
         #region Conversation Logic
@@ -419,5 +532,106 @@ namespace LLM.Controls
         public event PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged(string propertyName) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         #endregion INotifyPropertyChanged
+
+        private void ShowApplyToMapFeedback(Button button)
+        {
+            // Change button appearance briefly to show it was clicked
+            var original = button.Content;
+            var originalBackground = button.Background;
+            
+            button.Content = "✓";
+            button.Background = Brushes.Green;
+            
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
+            timer.Tick += (_, _) =>
+            {
+                button.Content = original;
+                button.Background = originalBackground;
+                timer.Stop();
+            };
+            timer.Start();
+        }
+
+        private void DeleteConversation_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is Conversation conversation)
+            {
+                // Show confirmation dialog
+                var result = MessageBox.Show(
+                    $"Are you sure you want to delete the conversation '{conversation.Title}'?\n\nThis action cannot be undone.",
+                    "Delete Conversation",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    ConversationStore.RemoveConversation(conversation);
+                    _ = ConversationStore.SaveAsync();
+                    StatusBlock.Text = "Conversation deleted";
+                }
+            }
+        }
+
+        private void DeleteMessage_Click(object sender, RoutedEventArgs e)
+        {
+            ChatMessage? messageToDelete = null;
+            
+            // Handle both button clicks and menu item clicks
+            if (sender is Button btn && btn.Tag is ChatMessage buttonMessage)
+            {
+                messageToDelete = buttonMessage;
+            }
+            else if (sender is MenuItem menuItem && menuItem.Tag is ChatMessage menuMessage)
+            {
+                messageToDelete = menuMessage;
+            }
+
+            if (messageToDelete == null) return;
+
+            // Show confirmation dialog
+            var preview = messageToDelete.Content.Length > 50 
+                ? messageToDelete.Content.Substring(0, 47) + "..."
+                : messageToDelete.Content;
+
+            var result = MessageBox.Show(
+                $"Are you sure you want to delete this {messageToDelete.Role.ToString().ToLower()} message?\n\n\"{preview}\"\n\nThis action cannot be undone.",
+                "Delete Message",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _conversation.Remove(messageToDelete);
+                StatusBlock.Text = "Message deleted";
+                
+                // Save the conversation after deleting the message
+                _ = SaveActiveConversationAsync();
+                
+                // Provide visual feedback for button clicks
+                if (sender is Button button)
+                {
+                    ShowDeleteFeedback(button);
+                }
+            }
+        }
+
+        private void ShowDeleteFeedback(Button button)
+        {
+            // Brief visual feedback that the message was deleted
+            var original = button.Content;
+            var originalBackground = button.Background;
+            
+            button.Content = "✓";
+            button.Background = Brushes.Red;
+            
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            timer.Tick += (_, _) =>
+            {
+                button.Content = original;
+                button.Background = originalBackground;
+                timer.Stop();
+            };
+            timer.Start();
+        }
     }
 }
