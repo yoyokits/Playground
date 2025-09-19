@@ -7,6 +7,8 @@ namespace DerDieDasAICore.Database.Models
 {
     using DerDieDasAIApp.UI.Models;
     using Microsoft.EntityFrameworkCore;
+    using System;
+    using System.IO; // Added for Directory, Path
 
     public class DictionaryContext : DbContext
     {

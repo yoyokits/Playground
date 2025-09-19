@@ -4,6 +4,8 @@
 // ========================================== //
 namespace DerDieDasAICore.File
 {
+    using System.IO;
+
     internal static class FolderHelper
     {
         #region Methods

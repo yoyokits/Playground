@@ -7,6 +7,7 @@ namespace DerDieDasAICore
 {
     using System.Diagnostics;
     using System.Reflection;
+    using System.IO;
 
     internal class Environment
     {

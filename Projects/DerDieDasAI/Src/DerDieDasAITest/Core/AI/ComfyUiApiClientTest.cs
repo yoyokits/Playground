@@ -5,6 +5,7 @@
 
 namespace DerDieDasAITest.Core.AI
 {
+    using System.IO;
     using DerDieDasAICore.AI;
     using FluentAssertions;
 

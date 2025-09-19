@@ -6,8 +6,6 @@
 	  <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <Platforms>x64</Platforms>
-    <BaseOutputPath>..\bin\</BaseOutputPath>
-    <BaseIntermediateOutputPath>..\obj\</BaseIntermediateOutputPath>
   </PropertyGroup>
 
   <PropertyGroup>

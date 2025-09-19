@@ -1,0 +1,117 @@
+﻿<UserControl x:Class="DerDieDasAICore.StableDiffusion.StableDiffusionViewer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:DerDieDasAICore.StableDiffusion"
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="1000">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
+    <Grid Margin="8">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="380" />
+            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Inputs Panel -->
+        <Border Grid.Column="0" Padding="8" BorderBrush="#444" BorderThickness="1" CornerRadius="4" Background="#1E1E1E">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="Stable Diffusion" FontSize="18" FontWeight="Bold" Margin="0 0 0 12" />
+
+                    <!-- Positive Prompt -->
+                    <TextBlock Text="Positive Prompt" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding PositivePrompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                             AcceptsReturn="True" VerticalScrollBarVisibility="Auto" MinHeight="80" Margin="0 4 0 12"/>
+
+                    <!-- Negative Prompt -->
+                    <TextBlock Text="Negative Prompt" FontWeight="SemiBold" />
+                    <TextBox Text="{Binding NegativePrompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                             AcceptsReturn="True" VerticalScrollBarVisibility="Auto" MinHeight="60" Margin="0 4 0 12"/>
+
+                    <!-- CFG Scale -->
+                    <StackPanel Margin="0 0 0 12">
+                        <TextBlock Text="CFG Scale" FontWeight="SemiBold" />
+                        <DockPanel>
+                            <Slider Minimum="0" Maximum="15" TickFrequency="0.5" IsSnapToTickEnabled="True"
+                                    Value="{Binding CfgScale, Mode=TwoWay}" Width="250" />
+                            <TextBlock Text="{Binding CfgScale, StringFormat=F1}" Margin="8 0 0 0" VerticalAlignment="Center" FontWeight="Bold" />
+                        </DockPanel>
+                    </StackPanel>
+
+                    <!-- Sampler -->
+                    <StackPanel Margin="0 0 0 12">
+                        <TextBlock Text="Sampler" FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding Samplers}" 
+                                  SelectedItem="{Binding SelectedSampler, Mode=TwoWay}" 
+                                  DisplayMemberPath="Name" />
+                    </StackPanel>
+
+                    <!-- Scheduler -->
+                    <StackPanel Margin="0 0 0 12">
+                        <TextBlock Text="Scheduler" FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding Schedulers}" 
+                                  SelectedItem="{Binding SelectedScheduler, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <!-- Seed -->
+                    <StackPanel Margin="0 0 0 12">
+                        <TextBlock Text="Seed" FontWeight="SemiBold" />
+                        <DockPanel>
+                            <TextBox Text="{Binding Seed, Mode=TwoWay}" Width="180" />
+                            <Button Content="Random" Margin="8 0 0 0" Padding="12 4" Command="{Binding RandomizeSeedCommand}" />
+                        </DockPanel>
+                    </StackPanel>
+
+                    <!-- Action Buttons -->
+                    <StackPanel Orientation="Horizontal" Margin="0 0 0 12">
+                        <Button Content="Generate" Padding="16 6" Command="{Binding GenerateCommand}" />
+                        <Button Content="Test Connection" Margin="8 0 0 0" Padding="16 6" Command="{Binding TestConnectionCommand}" />
+                    </StackPanel>
+
+                    <!-- Status / Diagnostics -->
+                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="#ddd" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Separator -->
+        <Rectangle Grid.Column="1" Width="1" Fill="#333" />
+
+        <!-- Output Images Panel -->
+        <Border Grid.Column="2" Padding="8" BorderBrush="#444" BorderThickness="1" CornerRadius="4" Background="#111">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <DockPanel LastChildFill="True" Margin="0 0 0 8">
+                    <TextBlock Text="Generated Images" FontSize="16" FontWeight="Bold" />
+                    <ProgressBar DockPanel.Dock="Right" Width="160" Height="16" Margin="12 0 0 0" 
+                                 IsIndeterminate="{Binding IsGenerating}" Visibility="{Binding IsGenerating, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                </DockPanel>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Images}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel IsItemsHost="True" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="4" BorderBrush="#444" BorderThickness="1" CornerRadius="3" Background="#222">
+                                    <Image Source="{Binding}" Width="256" Height="256" Stretch="UniformToFill" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
