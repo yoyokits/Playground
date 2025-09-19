@@ -1,11 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 
   <PropertyGroup>
     <TargetFramework>net8.0-windows7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>AnyCPU;x64</Platforms>
-    <BaseOutputPath>..\bin\</BaseOutputPath>
-    <BaseIntermediateOutputPath>..\obj\</BaseIntermediateOutputPath>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <PropertyGroup>

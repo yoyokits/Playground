@@ -7,6 +7,7 @@ namespace DerDieDasAICore.Extensions
 {
     using DerDieDasAICore.Contracts;
     using DerDieDasAICore.Database.Models;
+    using System.IO;
 
     internal static class NounExtension
     {

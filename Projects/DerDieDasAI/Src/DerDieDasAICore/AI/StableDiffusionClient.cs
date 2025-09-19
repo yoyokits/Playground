@@ -9,6 +9,7 @@ namespace DerDieDasAICore.AI
     using System.Drawing.Imaging;
     using System.Text;
     using DerDieDasAICore.AI.Model;
+    using System.IO; // Added for MemoryStream
 
     public class StableDiffusionClient
     {

@@ -7,6 +7,8 @@ namespace DerDieDasAICore.Database.Models.Source;
 
 using DerDieDasAICore.Properties;
 using Microsoft.EntityFrameworkCore;
+using System; // Added for Console
+using System.IO; // Added for File, FileStream, Directory, Path, FileInfo, FileNotFoundException
 
 public partial class DeContext : DbContext
 {
@@ -174,7 +176,7 @@ public partial class DeContext : DbContext
             Directory.CreateDirectory(rootDir);
         }
 
-        // If files de.sqlite3 and de-en.sqlite3 don't exist in C:\Temp\DerDieDas, copy them from the embedded resources.
+        // If files de.sqlite3 and de-en.sqlite3 don't exist in C:\\Temp\\DerDieDas, copy them from the embedded resources.
         // Use the actual embedded resource names found in the assembly
         var deDbPath = Path.Combine(Settings.Default.RootDirectory, "de.sqlite3");
         var deEnDbPath = Path.Combine(Settings.Default.RootDirectory, "de-en.sqlite3");
