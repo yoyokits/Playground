@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="PostAuraApp.Views.ChatPage"
+             Title="Gemini Chat">
+    <Grid RowDefinitions="*,Auto" ColumnDefinitions="*">
+        <ScrollView Grid.Row="0" Padding="10">
+            <VerticalStackLayout>
+                <Label Text="{Binding Output}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </ScrollView>
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Padding="10" ColumnSpacing="8">
+            <Entry Grid.Column="0" Text="{Binding Input}" Placeholder="Ask Gemini..." />
+            <Button Grid.Column="1" Text="Send" Command="{Binding SendCommand}" IsEnabled="{Binding CanSend}" />
+            <Button Grid.Column="2" Text="Cancel" Command="{Binding CancelCommand}" />
+        </Grid>
+    </Grid>
+</ContentPage>

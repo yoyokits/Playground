@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="PostAuraApp.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:PostAuraApp"
+    xmlns:views="clr-namespace:PostAuraApp.Views"
+    Shell.FlyoutBehavior="Disabled"
+    Title="PostAuraApp">
+
+    <TabBar>
+        <ShellContent
+            Title="Chat"
+            ContentTemplate="{DataTemplate views:ChatPage}"
+            Route="ChatPage" />
+        <ShellContent
+            Title="Home"
+            ContentTemplate="{DataTemplate local:MainPage}"
+            Route="MainPage" />
+    </TabBar>
+</Shell>

@@ -1,4 +1,9 @@
-﻿using TravelCamApp.Views;
+﻿// ========================================== //
+// Developer: Yohanes Wahyu Nurcahyo          //
+// Website: https://github.com/yoyokits       //
+// ========================================== //
+
+using TravelCamApp.Views;
 
 namespace TravelCamApp
 {

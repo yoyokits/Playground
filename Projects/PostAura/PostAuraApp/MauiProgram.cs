@@ -1,13 +1,7 @@
-﻿// ========================================== //
-// Developer: Yohanes Wahyu Nurcahyo          //
-// Website: https://github.com/yoyokits       //
-// ========================================== //
+﻿using Microsoft.Extensions.Logging;
+using PostAuraCore.Services;
 
-using Camera.MAUI;
-using CommunityToolkit.Maui;
-using Microsoft.Extensions.Logging;
-
-namespace TravelCamApp
+namespace PostAuraApp
 {
     public static class MauiProgram
     {
@@ -16,13 +10,13 @@ namespace TravelCamApp
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
-                .UseMauiCommunityToolkit()
-                .UseMauiCameraView()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
+
+            builder.Services.AddSingleton<ILlmService, GeminiLlmService>();
 
 #if DEBUG
     		builder.Logging.AddDebug();
