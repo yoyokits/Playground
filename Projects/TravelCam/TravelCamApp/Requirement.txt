@@ -1,0 +1,64 @@
+================================================================================
+                         TRAVELCAM APPLICATION REQUIREMENTS
+================================================================================
+
+1. CORE FUNCTIONALITY
+   - Camera application for capturing photos and videos
+   - Behaves like a default device camera with familiar UI/UX
+   - UI preference: Google Material Design 3
+   - Code style reference: CodeStyle.txt (must be followed if tooling does not load it automatically)
+
+2. MEDIA CAPTURE
+   - Photo capture with full resolution
+   - Video recording with high quality
+   - Front and back camera support
+   - Flash control
+   - Zoom functionality
+
+3. OVERLAY INFORMATION
+   - Real-time overlay display on camera preview
+   - Overlay data includes:
+     * Temperature (current weather)
+     * City name (from GPS location)
+     * Height/Altitude (from GPS)
+     * Map view (optional, can be toggled)
+   - Default overlay: All info WITHOUT map
+   - Overlay position and size can be adjusted by user
+
+4. OUTPUT FILES
+   - Storage location: App folder "TravelCam/{Year}/{Month}/"
+   - File naming format: {Year}-{Month}-{Day}-{City}-{IncrementNumber}
+     Example: 2024-12-25-Paris-001.jpg
+
+   - Each capture produces TWO files:
+     a) Original file: Full size, highest quality, no overlay
+     b) Overlay file:  Photo/video with embedded overlay data
+        (city, temperature, altitude, etc.)
+
+5. FILE TYPES
+   - Photos: .jpg (original), .jpg (with overlay)
+   - Videos: .mp4 (original), .mp4 (with overlay)
+
+6. PERMISSIONS REQUIRED
+   - Camera access
+   - Microphone access (for video)
+   - Video recording permission (Android)
+   - Location/GPS access
+   - Storage/file system access
+   - Internet access (for weather data and maps)
+
+================================================================================
+                              TECHNICAL NOTES
+================================================================================
+
+- Platform: .NET MAUI (.NET 10)
+- Architecture: MVVM pattern
+- Camera Library: Camera.MAUI
+- Location Services: MAUI Geolocation API
+- Weather API: TBD (OpenWeatherMap or similar)
+- Map Provider: TBD (Google Maps, Bing Maps, or OpenStreetMap)
+- UI Icons: Google Material Design 3 icon set (Material Symbols)
+
+- Implement MAUI camera UX, capture workflows, and project standards
+
+================================================================================

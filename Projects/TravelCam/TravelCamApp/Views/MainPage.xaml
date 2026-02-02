@@ -1,0 +1,175 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:camera="clr-namespace:Camera.MAUI;assembly=Camera.MAUI"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:vm="clr-namespace:TravelCamApp.ViewModels"
+             x:Class="TravelCamApp.Views.MainPage"
+             x:DataType="vm:MainPageViewModel"
+             BackgroundColor="Black">
+
+    <Grid RowDefinitions="*,Auto"
+          RowSpacing="0">
+
+        <camera:CameraView x:Name="CameraView"
+                           Grid.Row="0"
+                           HorizontalOptions="Fill"
+                           VerticalOptions="Fill" />
+
+        <Button x:Name="ExitButton"
+                Grid.RowSpan="2"
+                Text="Exit"
+                IsVisible="False"
+                Margin="12"
+                HorizontalOptions="Start"
+                VerticalOptions="Start"
+                BackgroundColor="Black"
+                TextColor="White" />
+
+        <Border Grid.Row="0"
+                Margin="12"
+                Padding="8,4"
+                BackgroundColor="#80000000"
+                HorizontalOptions="Center"
+                VerticalOptions="Start"
+                IsVisible="{Binding IsRecording}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="6" />
+            </Border.StrokeShape>
+            <HorizontalStackLayout Spacing="6">
+                <Label Text="REC"
+                       TextColor="White"
+                       FontAttributes="Bold" />
+                <Label Text="{Binding RecordingTimeText}"
+                       TextColor="White" />
+            </HorizontalStackLayout>
+        </Border>
+
+        <Grid Grid.Row="1"
+              Padding="16,12"
+              RowDefinitions="Auto,Auto"
+              BackgroundColor="Black">
+
+            <Grid Grid.Row="0"
+                  ColumnDefinitions="Auto,*,Auto">
+                <Border Grid.Column="0"
+                        WidthRequest="56"
+                        HeightRequest="56"
+                        Stroke="White"
+                        StrokeThickness="2"
+                        BackgroundColor="Black"
+                        HorizontalOptions="Start"
+                        VerticalOptions="Center">
+                    <Border.StrokeShape>
+                        <Ellipse />
+                    </Border.StrokeShape>
+                    <Image Source="{Binding LastCaptureImage}"
+                           Aspect="AspectFill">
+                        <Image.Clip>
+                            <EllipseGeometry Center="28,28"
+                                             RadiusX="28"
+                                             RadiusY="28" />
+                        </Image.Clip>
+                    </Image>
+                </Border>
+
+                <Grid Grid.Column="1"
+                      WidthRequest="80"
+                      HeightRequest="80"
+                      HorizontalOptions="Center"
+                      VerticalOptions="Center">
+                    <Border Stroke="White"
+                            StrokeThickness="4"
+                            BackgroundColor="White">
+                        <Border.StrokeShape>
+                            <Ellipse />
+                        </Border.StrokeShape>
+                    </Border>
+                    <Border x:Name="ShutterFlash"
+                            WidthRequest="80"
+                            HeightRequest="80"
+                            BackgroundColor="Black"
+                            Opacity="0.01"
+                            InputTransparent="False"
+                            HorizontalOptions="Center"
+                            VerticalOptions="Center">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnShutterTapped" />
+                        </Border.GestureRecognizers>
+                        <Border.StrokeShape>
+                            <Ellipse />
+                        </Border.StrokeShape>
+                    </Border>
+                    <Border x:Name="VideoInnerCircle"
+                            WidthRequest="36"
+                            HeightRequest="36"
+                            BackgroundColor="#D32F2F"
+                            HorizontalOptions="Center"
+                            VerticalOptions="Center">
+                        <Border.StrokeShape>
+                            <Ellipse />
+                        </Border.StrokeShape>
+                        <Border.Triggers>
+                            <DataTrigger TargetType="Border"
+                                         Binding="{Binding SelectedMode}"
+                                         Value="Photo">
+                                <Setter Property="IsVisible"
+                                        Value="False" />
+                            </DataTrigger>
+                        </Border.Triggers>
+                    </Border>
+                </Grid>
+
+                <ImageButton Grid.Column="2"
+                             Source="flip_camera.svg"
+                             WidthRequest="40"
+                             HeightRequest="40"
+                             BackgroundColor="Transparent"
+                             HorizontalOptions="End"
+                             VerticalOptions="Center" />
+            </Grid>
+
+            <Grid Grid.Row="1"
+                  Margin="0,8,0,0"
+                  ColumnDefinitions="Auto,*,Auto">
+                <Label Grid.Column="0"
+                       Text="Photo"
+                       FontSize="12"
+                       TextColor="White"
+                       VerticalOptions="Center">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding SetPhotoModeCommand}" />
+                    </Label.GestureRecognizers>
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label"
+                                     Binding="{Binding SelectedMode}"
+                                     Value="Photo">
+                            <Setter Property="FontAttributes"
+                                    Value="Bold" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+
+                <Label Grid.Column="2"
+                       Text="Video"
+                       FontSize="12"
+                       TextColor="White"
+                       VerticalOptions="Center"
+                       HorizontalOptions="End">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding SetVideoModeCommand}" />
+                    </Label.GestureRecognizers>
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label"
+                                     Binding="{Binding SelectedMode}"
+                                     Value="Video">
+                            <Setter Property="FontAttributes"
+                                    Value="Bold" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+            </Grid>
+
+        </Grid>
+    </Grid>
+
+</ContentPage>
