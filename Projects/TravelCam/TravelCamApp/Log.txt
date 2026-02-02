@@ -1,0 +1,62 @@
+================================================================================
+                         TRAVELCAM DEVELOPMENT LOG
+================================================================================
+
+--------------------------------------------------------------------------------
+[2024-XX-XX] Initial Project Setup
+--------------------------------------------------------------------------------
+STATUS: In Progress
+
+COMPLETED:
+  [x] Created .NET MAUI project (TravelCamApp)
+  [x] Set up MVVM architecture
+      - ViewModels folder with MainPageViewModel.cs
+      - Views folder with MainPage.xaml and MainPage.xaml.cs
+  [x] Implemented INotifyPropertyChanged pattern
+  [x] Configured AppShell for navigation
+  [x] Added Camera.MAUI setup and camera preview UI
+  [x] Added runtime permissions and device selection for camera preview
+  [x] Added Photo/Video mode selector and debug Exit button
+  [x] Added photo capture functionality
+  [x] Refactored helpers and view model to follow CodeStyle rules
+  [x] Added shutter flash animation and preview thumbnail updates
+  [x] Added video recording toggle behavior
+
+TO DO:
+  [x] Add Camera.MAUI package
+  [x] Implement camera preview view (UI only)
+  [x] Add photo capture functionality
+  [x] Add video recording functionality
+  [ ] Implement GPS/location services
+  [ ] Integrate weather API for temperature data
+  [ ] Create overlay UI components
+  [ ] Implement overlay positioning/adjustment
+  [ ] Set up file storage structure (TravelCam/Year/Month)
+  [ ] Implement dual file output (original + overlay)
+  [ ] Add map overlay option
+  [ ] Create settings page for overlay customization
+
+BUGS:
+  - None reported yet
+
+KNOWN ISSUES:
+  - Camera preview may be blank on some devices; verify device camera availability and permissions.
+
+NOTES:
+  - Camera.MAUI selected for video recording support
+  - Need to research weather APIs for temperature data
+
+--------------------------------------------------------------------------------
+NEXT STEPS:
+--------------------------------------------------------------------------------
+1. Add location services
+2. Integrate weather API
+3. Build overlay UI and positioning controls
+4. Implement dual file output (original + overlay)
+
+================================================================================
+                              VERSION HISTORY
+================================================================================
+v0.1.0 - Initial MVVM structure setup
+
+================================================================================

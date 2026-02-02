@@ -1,0 +1,54 @@
+================================================================================
+                           TRAVELCAM C# CODE STYLE
+================================================================================
+
+1. STRUCTURE & ORGANIZATION
+   - Use regions in the following order:
+     #region Fields
+     #region Properties
+     #region Constructors
+     #region Methods
+   - Sort members alphabetically within each region.
+   - Do not add empty regions.
+   - Keep one blank line between regions.
+
+2. NAMING CONVENTIONS (StyleCop-aligned)
+   - Public members: PascalCase
+   - Private fields: _camelCase
+   - Constants: PascalCase
+   - Async methods: Suffix with "Async"
+   - Interfaces: Prefix with "I"
+   - Enums: PascalCase, values PascalCase
+
+3. FORMATTING
+   - Use 4 spaces indentation.
+   - One statement per line.
+   - Braces on new line (Allman style).
+   - Use explicit access modifiers for all members.
+
+4. USING DIRECTIVES
+   - Sort using directives alphabetically.
+   - Place System namespaces first, then others.
+   - Remove unused using directives.
+
+5. NULLABILITY & SAFETY
+   - Enable nullable reference types.
+   - Avoid null-forgiving operator (!) unless justified.
+   - Prefer pattern matching for null checks.
+
+6. DOCUMENTATION
+   - Public members should have XML documentation comments.
+   - Use meaningful summaries and parameter descriptions.
+
+7. BEST PRACTICES
+   - Prefer readonly fields where applicable.
+   - Avoid magic numbers; use constants.
+   - Keep methods short and single-responsibility.
+   - Avoid empty catch blocks.
+   - Event handler methods must use the "On" prefix (e.g., OnClick).
+
+8. STYLECOP RULES
+   - Follow default StyleCop analyzers rules and conventions.
+   - Prefer StyleCop guidance when conflicts arise.
+
+================================================================================
