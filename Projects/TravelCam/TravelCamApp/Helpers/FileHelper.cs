@@ -1,6 +1,8 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Threading.Tasks;
+using TravelCamApp.Helpers;
 
 namespace TravelCamApp.Helpers
 {
@@ -15,7 +17,7 @@ namespace TravelCamApp.Helpers
             var month = now.Month.ToString("00", CultureInfo.InvariantCulture);
             var day = now.Day.ToString("00", CultureInfo.InvariantCulture);
 
-            var baseDir = Path.Combine(FileSystem.AppDataDirectory, "TravelCam", year, month);
+            var baseDir = Settings.OutputPath;
             Directory.CreateDirectory(baseDir);
 
             var prefix = $"{year}-{month}-{day}-{city}-";
@@ -49,7 +51,7 @@ namespace TravelCamApp.Helpers
             var month = now.Month.ToString("00", CultureInfo.InvariantCulture);
             var day = now.Day.ToString("00", CultureInfo.InvariantCulture);
 
-            var baseDir = Path.Combine(FileSystem.AppDataDirectory, "TravelCam", year, month);
+            var baseDir = Settings.OutputPath;
             Directory.CreateDirectory(baseDir);
 
             var prefix = $"{year}-{month}-{day}-{city}-";

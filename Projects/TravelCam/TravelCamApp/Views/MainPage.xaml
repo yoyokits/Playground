@@ -3,6 +3,9 @@
              xmlns:camera="clr-namespace:Camera.MAUI;assembly=Camera.MAUI"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:vm="clr-namespace:TravelCamApp.ViewModels"
+             xmlns:models="clr-namespace:TravelCamApp.Models"
+             xmlns:viewModels="clr-namespace:TravelCamApp.ViewModels"
+             xmlns:views="clr-namespace:TravelCamApp.Views"
              x:Class="TravelCamApp.Views.MainPage"
              x:DataType="vm:MainPageViewModel"
              BackgroundColor="Black">
@@ -14,6 +17,12 @@
                            Grid.Row="0"
                            HorizontalOptions="Fill"
                            VerticalOptions="Fill" />
+
+        <!-- Sensor Data Overlay - Bottom Right Corner -->
+        <views:SensorValueView Grid.Row="0"
+                               BindingContext="{Binding SensorValueViewModel}"
+                               HorizontalOptions="End"
+                               VerticalOptions="End" />
 
         <Button x:Name="ExitButton"
                 Grid.RowSpan="2"
@@ -62,8 +71,12 @@
                     <Border.StrokeShape>
                         <Ellipse />
                     </Border.StrokeShape>
-                    <Image Source="{Binding LastCaptureImage}"
+                    <Image x:Name="PreviewImage"
+                           Source="{Binding LastCaptureImage}"
                            Aspect="AspectFill">
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnPreviewImageTapped" />
+                        </Image.GestureRecognizers>
                         <Image.Clip>
                             <EllipseGeometry Center="28,28"
                                              RadiusX="28"
@@ -125,7 +138,8 @@
                              HeightRequest="40"
                              BackgroundColor="Transparent"
                              HorizontalOptions="End"
-                             VerticalOptions="Center" />
+                             VerticalOptions="Center"
+                             Clicked="OnFlipCameraButtonClicked" />
             </Grid>
 
             <Grid Grid.Row="1"
@@ -170,6 +184,7 @@
             </Grid>
 
         </Grid>
+
     </Grid>
 
 </ContentPage>
