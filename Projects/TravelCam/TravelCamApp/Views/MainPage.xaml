@@ -18,8 +18,9 @@
                            HorizontalOptions="Fill"
                            VerticalOptions="Fill" />
 
-        <!-- Sensor Data Overlay - Bottom Right Corner -->
-        <views:SensorValueView Grid.Row="0"
+        <!-- Sensor Data Overlay - Fixed position at bottom right -->
+        <views:SensorValueView x:Name="SensorValueOverlay"
+                               Grid.Row="0"
                                BindingContext="{Binding SensorValueViewModel}"
                                HorizontalOptions="End"
                                VerticalOptions="End" />
@@ -144,43 +145,56 @@
 
             <Grid Grid.Row="1"
                   Margin="0,8,0,0"
-                  ColumnDefinitions="Auto,*,Auto">
-                <Label Grid.Column="0"
-                       Text="Photo"
-                       FontSize="12"
-                       TextColor="White"
-                       VerticalOptions="Center">
-                    <Label.GestureRecognizers>
+                  ColumnDefinitions="*,*,*">
+                <!-- Photo Mode Selector -->
+                <Border Grid.Column="0"
+                        BackgroundColor="Transparent"
+                        Padding="16,12"
+                        StrokeThickness="0"
+                        HorizontalOptions="Start">
+                    <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding SetPhotoModeCommand}" />
-                    </Label.GestureRecognizers>
-                    <Label.Triggers>
-                        <DataTrigger TargetType="Label"
-                                     Binding="{Binding SelectedMode}"
-                                     Value="Photo">
-                            <Setter Property="FontAttributes"
-                                    Value="Bold" />
-                        </DataTrigger>
-                    </Label.Triggers>
-                </Label>
+                    </Border.GestureRecognizers>
+                    <Label Text="Photo"
+                           FontSize="12"
+                           TextColor="White"
+                           VerticalOptions="Center"
+                           HorizontalOptions="Center">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label"
+                                         Binding="{Binding SelectedMode}"
+                                         Value="Photo">
+                                <Setter Property="FontAttributes"
+                                        Value="Bold" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </Border>
 
-                <Label Grid.Column="2"
-                       Text="Video"
-                       FontSize="12"
-                       TextColor="White"
-                       VerticalOptions="Center"
-                       HorizontalOptions="End">
-                    <Label.GestureRecognizers>
+                <!-- Video Mode Selector -->
+                <Border Grid.Column="2"
+                        BackgroundColor="Transparent"
+                        Padding="16,12"
+                        StrokeThickness="0"
+                        HorizontalOptions="End">
+                    <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding SetVideoModeCommand}" />
-                    </Label.GestureRecognizers>
-                    <Label.Triggers>
-                        <DataTrigger TargetType="Label"
-                                     Binding="{Binding SelectedMode}"
-                                     Value="Video">
-                            <Setter Property="FontAttributes"
-                                    Value="Bold" />
-                        </DataTrigger>
-                    </Label.Triggers>
-                </Label>
+                    </Border.GestureRecognizers>
+                    <Label Text="Video"
+                           FontSize="12"
+                           TextColor="White"
+                           VerticalOptions="Center"
+                           HorizontalOptions="Center">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label"
+                                         Binding="{Binding SelectedMode}"
+                                         Value="Video">
+                                <Setter Property="FontAttributes"
+                                        Value="Bold" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </Border>
             </Grid>
 
         </Grid>

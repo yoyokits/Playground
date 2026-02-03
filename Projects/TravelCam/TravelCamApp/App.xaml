@@ -9,6 +9,11 @@
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <converters:PositionToOptionsConverter x:Key="PositionConverter"
+                                                   xmlns:converters="clr-namespace:TravelCamApp.Converters" />
+            <converters:NullToBoolConverter x:Key="NullToBoolConverter"
+                                           xmlns:converters="clr-namespace:TravelCamApp.Converters" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -1,3 +1,8 @@
+// ========================================== //
+// Developer: Yohanes Wahyu Nurcahyo          //
+// Website: https://github.com/yoyokits       //
+// ========================================== //
+
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -263,6 +268,11 @@ namespace TravelCamApp.ViewModels
         {
             await MainThread.InvokeOnMainThreadAsync(async () =>
             {
+                // Request storage permissions for Android
+#if ANDROID
+                await RequestStoragePermissionsAsync();
+#endif
+
                 var locationStatus = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
                 if (locationStatus != PermissionStatus.Granted)
                 {
@@ -281,6 +291,56 @@ namespace TravelCamApp.ViewModels
                 // Add similar permission handling for other sensors if needed.
             });
         }
+
+#if ANDROID
+        private async Task RequestStoragePermissionsAsync()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Requesting storage permissions...");
+                
+                // For Android 13+ (API 33+), use granular media permissions
+                if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.Tiramisu)
+                {
+                    var readImagesStatus = await Permissions.CheckStatusAsync<Permissions.Photos>();
+                    if (readImagesStatus != PermissionStatus.Granted)
+                    {
+                        readImagesStatus = await Permissions.RequestAsync<Permissions.Photos>();
+                    }
+                    System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Photos permission: {readImagesStatus}");
+                }
+                else if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.Q)
+                {
+                    // Android 10-12: Storage permissions are scoped, but we can still request
+                    var readStatus = await Permissions.CheckStatusAsync<Permissions.StorageRead>();
+                    if (readStatus != PermissionStatus.Granted)
+                    {
+                        readStatus = await Permissions.RequestAsync<Permissions.StorageRead>();
+                    }
+                    System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] StorageRead permission: {readStatus}");
+                }
+                else
+                {
+                    // Android 9 and below
+                    var writeStatus = await Permissions.CheckStatusAsync<Permissions.StorageWrite>();
+                    if (writeStatus != PermissionStatus.Granted)
+                    {
+                        writeStatus = await Permissions.RequestAsync<Permissions.StorageWrite>();
+                    }
+                    System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] StorageWrite permission: {writeStatus}");
+                }
+
+                // Log the output path for debugging
+                var outputPath = Helpers.Settings.OutputPath;
+                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Output path: {outputPath}");
+                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Output path exists: {System.IO.Directory.Exists(outputPath)}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Error requesting storage permissions: {ex.Message}");
+            }
+        }
+#endif
 
         private async Task GetLocationAsync()
         {
@@ -399,9 +459,29 @@ namespace TravelCamApp.ViewModels
             try
             {
                 var config = await Helpers.SettingsHelper.LoadSensorItemsConfigurationAsync();
+                var additionalSettings = await Helpers.SettingsHelper.LoadAdditionalSettingsAsync();
+
                 if (config != null)
                 {
-                    Helpers.SettingsHelper.ApplyConfigurationToSensorItems(_sensorItems, config);
+                    // Apply configuration to existing sensor items by updating their visibility
+                    foreach (var item in _sensorItems)
+                    {
+                        var configItem = config.Items?.Find(ci => ci.Name == item.Name);
+                        if (configItem != null)
+                        {
+                            item.IsVisible = configItem.IsVisible;
+                        }
+                    }
+
+                    // Apply configuration to SensorValueViewModel to update visible sensor display items
+                    _sensorValueViewModel.ApplyConfiguration(config);
+                }
+
+                // Apply additional settings if they exist
+                if (additionalSettings != null)
+                {
+                    _sensorValueViewModel.FontSize = additionalSettings.FontSize;
+                    _sensorValueViewModel.IsMapOverlayVisible = additionalSettings.IsMapOverlayVisible;
                 }
             }
             catch (Exception ex)
@@ -418,6 +498,7 @@ namespace TravelCamApp.ViewModels
             try
             {
                 await Helpers.SettingsHelper.SaveSensorItemsConfigurationAsync(_sensorItems);
+                await Helpers.SettingsHelper.SaveAdditionalSettingsAsync(_sensorValueViewModel.FontSize, _sensorValueViewModel.IsMapOverlayVisible);
             }
             catch (Exception ex)
             {

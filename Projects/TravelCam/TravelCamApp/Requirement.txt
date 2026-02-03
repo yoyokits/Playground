@@ -2,6 +2,10 @@
                          TRAVELCAM APPLICATION REQUIREMENTS
 ================================================================================
 
+**CURRENT VERSION FOCUS: Android Devices (API 21+)**
+This version prioritizes Android platform development and testing.
+iOS and other platforms may be added in future versions.
+
 1. CORE FUNCTIONALITY
    - Camera application for capturing photos and videos
    - Behaves like a default device camera with familiar UI/UX
@@ -20,7 +24,21 @@
    - Flash control
    - Zoom functionality
 
-3. OVERLAY INFORMATION
+3. SENSOR VALUE APPEARANCE SETTINGS
+   - Add `SensorValueSettings` view with a `SensorValueSettingsViewModel`
+   - View acts as a sandwich control that opens when the user taps the Sensor Value view
+   - Two lists:
+     * Top: visible/selected sensor values
+     * Bottom: invisible/unselected sensor values
+   - Users can swipe items between lists to select/deselect
+   - Users can reorder items in the visible list
+   - Settings persist to a JSON file
+   - On app start, apply settings by reading the JSON file
+   - If a previous settings JSON exists, merge with the current default set
+   - Future extensibility for appearance settings (e.g., font size)
+   - Settings view: Material Design 3 style, max width 360dp, centered overlay
+
+4. OVERLAY INFORMATION
    - Real-time overlay display on camera preview
    - Overlay data includes:
      * Temperature (current weather)
@@ -28,9 +46,9 @@
      * Height/Altitude (from GPS)
      * Map view (optional, can be toggled)
    - Default overlay: All info WITHOUT map
-   - Overlay position and size can be adjusted by user
+   - Overlay position: FIXED at bottom-right of camera preview
 
-4. OUTPUT FILES
+5. OUTPUT FILES
    - Storage location: App folder "CekliCam/" (in public Pictures directory)
    - File naming format: {Year}-{Month}-{Day}-{City}-{IncrementNumber}
      Example: 2024-12-25-CekliCam-001.jpg
@@ -39,24 +57,89 @@
      - Photos: .jpg files
      - Videos: .mp4 files
 
-5. GALLERY INTEGRATION
-   - Clicking the preview image opens the device's default gallery app
-   - The gallery shows all device images/videos, including those from CekliCam
-   - On Android: Opens the default gallery showing all device media
+6. GALLERY INTEGRATION
+   - Clicking the preview image opens the most recent captured image
+   - The gallery app opens showing the image, allowing user to browse the folder
+   - On Android: Opens the specific image file using FileProvider
    - On iOS: Opens the Photos app to the app's media
-   - On other platforms: Opens the default file manager/gallery
+   - On other platforms: Opens the default file viewer for the image
 
-6. FILE TYPES
+7. FILE TYPES
    - Photos: .jpg
    - Videos: .mp4
 
-7. PERMISSIONS REQUIRED
+8. PERMISSIONS REQUIRED
    - Camera access
    - Microphone access (for video)
    - Video recording permission (Android)
    - Location/GPS access
    - Storage/file system access
    - Internet access (for weather data and maps)
+
+================================================================================
+                              UI LAYOUT SPECIFICATIONS
+================================================================================
+
+9. MAIN PAGE LAYOUT
+   Structure: Grid with 2 rows
+   - Row 0 (*): Camera preview area
+   - Row 1 (Auto): Control panel
+
+   9.1 CAMERA PREVIEW AREA (Row 0)
+       - CameraView: Fill entire row
+       - SensorValueView overlay:
+         * Position: Bottom-Right (HorizontalOptions="End", VerticalOptions="End")
+         * Margin: 16dp
+         * Background: Semi-transparent black (#AA000000)
+         * Corner radius: 8dp
+         * Contains: List of visible sensor values
+       - Recording indicator:
+         * Position: Top-Center
+         * Visible only when recording
+         * Shows "REC" label and elapsed time
+       - Exit button (DEBUG only):
+         * Position: Top-Left
+         * Visible only in debug builds
+
+   9.2 CONTROL PANEL (Row 1)
+       - Background: Black
+       - Padding: 16dp horizontal, 12dp vertical
+       - First row: Main controls
+         * Left: Preview thumbnail (56x56dp circle with white border)
+         * Center: Shutter button (80x80dp circle)
+         * Right: Camera flip button (40x40dp)
+       - Second row: Mode selector
+         * Left: "Photo" label
+         * Right: "Video" label
+         * Active mode shown in bold
+
+10. SENSOR VALUE SETTINGS VIEW (Overlay)
+    - Appears as modal overlay when SensorValueView is tapped
+    - Background: Semi-transparent black (70% opacity)
+    - Settings panel:
+      * Max width: 360dp
+      * Margin: 16dp
+      * Background: Material Design 3 surface color (#FFFBFE)
+      * Corner radius: 12dp
+    - Content sections:
+      * Header: "Sensor Settings" (20sp, bold)
+      * Visible Sensors list (120dp height)
+      * Action buttons: Add/Remove (32dp height, pill shape)
+      * Available Sensors list (120dp height)
+      * Appearance settings (font size slider, map overlay toggle)
+      * Save button (44dp height, pill shape)
+
+11. SENSOR VALUE VIEW (Overlay on Camera)
+    - Position: ALWAYS bottom-right of camera preview
+    - Do NOT use dynamic positioning via ViewModel converters
+    - Margin: 16dp from edges
+    - Padding: 16dp horizontal, 12dp vertical
+    - Background: #AA000000 (semi-transparent black)
+    - Border: None (StrokeThickness="0")
+    - Corner radius: 8dp
+    - Content: Vertical list of sensor values
+    - Tap gesture: Opens SensorValueSettingsView
+    - Pan gesture: Disabled (fixed position)
 
 ================================================================================
                               TECHNICAL NOTES

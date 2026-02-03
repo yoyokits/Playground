@@ -110,6 +110,10 @@ namespace TravelCamApp.ViewModels
 
         private readonly Dictionary<string, SensorDisplayItem> _sensorDisplayItemsMap;
         private ObservableCollection<SensorDisplayItem> _visibleSensorDisplayItems;
+        private double _horizontalPosition = 1.0; // Right side (0 = left, 1 = right)
+        private double _verticalPosition = 1.0;   // Bottom side (0 = top, 1 = bottom)
+        private double _fontSize = 14.0;          // Default font size
+        private bool _isMapOverlayVisible = false; // Whether map overlay is visible
 
         #endregion Fields
 
@@ -141,6 +145,58 @@ namespace TravelCamApp.ViewModels
                 if (_visibleSensorDisplayItems != value)
                 {
                     _visibleSensorDisplayItems = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double HorizontalPosition
+        {
+            get => _horizontalPosition;
+            set
+            {
+                if (_horizontalPosition != value)
+                {
+                    _horizontalPosition = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double VerticalPosition
+        {
+            get => _verticalPosition;
+            set
+            {
+                if (_verticalPosition != value)
+                {
+                    _verticalPosition = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double FontSize
+        {
+            get => _fontSize;
+            set
+            {
+                if (_fontSize != value)
+                {
+                    _fontSize = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public bool IsMapOverlayVisible
+        {
+            get => _isMapOverlayVisible;
+            set
+            {
+                if (_isMapOverlayVisible != value)
+                {
+                    _isMapOverlayVisible = value;
                     OnPropertyChanged();
                 }
             }
@@ -231,6 +287,29 @@ namespace TravelCamApp.ViewModels
             AddSensorDisplayItem(new SensorDisplayItem("Time", DateTime.Now.ToString("HH:mm:ss")), false);
             AddSensorDisplayItem(new SensorDisplayItem("Heading", ""), false);
             AddSensorDisplayItem(new SensorDisplayItem("Speed", ""), false);
+        }
+
+        /// <summary>
+        /// Applies saved sensor items configuration to the visible sensor display items
+        /// </summary>
+        /// <param name="config">The configuration to apply</param>
+        public void ApplyConfiguration(Helpers.SensorItemsConfiguration? config)
+        {
+            if (config?.Items == null) return;
+
+            // Clear and rebuild visible items based on configuration
+            _visibleSensorDisplayItems.Clear();
+
+            // Add items in the order they appear in the configuration
+            foreach (var configItem in config.Items)
+            {
+                if (configItem.IsVisible && _sensorDisplayItemsMap.TryGetValue(configItem.Name ?? string.Empty, out var displayItem))
+                {
+                    _visibleSensorDisplayItems.Add(displayItem);
+                }
+            }
+
+            OnPropertyChanged(nameof(VisibleSensorDisplayItems));
         }
 
         /// <summary>
