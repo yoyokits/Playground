@@ -1,54 +1,259 @@
-================================================================================
-                           TRAVELCAM C# CODE STYLE
-================================================================================
+# TravelCam Coding Standards & Best Practices
 
-1. STRUCTURE & ORGANIZATION
-   - Use regions in the following order:
-     #region Fields
-     #region Properties
-     #region Constructors
-     #region Methods
-   - Sort members alphabetically within each region.
-   - Do not add empty regions.
-   - Keep one blank line between regions.
+## Table of Contents
+1. [General Principles](#general-principles)
+2. [Naming Conventions](#naming-conventions)
+3. [Code Organization](#code-organization)
+4. [Design Patterns](#design-patterns)
+5. [Separation of Concerns](#separation-of-concerns)
+6. [YAGNI (You Aren't Gonna Need It)](#yagni-you-arent-gonna-need-it)
+7. [File Size Guidelines](#file-size-guidelines)
+8. [Weekly Code Review Checklist](#weekly-code-review-checklist)
 
-2. NAMING CONVENTIONS (StyleCop-aligned)
-   - Public members: PascalCase
-   - Private fields: _camelCase
-   - Constants: PascalCase
-   - Async methods: Suffix with "Async"
-   - Interfaces: Prefix with "I"
-   - Enums: PascalCase, values PascalCase
+## General Principles
 
-3. FORMATTING
-   - Use 4 spaces indentation.
-   - One statement per line.
-   - Braces on new line (Allman style).
-   - Use explicit access modifiers for all members.
+### SOLID Principles
+- **Single Responsibility Principle**: Each class should have one reason to change
+- **Open/Closed Principle**: Classes should be open for extension but closed for modification
+- **Liskov Substitution Principle**: Objects should be replaceable with instances of their subtypes
+- **Interface Segregation Principle**: Clients should not be forced to depend on interfaces they don't use
+- **Dependency Inversion Principle**: Depend on abstractions, not concretions
 
-4. USING DIRECTIVES
-   - Sort using directives alphabetically.
-   - Place System namespaces first, then others.
-   - Remove unused using directives.
+### KISS (Keep It Simple, Stupid)
+- Write simple, readable code
+- Avoid unnecessary complexity
+- Choose the simplest solution that works
 
-5. NULLABILITY & SAFETY
-   - Enable nullable reference types.
-   - Avoid null-forgiving operator (!) unless justified.
-   - Prefer pattern matching for null checks.
+### DRY (Don't Repeat Yourself)
+- Eliminate duplicate code
+- Use functions, classes, and modules to share common functionality
+- Extract common patterns into reusable components
 
-6. DOCUMENTATION
-   - Public members should have XML documentation comments.
-   - Use meaningful summaries and parameter descriptions.
+## Naming Conventions
 
-7. BEST PRACTICES
-   - Prefer readonly fields where applicable.
-   - Avoid magic numbers; use constants.
-   - Keep methods short and single-responsibility.
-   - Avoid empty catch blocks.
-   - Event handler methods must use the "On" prefix (e.g., OnClick).
+### C# Specific
+- **Classes**: PascalCase (e.g., `CameraHelper`, `SensorData`)
+- **Methods**: PascalCase (e.g., `StartPreviewAsync`, `UpdateSensorData`)
+- **Properties**: PascalCase (e.g., `CurrentData`, `IsRecording`)
+- **Private Fields**: Underscore + camelCase (e.g., `_isPreviewRunning`, `_sensorHelper`)
+- **Constants**: PascalCase (e.g., `CAMERA_STABILIZATION_DELAY`)
+- **Interfaces**: I + PascalCase (e.g., `ISensorService`)
 
-8. STYLECOP RULES
-   - Follow default StyleCop analyzers rules and conventions.
-   - Prefer StyleCop guidance when conflicts arise.
+### Files and Folders
+- **Models**: `*.cs` in `Models/` folder
+- **ViewModels**: `*.cs` in `ViewModels/` folder
+- **Views**: `*.xaml` and `*.xaml.cs` in `Views/` folder
+- **Helpers**: `*.cs` in `Helpers/` folder
+- **Services**: `*.cs` in `Services/` folder
 
-================================================================================
+## Code Organization
+
+### File Structure
+```
+Project/
+├── Models/
+│   ├── *.cs
+├── ViewModels/
+│   ├── *.cs
+├── Views/
+│   ├── *.xaml
+│   └── *.xaml.cs
+├── Helpers/
+│   ├── *.cs
+├── Services/
+│   ├── *.cs
+├── Platforms/
+│   ├── Android/
+│   ├── iOS/
+│   └── Windows/
+└── Resources/
+    ├── Images/
+    ├── Raw/
+    └── Values/
+```
+
+### Class Structure
+```csharp
+using System;
+// Other using statements
+
+namespace TravelCamApp.ViewModels
+{
+    public class ClassName : IInterface
+    {
+        #region Fields
+        // Private fields
+        #endregion
+
+        #region Properties
+        // Public properties
+        #endregion
+
+        #region Constructors
+        // Constructor(s)
+        #endregion
+
+        #region Methods
+        // Public and private methods
+        #endregion
+    }
+}
+```
+
+## Design Patterns
+
+### MVVM Pattern
+- **Model**: Data structures and business logic
+- **View**: UI elements and user interactions
+- **ViewModel**: Mediator between View and Model
+
+### Singleton Pattern
+- Use for services that should have a single instance
+- Consider thread safety for async operations
+
+### Observer Pattern
+- Use events and delegates for loose coupling
+- Implement INotifyPropertyChanged for data binding
+
+## Separation of Concerns
+
+### Responsibilities
+- **Models**: Data structures and validation
+- **Views**: UI presentation and user interaction
+- **ViewModels**: Business logic and data binding
+- **Helpers**: Utility functions and cross-cutting concerns
+- **Services**: External communications and platform-specific operations
+
+### Anti-Patterns to Avoid
+- Mixing UI logic with business logic
+- Large monolithic classes
+- Tight coupling between components
+- Violating layer boundaries
+
+## YAGNI (You Aren't Gonna Need It)
+
+### Guidelines
+- Implement only what is currently needed
+- Avoid speculative generality
+- Resist the urge to over-engineer
+- Add features only when there is a clear requirement
+- Keep code minimal and focused
+
+### Examples
+❌ Don't:
+```csharp
+public class CameraHelper
+{
+    // Adding features we might need someday
+    public void ProcessImageAdvanced(Image image) { /* complex unused code */ }
+    public void ConnectToCloud() { /* unused connection logic */ }
+}
+```
+
+✅ Do:
+```csharp
+public class CameraHelper
+{
+    // Only implement what's needed now
+    public async Task<bool> StartPreviewAsync(CameraView cameraView) { /* simple focused method */ }
+}
+```
+
+## File Size Guidelines
+
+### Maximum File Sizes
+- **Models**: < 200 lines
+- **ViewModels**: < 500 lines
+- **Helpers**: < 400 lines
+- **Services**: < 400 lines
+- **XAML files**: < 300 lines
+- **Code-behind files**: < 800 lines
+
+### When to Split Files
+- Class exceeds 500 lines of code
+- Single responsibility is violated
+- Multiple concerns are mixed
+- Testing becomes difficult due to size
+- Team collaboration is hindered
+
+## Weekly Code Review Checklist
+
+### Every Saturday, Review:
+
+#### 1. Class Names vs Functionality
+- [ ] Do class names accurately reflect their responsibilities?
+- [ ] Are class names descriptive and meaningful?
+- [ ] Have responsibilities shifted without name updates?
+
+#### 2. File Organization
+- [ ] Are files in the correct folders?
+- [ ] Do file names match their content?
+- [ ] Are there files that should be split due to size?
+
+#### 3. Code Quality
+- [ ] Are there any classes violating Single Responsibility Principle?
+- [ ] Are there duplicated code blocks that should be extracted?
+- [ ] Are there unused methods or variables?
+- [ ] Are naming conventions consistently followed?
+
+#### 4. Architecture
+- [ ] Are layers properly separated?
+- [ ] Are there any circular dependencies?
+- [ ] Are services properly abstracted?
+- [ ] Is the MVVM pattern correctly implemented?
+
+#### 5. YAGNI Compliance
+- [ ] Are there unused features or methods?
+- [ ] Is the code over-engineered for current needs?
+- [ ] Are there speculative implementations?
+
+#### 6. Performance & Security
+- [ ] Are there any obvious performance bottlenecks?
+- [ ] Are resources properly disposed?
+- [ ] Are there any security vulnerabilities?
+
+#### 7. Documentation
+- [ ] Are public methods documented with XML comments?
+- [ ] Are complex algorithms explained?
+- [ ] Are TODOs and FIXMEs addressed or scheduled?
+
+### Automated Checks
+Consider setting up:
+- Code analysis tools (Roslyn analyzers)
+- Code coverage reports
+- Static analysis tools
+- Linting rules enforcement
+
+## Code Review Process
+
+### Before Committing
+1. Run all tests
+2. Verify code follows guidelines
+3. Check for code smells
+4. Ensure documentation is up to date
+
+### Peer Review
+1. At least one team member reviews changes
+2. Focus on architecture, design, and maintainability
+3. Verify adherence to coding standards
+4. Test functionality manually if needed
+
+## Continuous Improvement
+
+### Refactoring Opportunities
+- Regularly identify code that can be simplified
+- Look for patterns that emerge and can be abstracted
+- Address technical debt incrementally
+- Update architecture as requirements evolve
+
+### Knowledge Sharing
+- Document architectural decisions
+- Share coding tips and tricks
+- Conduct code reviews as learning opportunities
+- Maintain up-to-date documentation
+
+### Zero Tolerance Policy for Warnings
+- All code must compile without warnings
+- Compiler warnings should be addressed immediately
+- Regular checks should be performed to ensure no new warnings are introduced
+- CI/CD pipelines should fail if warnings are present
