@@ -2,29 +2,41 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewModels="clr-namespace:TravelCamApp.ViewModels"
+             xmlns:views="clr-namespace:TravelCamApp.Views"
              x:Class="TravelCamApp.Views.SensorValueView"
              x:DataType="viewModels:SensorValueViewModel">
-    <Border HorizontalOptions="End"
-            VerticalOptions="End"
-            Margin="16"
-            Padding="16,12"
-            BackgroundColor="#AA000000"
-            StrokeThickness="0"
-            StrokeShape="RoundRectangle 8">
-        <VerticalStackLayout BindableLayout.ItemsSource="{Binding VisibleSensorDisplayItems}"
-                             Spacing="4"
-                             HorizontalOptions="End"
-                             VerticalOptions="End">
-            <BindableLayout.ItemTemplate>
-                <DataTemplate x:DataType="viewModels:SensorDisplayItem">
-                    <Label Text="{Binding FormattedValue}"
-                           TextColor="White"
-                           FontFamily="RobotoRegular"
-                           FontSize="14"
-                           HorizontalOptions="Center"
-                           VerticalOptions="Center" />
-                </DataTemplate>
-            </BindableLayout.ItemTemplate>
-        </VerticalStackLayout>
-    </Border>
+    <Grid>
+        <!-- Background Border with content -->
+        <Border x:Name="SensorOverlayBorder"
+                Margin="16"
+                Padding="16,12"
+                BackgroundColor="#AA000000"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 8">
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding VisibleSensorDisplayItems}"
+                                 Spacing="4"
+                                 HorizontalOptions="Fill"
+                                 VerticalOptions="Fill">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:SensorDisplayItem">
+                        <Label Text="{Binding FormattedValue}"
+                               TextColor="White"
+                               FontFamily="RobotoRegular"
+                               FontSize="{Binding Source={RelativeSource AncestorType={x:Type viewModels:SensorValueViewModel}}, Path=FontSize}"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+        </Border>
+        
+        <!-- Invisible button overlay to capture taps reliably on all devices -->
+        <Button x:Name="TapOverlay"
+                Margin="16"
+                BackgroundColor="Transparent"
+                BorderWidth="0"
+                Clicked="OnSensorOverlayClicked"
+                HorizontalOptions="Fill"
+                VerticalOptions="Fill" />
+    </Grid>
 </ContentView>

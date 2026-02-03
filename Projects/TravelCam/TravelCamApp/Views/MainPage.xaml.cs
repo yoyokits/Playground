@@ -6,6 +6,7 @@
 using TravelCamApp.Helpers;
 using TravelCamApp.Models;
 using TravelCamApp.ViewModels;
+using TravelCamApp.Views;
 using SkiaSharp;
 using Camera.MAUI;
 
@@ -74,6 +75,9 @@ namespace TravelCamApp.Views
 
             // Request permissions for location and sensors
             Task.Run(async () => await viewModel.RequestPermissionsAsync());
+
+            // Wire up the sensor value settings request event
+            SensorValueOverlay.SensorValueSettingsRequested += OnSensorValueSettingsRequested;
         }
 
         #endregion Constructors
@@ -145,6 +149,8 @@ namespace TravelCamApp.Views
         /// <inheritdoc/>
         protected override async void OnAppearing()
         {
+            System.Diagnostics.Debug.WriteLine("[MainPage] OnAppearing called");
+            
             if (_isDisposing) return;
 
             base.OnAppearing();
@@ -160,7 +166,8 @@ namespace TravelCamApp.Views
                 return;
             }
 
-            if (!_isCameraConfigured && CameraView.NumCamerasDetected > 0)
+            // Always reconfigure camera when appearing (e.g., after returning from gallery)
+            if (CameraView.NumCamerasDetected > 0)
             {
                 CameraHelper.ConfigureDevices(CameraView);
                 _isCameraConfigured = true;
@@ -175,15 +182,46 @@ namespace TravelCamApp.Views
                 UpdateOverlayLabels();
             }
 
-            // Configure camera if not already configured and start preview
-            if (!_isCameraConfigured && CameraView.Cameras != null && CameraView.Cameras.Any())
-            {
-                CameraHelper.ConfigureDevices(CameraView);
-                _isCameraConfigured = true;
-            }
+            // Reload sensor settings to ensure UI is up-to-date
+            await ReloadSensorSettingsAsync();
 
-            // Start preview regardless of configuration status
+            // Always restart preview when appearing
+            _isPreviewRunning = false;
             await StartPreviewSafeAsync(gen);
+            
+            System.Diagnostics.Debug.WriteLine("[MainPage] OnAppearing completed");
+        }
+
+        /// <summary>
+        /// Reloads sensor settings from storage and updates the SensorValueViewModel.
+        /// </summary>
+        private async Task ReloadSensorSettingsAsync()
+        {
+            try
+            {
+                if (BindingContext is MainPageViewModel viewModel)
+                {
+                    var config = await Helpers.SettingsHelper.LoadSensorItemsConfigurationAsync();
+                    var additionalSettings = await Helpers.SettingsHelper.LoadAdditionalSettingsAsync();
+
+                    if (config != null)
+                    {
+                        viewModel.SensorValueViewModel.ApplyConfiguration(config);
+                    }
+
+                    if (additionalSettings != null)
+                    {
+                        viewModel.SensorValueViewModel.FontSize = additionalSettings.FontSize;
+                        viewModel.SensorValueViewModel.IsMapOverlayVisible = additionalSettings.IsMapOverlayVisible;
+                    }
+                    
+                    System.Diagnostics.Debug.WriteLine("[MainPage] Sensor settings reloaded");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainPage] Error reloading sensor settings: {ex.Message}");
+            }
         }
 
         /// <inheritdoc/>
@@ -364,21 +402,54 @@ namespace TravelCamApp.Views
                 await _cameraLifecycleLock.WaitAsync();
                 try
                 {
-                    // Get current sensor data to overlay on the photo
-                    var sensorData = _sensorHelper?.CurrentData;
-                    var stream = await CameraHelper.TakePhotoAsync(CameraView, sensorData);
+                    LogDebug("[MainPage] Taking photo...");
+                    // Don't edit the original image - pass null for sensorData to capture without overlay
+                    var stream = await CameraHelper.TakePhotoAsync(CameraView, null, false);
                     if (stream is null)
                     {
-                        LogDebug("Failed to take photo - stream is null");
+                        LogDebug("[MainPage] Failed to take photo - stream is null");
                         return;
                     }
 
+                    LogDebug("[MainPage] Photo stream received. Length: {0}, Position: {1}", 
+                        stream.CanSeek ? stream.Length.ToString() : "unknown",
+                        stream.CanSeek ? stream.Position.ToString() : "unknown");
+
                     var filePath = await FileHelper.SavePhotoAsync(stream, "CekliCam");
+                    LogDebug("[MainPage] SavePhotoAsync returned. FilePath: {0}", filePath ?? "NULL");
+                    
                     if (!string.IsNullOrEmpty(filePath))
                     {
-                        viewModel.LastCaptureImage = ImageSource.FromFile(filePath);
-                        LogDebug("[MainPage] Photo saved to: {0}", filePath);
+                        // Verify the file exists and has content
+                        if (File.Exists(filePath))
+                        {
+                            var fileInfo = new FileInfo(filePath);
+                            LogDebug("[MainPage] Photo file verified. Size: {0} bytes", fileInfo.Length);
+                            
+                            if (fileInfo.Length > 0)
+                            {
+                                // Load as stream to ensure the image is properly displayed
+                                var imageBytes = await File.ReadAllBytesAsync(filePath);
+                                viewModel.LastCaptureImage = ImageSource.FromStream(() => new MemoryStream(imageBytes));
+                                LogDebug("[MainPage] Photo saved and preview updated: {0}", filePath);
+                            }
+                            else
+                            {
+                                LogError("[MainPage] Photo file is empty!");
+                            }
+                        }
+                        else
+                        {
+                            LogError("[MainPage] Photo file does not exist: {0}", filePath);
+                        }
                     }
+                    else
+                    {
+                        LogError("[MainPage] SavePhotoAsync returned null or empty path");
+                    }
+                    
+                    // Dispose the stream after saving
+                    await stream.DisposeAsync();
                 }
                 catch (Exception ex) when (IsJavaIllegalStateException(ex))
                 {
@@ -592,48 +663,54 @@ namespace TravelCamApp.Views
         {
             try
             {
-                // Look for the most recently created image file in the unified output directory
-                var travelCamPath = Settings.OutputPath;
-                if (!Directory.Exists(travelCamPath))
+                // Look for the most recently created image file in the output directory
+                var outputPath = Settings.OutputPath;
+                System.Diagnostics.Debug.WriteLine($"[MainPage] LoadLastTakenImage - OutputPath: {outputPath}");
+                
+                if (!Directory.Exists(outputPath))
                 {
-                    LogDebug("[MainPage] TravelCam directory does not exist: {0}", travelCamPath);
+                    LogDebug("[MainPage] Output directory does not exist: {0}", outputPath);
                     viewModel.LastCaptureImage = CreateWhitePlaceholderImage();
                     return;
                 }
 
-                // Get all years directories
-                var yearDirs = Directory.GetDirectories(travelCamPath).OrderByDescending(d => d).ToArray();
+                // Get all image files directly from the output directory
+                var imageFiles = Directory.GetFiles(outputPath, "*.jpg")
+                                         .Concat(Directory.GetFiles(outputPath, "*.jpeg"))
+                                         .Concat(Directory.GetFiles(outputPath, "*.png"))
+                                         .ToArray();
 
-                string? lastImagePath = null;
+                System.Diagnostics.Debug.WriteLine($"[MainPage] LoadLastTakenImage - Found {imageFiles.Length} image files");
 
-                foreach (var yearDir in yearDirs)
+                if (imageFiles.Length == 0)
                 {
-                    var monthDirs = Directory.GetDirectories(yearDir).OrderByDescending(d => d).ToArray();
-
-                    foreach (var monthDir in monthDirs)
-                    {
-                        // Get all jpg files in the month directory
-                        var imageFiles = Directory.GetFiles(monthDir, "*.jpg")
-                                                 .Concat(Directory.GetFiles(monthDir, "*.jpeg"))
-                                                 .Concat(Directory.GetFiles(monthDir, "*.png"))
-                                                 .OrderByDescending(f => new FileInfo(f).CreationTime)
-                                                 .ToArray();
-
-                        if (imageFiles.Length > 0)
-                        {
-                            lastImagePath = imageFiles[0];
-                            break;
-                        }
-                    }
-
-                    if (lastImagePath != null)
-                        break;
+                    LogDebug("[MainPage] No image files found in output directory");
+                    viewModel.LastCaptureImage = CreateWhitePlaceholderImage();
+                    return;
                 }
+
+                // Get the most recent image by creation time
+                var lastImagePath = imageFiles
+                    .OrderByDescending(f => new FileInfo(f).CreationTime)
+                    .FirstOrDefault();
 
                 if (!string.IsNullOrEmpty(lastImagePath) && File.Exists(lastImagePath))
                 {
-                    viewModel.LastCaptureImage = ImageSource.FromFile(lastImagePath);
-                    LogDebug("[MainPage] Loaded last taken image: {0}", lastImagePath);
+                    var fileInfo = new FileInfo(lastImagePath);
+                    System.Diagnostics.Debug.WriteLine($"[MainPage] LoadLastTakenImage - Loading: {lastImagePath}, Size: {fileInfo.Length} bytes");
+                    
+                    if (fileInfo.Length > 0)
+                    {
+                        // Load image as stream to ensure it's properly loaded
+                        var imageBytes = await File.ReadAllBytesAsync(lastImagePath);
+                        viewModel.LastCaptureImage = ImageSource.FromStream(() => new MemoryStream(imageBytes));
+                        LogDebug("[MainPage] Loaded last taken image: {0}", lastImagePath);
+                    }
+                    else
+                    {
+                        LogDebug("[MainPage] Last image file is empty");
+                        viewModel.LastCaptureImage = CreateWhitePlaceholderImage();
+                    }
                 }
                 else
                 {
@@ -758,6 +835,138 @@ namespace TravelCamApp.Views
         }
 
         /// <summary>
+        /// Handles the sensor value settings request event.
+        /// </summary>
+        /// <param name="sender">The sender of the event.</param>
+        /// <param name="e">Event arguments.</param>
+        private void OnSensorValueSettingsRequested(object? sender, SensorValueSettingsRequestedEventArgs e)
+        {
+            ShowSensorValueSettings();
+        }
+
+        /// <summary>
+        /// Shows the sensor value settings as an overlay.
+        /// </summary>
+        private async void ShowSensorValueSettings()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPage] ShowSensorValueSettings called");
+                
+                // Create the settings view
+                var settingsView = new SensorValueSettingsView();
+
+                // Load existing settings
+                var settingsViewModel = settingsView.BindingContext as SensorValueSettingsViewModel;
+                if (settingsViewModel != null)
+                {
+                    await settingsViewModel.LoadSettingsAsync();
+                    System.Diagnostics.Debug.WriteLine("[MainPage] Settings loaded. Available: {0}, Visible: {1}", 
+                        settingsViewModel.AvailableSensorItems.Count,
+                        settingsViewModel.VisibleSensorItems.Count);
+                }
+
+                // Create an overlay layout
+                var overlayLayout = new Grid
+                {
+                    BackgroundColor = Colors.Black.MultiplyAlpha(0.7f), // Semi-transparent background
+                    VerticalOptions = LayoutOptions.Fill,
+                    HorizontalOptions = LayoutOptions.Fill,
+                    InputTransparent = false
+                };
+
+                // Add the settings view to the overlay with a container for proper sizing
+                var settingsContainer = new Grid
+                {
+                    HorizontalOptions = LayoutOptions.Center,
+                    VerticalOptions = LayoutOptions.Center,
+                    WidthRequest = 300,
+                    Margin = new Thickness(20),
+                    InputTransparent = false
+                };
+                settingsContainer.Children.Add(settingsView);
+                settingsView.HorizontalOptions = LayoutOptions.Fill;
+                settingsView.VerticalOptions = LayoutOptions.Fill;
+                settingsView.InputTransparent = false;
+
+                overlayLayout.Children.Add(settingsContainer);
+
+                // Helper function to close overlay and reload settings
+                async void CloseOverlayAndReloadSettings()
+                {
+                    if (Content is Grid grid)
+                    {
+                        grid.Children.Remove(overlayLayout);
+                    }
+                    // Reload settings to update the sensor value display
+                    await ReloadSensorSettingsAsync();
+                }
+
+                // Add the overlay to the main page - use Grid instead of Layout
+                if (Content is Grid mainGrid)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MainPage] Adding overlay to main Grid");
+                    
+                    // Add overlay to span all rows
+                    Grid.SetRowSpan(overlayLayout, 2);
+                    mainGrid.Children.Add(overlayLayout);
+
+                    // Add a close gesture to the overlay background (but not the settings container)
+                    var tapGesture = new TapGestureRecognizer();
+                    tapGesture.Tapped += async (s, e) =>
+                    {
+                        System.Diagnostics.Debug.WriteLine("[MainPage] Overlay background tapped - closing");
+                        CloseOverlayAndReloadSettings();
+                    };
+                    overlayLayout.GestureRecognizers.Add(tapGesture);
+
+                    // Prevent taps on the settings container from closing the overlay
+                    var containerTapGesture = new TapGestureRecognizer();
+                    containerTapGesture.Tapped += (s, e) =>
+                    {
+                        // Do nothing - just consume the tap
+                        System.Diagnostics.Debug.WriteLine("[MainPage] Settings container tapped - consuming");
+                    };
+                    settingsContainer.GestureRecognizers.Add(containerTapGesture);
+
+                    // Add a close button to the settings container
+                    var closeButton = new Button
+                    {
+                        Text = "✕",
+                        BackgroundColor = Colors.Red,
+                        TextColor = Colors.White,
+                        WidthRequest = 32,
+                        HeightRequest = 32,
+                        CornerRadius = 16,
+                        HorizontalOptions = LayoutOptions.End,
+                        VerticalOptions = LayoutOptions.Start,
+                        Margin = new Thickness(0, -16, -16, 0),
+                        ZIndex = 100
+                    };
+
+                    closeButton.Clicked += async (s, e) =>
+                    {
+                        System.Diagnostics.Debug.WriteLine("[MainPage] Close button clicked - closing overlay");
+                        CloseOverlayAndReloadSettings();
+                    };
+
+                    // Add the close button to the settings container
+                    settingsContainer.Children.Add(closeButton);
+                    
+                    System.Diagnostics.Debug.WriteLine("[MainPage] Overlay added successfully");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("[MainPage] Content is not a Grid, type: {0}", Content?.GetType().Name ?? "null");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError("Error showing sensor value settings: {0}", ex.Message);
+            }
+        }
+
+        /// <summary>
         /// Handles the preview image tap event to open the default operating system image gallery.
         /// </summary>
         /// <param name="sender">The sender of the event.</param>
@@ -771,54 +980,88 @@ namespace TravelCamApp.Views
                 if (!Directory.Exists(picturesDirectory))
                 {
                     LogDebug("[OnPreviewImageTapped] Directory does not exist: {0}", picturesDirectory);
-                    await Shell.Current.DisplayAlertAsync("No Images", "No images found in the TravelCam folder.", "OK");
+                    await Shell.Current.DisplayAlertAsync("No Images", "No images found in the CekliCam folder.", "OK");
                     return;
                 }
 
-                var files = Directory.GetFiles(picturesDirectory, "*.*", SearchOption.AllDirectories);
-                if (files.Length == 0)
+                // Find the most recent image file to open
+                var imageFiles = GetAllImageFiles(picturesDirectory);
+                if (imageFiles.Length == 0)
                 {
-                    LogDebug("[OnPreviewImageTapped] No files found in directory: {0}", picturesDirectory);
-                    await Shell.Current.DisplayAlertAsync("No Images", "No images found in the TravelCam folder.", "OK");
+                    LogDebug("[OnPreviewImageTapped] No image files found in directory: {0}", picturesDirectory);
+                    await Shell.Current.DisplayAlertAsync("No Images", "No images found in the CekliCam folder.", "OK");
                     return;
                 }
 
-                LogDebug("[OnPreviewImageTapped] Files found: {0}", string.Join(", ", files));
+                // Get the most recent image
+                var mostRecentImage = imageFiles.OrderByDescending(f => new FileInfo(f).CreationTime).FirstOrDefault();
+                LogDebug("[OnPreviewImageTapped] Opening most recent image: {0}", mostRecentImage);
 
 #if ANDROID
-                // For Android, open the default gallery app to show all device images/videos
-                // This will include images from the CekliCam folder since they're in the public Pictures directory
+                // For Android, open the specific image file which will allow viewing the folder
                 try
                 {
-                    // Open the default gallery app to show all images on the device
-                    var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                    intent.SetData(Android.Provider.MediaStore.Images.Media.ExternalContentUri);
-                    intent.SetFlags(Android.Content.ActivityFlags.NewTask);
-                    Android.App.Application.Context.StartActivity(intent);
-                }
-                catch
-                {
-                    try
+                    if (!string.IsNullOrEmpty(mostRecentImage) && File.Exists(mostRecentImage))
                     {
-                        // Alternative: Open the video gallery
+                        // Get the URI for the file using FileProvider for Android 7.0+
+                        var context = Android.App.Application.Context;
+                        var file = new Java.IO.File(mostRecentImage);
+                        
+                        Android.Net.Uri? uri;
+                        if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.N)
+                        {
+                            uri = AndroidX.Core.Content.FileProvider.GetUriForFile(
+                                context,
+                                $"{context.PackageName}.fileprovider",
+                                file);
+                        }
+                        else
+                        {
+                            uri = Android.Net.Uri.FromFile(file);
+                        }
+
                         var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                        intent.SetData(Android.Provider.MediaStore.Video.Media.ExternalContentUri);
+                        intent.SetDataAndType(uri, "image/*");
+                        intent.AddFlags(Android.Content.ActivityFlags.GrantReadUriPermission);
+                        intent.AddFlags(Android.Content.ActivityFlags.NewTask);
+                        
+                        context.StartActivity(intent);
+                        LogDebug("[OnPreviewImageTapped] Opened image successfully");
+                    }
+                    else
+                    {
+                        // Fallback: Open the gallery app
+                        var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
+                        intent.SetData(Android.Provider.MediaStore.Images.Media.ExternalContentUri);
                         intent.SetFlags(Android.Content.ActivityFlags.NewTask);
                         Android.App.Application.Context.StartActivity(intent);
                     }
-                    catch (Exception ex)
+                }
+                catch (Exception ex)
+                {
+                    LogError("[OnPreviewImageTapped] Error opening image: {0}", ex.Message);
+                    // Fallback: Try to open gallery
+                    try
                     {
-                        LogError("[OnPreviewImageTapped] Error opening gallery: {0}", ex.Message);
-                        // As a fallback, show a message to the user
-                        await Shell.Current.DisplayAlertAsync("Open Gallery", "Please use your device's gallery app to view your photos and videos in the CekliCam folder.", "OK");
+                        var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
+                        intent.SetData(Android.Provider.MediaStore.Images.Media.ExternalContentUri);
+                        intent.SetFlags(Android.Content.ActivityFlags.NewTask);
+                        Android.App.Application.Context.StartActivity(intent);
+                    }
+                    catch
+                    {
+                        await Shell.Current.DisplayAlertAsync("Open Gallery", "Please use your device's gallery app to view your photos in the CekliCam folder.", "OK");
                     }
                 }
 #else
-                // Use the Launcher to open the default image gallery for other platforms
-                await Launcher.OpenAsync(new OpenFileRequest
+                // Use the Launcher to open the most recent image file
+                if (!string.IsNullOrEmpty(mostRecentImage) && File.Exists(mostRecentImage))
                 {
-                    File = new ReadOnlyFileResult(picturesDirectory)
-                });
+                    await Launcher.OpenAsync(new OpenFileRequest
+                    {
+                        File = new ReadOnlyFileResult(mostRecentImage)
+                    });
+                }
 #endif
             }
             catch (Exception ex)

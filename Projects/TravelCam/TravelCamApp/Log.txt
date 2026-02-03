@@ -3,9 +3,42 @@
 ================================================================================
 
 --------------------------------------------------------------------------------
+[2024-XX-XX] Android Storage & Gallery Fixes
+--------------------------------------------------------------------------------
+STATUS: Completed
+
+COMPLETED:
+  [x] Fixed AndroidManifest.xml permissions for Android 10+ (Scoped Storage)
+      - Added requestLegacyExternalStorage for Android 10
+      - Added READ_MEDIA_IMAGES and READ_MEDIA_VIDEO for Android 13+
+      - Limited WRITE/READ_EXTERNAL_STORAGE to older SDK versions
+  [x] Added FileProvider configuration for sharing files with gallery
+      - Created Platforms/Android/Resources/xml/file_paths.xml
+      - Configured provider in AndroidManifest.xml
+  [x] Updated Settings.cs with smart fallback path selection
+      - Tries public Pictures first, falls back to app-specific storage
+      - Added write test to verify storage access
+  [x] Added storage permission requests in MainPageViewModel
+      - Handles Android 9, 10-12, and 13+ differently
+  [x] Fixed preview image loading (FromFile -> FromStream)
+
+--------------------------------------------------------------------------------
+[2024-XX-XX] Sensor Value Settings Implementation
+--------------------------------------------------------------------------------
+STATUS: Completed
+
+COMPLETED:
+  [x] Created SensorValueSettingsView with drag-to-reorder support
+  [x] Added VisualStateManager for selection highlighting
+  [x] Implemented Add/Remove buttons for sensor items
+  [x] Fixed tap detection on physical Android devices (Button overlay)
+  [x] Settings are saved to JSON and reloaded on app start
+  [x] Settings sync back to main view after closing overlay
+
+--------------------------------------------------------------------------------
 [2024-XX-XX] Initial Project Setup
 --------------------------------------------------------------------------------
-STATUS: In Progress
+STATUS: Completed
 
 COMPLETED:
   [x] Created .NET MAUI project (TravelCamApp)
@@ -21,43 +54,47 @@ COMPLETED:
   [x] Refactored helpers and view model to follow CodeStyle rules
   [x] Added shutter flash animation and preview thumbnail updates
   [x] Added video recording toggle behavior
+  [x] Implemented GPS/location services
+  [x] Created SensorValueView overlay UI component
+  [x] Implemented sensor items configuration
+  [x] Set up file storage in CekliCam folder (flat structure)
+  [x] Added SensorValueSettings view (sandwich control) with drag/drop reorder
+  [x] Persist SensorValue appearance settings to JSON and merge on startup
 
 TO DO:
-  [x] Add Camera.MAUI package
-  [x] Implement camera preview view (UI only)
-  [x] Add photo capture functionality
-  [x] Add video recording functionality
-  [ ] Implement GPS/location services
   [ ] Integrate weather API for temperature data
-  [ ] Create overlay UI components
-  [ ] Implement overlay positioning/adjustment
-  [ ] Set up file storage structure (TravelCam/Year/Month)
-  [ ] Implement dual file output (original + overlay)
   [ ] Add map overlay option
-  [ ] Create settings page for overlay customization
-  [ ] Investigate and fix the issue with opening the gallery on Android. Ensure the correct permissions are set and the Intent is properly configured to open the OutputPath directory.
+  [ ] Implement flash control
+  [ ] Implement zoom functionality
+  [ ] Add camera flip button functionality (partially done)
 
 BUGS:
-  - None reported yet
+  - Preview image may show blank on some devices - check Debug Output for path logs
 
 KNOWN ISSUES:
-  - Camera preview may be blank on some devices; verify device camera availability and permissions.
+  - Camera preview may be blank on some devices; verify device camera availability and permissions
+  - On Android 10+, external storage access may require fallback to app-specific directory
 
 NOTES:
   - Camera.MAUI selected for video recording support
-  - Need to research weather APIs for temperature data
+  - Photos are saved without overlay (original quality)
+  - Sensor overlay is preview-only, not burned into saved files
+  - **Android Focus**: This version targets Android devices (API 23+)
 
 --------------------------------------------------------------------------------
 NEXT STEPS:
 --------------------------------------------------------------------------------
-1. Add location services
-2. Integrate weather API
-3. Build overlay UI and positioning controls
-4. Implement dual file output (original + overlay)
+1. Integrate weather API for temperature data
+2. Add map overlay option (using device maps)
+3. Implement flash and zoom controls
+4. Test on various Android devices for compatibility
+5. Add iOS support after Android is stable
 
 ================================================================================
                               VERSION HISTORY
 ================================================================================
-v0.1.0 - Initial MVVM structure setup
+v0.3.0 - Android storage fixes, FileProvider, permission handling
+v0.2.0 - Sensor value settings, drag-to-reorder, tap detection fixes
+v0.1.0 - Initial MVVM structure setup, camera preview, photo/video capture
 
 ================================================================================

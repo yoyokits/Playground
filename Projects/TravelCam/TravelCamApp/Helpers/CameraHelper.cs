@@ -1,3 +1,8 @@
+// ========================================== //
+// Developer: Yohanes Wahyu Nurcahyo          //
+// Website: https://github.com/yoyokits       //
+// ========================================== //
+
 using System;
 using System.IO;
 using System.Linq;
@@ -262,7 +267,7 @@ namespace TravelCamApp.Helpers
         /// <returns>A stream containing the captured photo, or null if failed.</returns>
         public static async Task<Stream?> TakePhotoAsync(CameraView cameraView)
         {
-            return await TakePhotoAsync(cameraView, null);
+            return await TakePhotoAsync(cameraView, null, false);
         }
 
         /// <summary>
@@ -270,8 +275,9 @@ namespace TravelCamApp.Helpers
         /// </summary>
         /// <param name="cameraView">The camera view to take photo with.</param>
         /// <param name="sensorData">The sensor data to overlay on the photo.</param>
+        /// <param name="isMapOverlayEnabled">Whether to include map overlay.</param>
         /// <returns>A stream containing the captured photo with sensor overlay, or null if failed.</returns>
-        public static async Task<Stream?> TakePhotoAsync(CameraView cameraView, SensorData? sensorData)
+        public static async Task<Stream?> TakePhotoAsync(CameraView cameraView, SensorData? sensorData, bool isMapOverlayEnabled = false)
         {
             try
             {
@@ -291,16 +297,30 @@ namespace TravelCamApp.Helpers
                     return null;
                 }
 
-                LogDebug("[CameraHelper] Photo taken successfully");
+                LogDebug("[CameraHelper] Photo taken successfully. Stream type: {0}, Length: {1}, CanSeek: {2}",
+                    stream.GetType().Name, 
+                    stream.CanSeek ? stream.Length.ToString() : "unknown",
+                    stream.CanSeek);
 
-                // Overlay sensor data if provided
-                if (sensorData != null)
+                // If we're not overlaying data, copy stream to a MemoryStream to ensure it's seekable
+                if (sensorData == null)
                 {
-                    var overlayStream = await OverlaySensorDataOnImageAsync(stream, sensorData);
-                    return overlayStream;
+                    // Copy to a new MemoryStream to ensure it's seekable and fully buffered
+                    var memoryStream = new MemoryStream();
+                    await stream.CopyToAsync(memoryStream);
+                    memoryStream.Position = 0;
+                    
+                    LogDebug("[CameraHelper] Photo copied to MemoryStream. Length: {0} bytes", memoryStream.Length);
+                    
+                    // Dispose the original stream
+                    await stream.DisposeAsync();
+                    
+                    return memoryStream;
                 }
 
-                return stream;
+                // Overlay sensor data if provided
+                var overlayStream = await OverlaySensorDataOnImageAsync(stream, sensorData, isMapOverlayEnabled);
+                return overlayStream;
             }
             catch (Exception ex)
             {
@@ -637,8 +657,9 @@ namespace TravelCamApp.Helpers
         /// </summary>
         /// <param name="imageStream">The original image stream</param>
         /// <param name="sensorData">The sensor data to overlay</param>
+        /// <param name="isMapOverlayEnabled">Whether to include map overlay</param>
         /// <returns>A new stream with the sensor data overlaid</returns>
-        public static async Task<Stream?> OverlaySensorDataOnImageAsync(Stream? imageStream, SensorData? sensorData)
+        public static async Task<Stream?> OverlaySensorDataOnImageAsync(Stream? imageStream, SensorData? sensorData, bool isMapOverlayEnabled = false)
         {
             if (imageStream == null || sensorData == null)
             {
@@ -686,6 +707,12 @@ namespace TravelCamApp.Helpers
                     $"Lat: {sensorData.Latitude:F4}, Lng: {sensorData.Longitude:F4}",
                     $"Time: {sensorData.Timestamp:HH:mm:ss dd/MM/yyyy}"
                 };
+
+                // Add map overlay indicator if enabled
+                if (isMapOverlayEnabled)
+                {
+                    sensorLines.Add("MAP: Enabled");
+                }
 
                 // Calculate text bounds for background
                 var maxTextWidth = 0f;
