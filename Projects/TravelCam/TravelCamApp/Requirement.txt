@@ -12,6 +12,11 @@
    - Photo capture with full resolution
    - Video recording with high quality
    - Front and back camera support
+   - Sensor Value visualizer using ListView similar to ItemsControl in WPF
+   - SensorItem class to show individual sensor values with Name property
+   - Support for generated data like City, Date, Time, Country from GPS location
+   - Default visible sensors: City, Country, Temperature
+   - Ability to customize SensorItems and save settings as JSON file
    - Flash control
    - Zoom functionality
 
@@ -26,20 +31,26 @@
    - Overlay position and size can be adjusted by user
 
 4. OUTPUT FILES
-   - Storage location: App folder "TravelCam/{Year}/{Month}/"
+   - Storage location: App folder "CekliCam/" (in public Pictures directory)
    - File naming format: {Year}-{Month}-{Day}-{City}-{IncrementNumber}
-     Example: 2024-12-25-Paris-001.jpg
+     Example: 2024-12-25-CekliCam-001.jpg
 
-   - Each capture produces TWO files:
-     a) Original file: Full size, highest quality, no overlay
-     b) Overlay file:  Photo/video with embedded overlay data
-        (city, temperature, altitude, etc.)
+   - Each capture produces ONE file in the main directory:
+     - Photos: .jpg files
+     - Videos: .mp4 files
 
-5. FILE TYPES
-   - Photos: .jpg (original), .jpg (with overlay)
-   - Videos: .mp4 (original), .mp4 (with overlay)
+5. GALLERY INTEGRATION
+   - Clicking the preview image opens the device's default gallery app
+   - The gallery shows all device images/videos, including those from CekliCam
+   - On Android: Opens the default gallery showing all device media
+   - On iOS: Opens the Photos app to the app's media
+   - On other platforms: Opens the default file manager/gallery
 
-6. PERMISSIONS REQUIRED
+6. FILE TYPES
+   - Photos: .jpg
+   - Videos: .mp4
+
+7. PERMISSIONS REQUIRED
    - Camera access
    - Microphone access (for video)
    - Video recording permission (Android)

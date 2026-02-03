@@ -35,6 +35,7 @@ TO DO:
   [ ] Implement dual file output (original + overlay)
   [ ] Add map overlay option
   [ ] Create settings page for overlay customization
+  [ ] Investigate and fix the issue with opening the gallery on Android. Ensure the correct permissions are set and the Intent is properly configured to open the OutputPath directory.
 
 BUGS:
   - None reported yet

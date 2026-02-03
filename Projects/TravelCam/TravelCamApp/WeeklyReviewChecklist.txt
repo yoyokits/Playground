@@ -1,0 +1,86 @@
+# Weekly Code Review Checklist
+## Saturday Review Session
+
+**Date:** ___________
+
+**Reviewer:** ___________
+
+---
+
+### 1. Class Names vs Functionality
+- [ ] Do class names accurately reflect their responsibilities?
+- [ ] Are class names descriptive and meaningful?
+- [ ] Have responsibilities shifted without name updates?
+- [ ] **Notes:**
+
+### 2. File Organization
+- [ ] Are files in the correct folders?
+- [ ] Do file names match their content?
+- [ ] Are there files that should be split due to size?
+- [ ] **Notes:**
+
+### 3. Code Quality
+- [ ] Are there any classes violating Single Responsibility Principle?
+- [ ] Are there duplicated code blocks that should be extracted?
+- [ ] Are there unused methods or variables?
+- [ ] Are naming conventions consistently followed?
+- [ ] **Notes:**
+
+### 4. Architecture
+- [ ] Are layers properly separated?
+- [ ] Are there any circular dependencies?
+- [ ] Are services properly abstracted?
+- [ ] Is the MVVM pattern correctly implemented?
+- [ ] **Notes:**
+
+### 5. YAGNI Compliance
+- [ ] Are there unused features or methods?
+- [ ] Is the code over-engineered for current needs?
+- [ ] Are there speculative implementations?
+- [ ] **Notes:**
+
+### 6. Performance & Security
+- [ ] Are there any obvious performance bottlenecks?
+- [ ] Are resources properly disposed?
+- [ ] Are there any security vulnerabilities?
+- [ ] **Notes:**
+
+### 7. Documentation
+- [ ] Are public methods documented with XML comments?
+- [ ] Are complex algorithms explained?
+- [ ] Are TODOs and FIXMEs addressed or scheduled?
+- [ ] **Notes:**
+
+### 8. Code Quality
+- [ ] Does the code compile without warnings?
+- [ ] Are there any compiler warnings that need to be addressed?
+- [ ] Are all obsolete APIs replaced with newer alternatives?
+- [ ] **Notes:**
+
+---
+
+### Action Items
+1. [ ] 
+2. [ ] 
+3. [ ] 
+4. [ ] 
+5. [ ]
+
+### Priority Ranking
+- **Critical:** Immediate attention required
+- **High:** Address this week
+- **Medium:** Address next week
+- **Low:** Schedule for future sprint
+
+---
+
+### Summary
+**Issues Found:** _______
+
+**Files Needing Refactoring:** _______
+
+**Documentation Updates Needed:** _______
+
+**Estimated Time to Address Issues:** _______
+
+**Overall Code Health Score (1-10):** _______

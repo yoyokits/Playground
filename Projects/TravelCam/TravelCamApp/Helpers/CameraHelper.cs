@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Maui.ApplicationModel;
 using Camera.MAUI;
+using TravelCamApp.Models;
+using SkiaSharp;
 
 namespace TravelCamApp.Helpers
 {
@@ -54,7 +56,10 @@ namespace TravelCamApp.Helpers
                         cam.Name, cam.Position);
                 }
 
-                var camera = availableCameras.FirstOrDefault();
+                // Prefer back camera by default, fall back to first available camera
+                var backCamera = availableCameras.FirstOrDefault(c => c.Position == CameraPosition.Back);
+                var camera = backCamera ?? availableCameras.FirstOrDefault();
+
                 if (camera != null)
                 {
                     cameraView.Camera = camera;
@@ -257,6 +262,17 @@ namespace TravelCamApp.Helpers
         /// <returns>A stream containing the captured photo, or null if failed.</returns>
         public static async Task<Stream?> TakePhotoAsync(CameraView cameraView)
         {
+            return await TakePhotoAsync(cameraView, null);
+        }
+
+        /// <summary>
+        /// Takes a photo using the camera view with sensor data overlay.
+        /// </summary>
+        /// <param name="cameraView">The camera view to take photo with.</param>
+        /// <param name="sensorData">The sensor data to overlay on the photo.</param>
+        /// <returns>A stream containing the captured photo with sensor overlay, or null if failed.</returns>
+        public static async Task<Stream?> TakePhotoAsync(CameraView cameraView, SensorData? sensorData)
+        {
             try
             {
                 LogDebug("[CameraHelper] Attempting to take photo. Current camera: {0}",
@@ -269,7 +285,21 @@ namespace TravelCamApp.Helpers
                 }
 
                 var stream = await cameraView.TakePhotoAsync();
+                if (stream == null)
+                {
+                    LogDebug("[CameraHelper] Failed to take photo: returned stream is null");
+                    return null;
+                }
+
                 LogDebug("[CameraHelper] Photo taken successfully");
+
+                // Overlay sensor data if provided
+                if (sensorData != null)
+                {
+                    var overlayStream = await OverlaySensorDataOnImageAsync(stream, sensorData);
+                    return overlayStream;
+                }
+
                 return stream;
             }
             catch (Exception ex)
@@ -359,7 +389,7 @@ namespace TravelCamApp.Helpers
         /// <param name="isPreviewRunning">The current preview running state.</param>
         /// <param name="updateThumbnailFunc">Function to update the thumbnail after stopping.</param>
         /// <returns>Tuple containing success status and updated preview running state.</returns>
-        public static async Task<(bool Success, bool IsPreviewRunning)> StopVideoRecordingAsync(CameraView cameraView, bool isPreviewRunning, Func<Task> updateThumbnailFunc = null)
+        public static async Task<(bool Success, bool IsPreviewRunning)> StopVideoRecordingAsync(CameraView cameraView, bool isPreviewRunning, Func<Task>? updateThumbnailFunc = null)
         {
             try
             {
@@ -422,7 +452,7 @@ namespace TravelCamApp.Helpers
                         }
                         catch (Exception ex)
                         {
-                            LogError("Error updating video preview after recording: {0}", ex.Message);
+                            LogError("Error updating video preview after recording: {0}", ex?.Message ?? "Unknown error");
                         }
                     });
                 }
@@ -446,7 +476,7 @@ namespace TravelCamApp.Helpers
         /// <param name="isDisposing">Current disposing state.</param>
         /// <param name="updateImageAction">Action to update the image in the UI.</param>
         /// <returns>True if update was successful, false otherwise.</returns>
-        public static async Task<bool> UpdateVideoPreviewAsync(CameraView cameraView, bool isPreviewRunning, bool isPageVisible, bool isDisposing, Action<ImageSource> updateImageAction)
+        public static async Task<bool> UpdateVideoPreviewAsync(CameraView cameraView, bool isPreviewRunning, bool isPageVisible, bool isDisposing, Action<ImageSource>? updateImageAction)
         {
             try
             {
@@ -506,20 +536,28 @@ namespace TravelCamApp.Helpers
                 var bytes = memory.ToArray();
 
                 var imageSource = ImageSource.FromStream(() => new MemoryStream(bytes));
-                updateImageAction(imageSource);
+                if (updateImageAction != null)
+                {
+                    updateImageAction(imageSource);
 
-                LogDebug("Thumbnail updated successfully");
-                return true;
+                    LogDebug("Thumbnail updated successfully");
+                    return true;
+                }
+                else
+                {
+                    LogDebug("Thumbnail update action was null");
+                    return false;
+                }
             }
             catch (Exception ex) when (IsJavaIllegalStateException(ex))
             {
                 // Handle the case where the camera was closed during the operation
-                LogError("Camera already closed during preview update: {0}", ex?.Message ?? "Unknown error");
+                LogError("Camera already closed during preview update: {0}", (ex?.Message) ?? "Unknown error");
                 return false;
             }
             catch (Exception ex)
             {
-                LogError("Error updating video preview: {0}", ex?.Message ?? "Unknown error");
+                LogError("Error updating video preview: {0}", (ex?.Message) ?? "Unknown error");
                 return false;
             }
         }
@@ -532,6 +570,171 @@ namespace TravelCamApp.Helpers
         private static bool IsJavaIllegalStateException(Exception? ex)
         {
             return ex is not null && ex.GetType().FullName == "Java.Lang.IllegalStateException";
+        }
+
+        /// <summary>
+        /// Flips the camera between front and back cameras.
+        /// </summary>
+        /// <param name="cameraView">The camera view to flip the camera for.</param>
+        /// <returns>True if the camera was flipped successfully, false otherwise.</returns>
+        public static async Task<bool> FlipCameraAsync(CameraView cameraView)
+        {
+            try
+            {
+                if (cameraView.Cameras == null || !cameraView.Cameras.Any())
+                {
+                    LogDebug("[CameraHelper] No cameras available to flip.");
+                    return false;
+                }
+
+                var frontCamera = cameraView.Cameras.FirstOrDefault(c => c.Position == CameraPosition.Front);
+                var backCamera = cameraView.Cameras.FirstOrDefault(c => c.Position == CameraPosition.Back);
+
+                CameraInfo? newCamera = null;
+
+                if (cameraView.Camera?.Position == CameraPosition.Back && frontCamera != null)
+                {
+                    newCamera = frontCamera;
+                    LogDebug("[CameraHelper] Camera flipped to front: {0}", frontCamera.Name);
+                }
+                else if (cameraView.Camera?.Position == CameraPosition.Front && backCamera != null)
+                {
+                    newCamera = backCamera;
+                    LogDebug("[CameraHelper] Camera flipped to back: {0}", backCamera.Name);
+                }
+                else
+                {
+                    LogDebug("[CameraHelper] No alternate camera found to flip to.");
+                    return false;
+                }
+
+                if (newCamera != null)
+                {
+                    // Stop the current camera preview
+                    await cameraView.StopCameraAsync();
+
+                    // Assign the new camera
+                    cameraView.Camera = newCamera;
+
+                    // Start the camera preview with the new camera
+                    await cameraView.StartCameraAsync();
+
+                    LogDebug("[CameraHelper] Camera flip completed successfully.");
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LogError("[CameraHelper] Error flipping camera: {0}", ex.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Overlays sensor data onto the captured image
+        /// </summary>
+        /// <param name="imageStream">The original image stream</param>
+        /// <param name="sensorData">The sensor data to overlay</param>
+        /// <returns>A new stream with the sensor data overlaid</returns>
+        public static async Task<Stream?> OverlaySensorDataOnImageAsync(Stream? imageStream, SensorData? sensorData)
+        {
+            if (imageStream == null || sensorData == null)
+            {
+                return imageStream;
+            }
+
+            try
+            {
+                // Load the original image
+                using var originalBitmap = SKBitmap.Decode(imageStream);
+                if (originalBitmap == null)
+                {
+                    return imageStream;
+                }
+
+                // Create a new bitmap with the same dimensions
+                using var overlayBitmap = new SKBitmap(originalBitmap.Width, originalBitmap.Height);
+                using var canvas = new SKCanvas(overlayBitmap);
+
+                // Draw the original image
+                canvas.DrawBitmap(originalBitmap, 0, 0);
+
+                // Prepare paint for text
+                using var paint = new SKPaint
+                {
+                    Color = SKColors.White,
+                    IsAntialias = true,
+                    TextSize = 32,
+                    IsStroke = false
+                };
+
+                // Prepare paint for background
+                using var bgPaint = new SKPaint
+                {
+                    Color = new SKColor(0, 0, 0, 180), // Semi-transparent black
+                    IsAntialias = true
+                };
+
+                // Format sensor data for display
+                var sensorLines = new List<string>
+                {
+                    $"Location: {sensorData.City}, {sensorData.Country}",
+                    $"Temp: {sensorData.Temperature?.ToString("F1")}°C",
+                    $"Altitude: {sensorData.Altitude?.ToString("F0")}m",
+                    $"Lat: {sensorData.Latitude:F4}, Lng: {sensorData.Longitude:F4}",
+                    $"Time: {sensorData.Timestamp:HH:mm:ss dd/MM/yyyy}"
+                };
+
+                // Calculate text bounds for background
+                var maxTextWidth = 0f;
+                var lineHeight = paint.TextSize * 1.2f;
+                var padding = 10f;
+
+                foreach (var line in sensorLines)
+                {
+                    var bounds = new SKRect();
+                    paint.MeasureText(line, ref bounds);
+                    maxTextWidth = Math.Max(maxTextWidth, bounds.Width);
+                }
+
+                // Define position (bottom right corner)
+                var margin = 20f;
+                var bgWidth = maxTextWidth + padding * 2;
+                var bgHeight = (sensorLines.Count * lineHeight) + padding * 2;
+                var bgX = originalBitmap.Width - bgWidth - margin;
+                var bgY = originalBitmap.Height - bgHeight - margin;
+
+                // Draw background rectangle
+                var rect = new SKRect(bgX, bgY, bgX + bgWidth, bgY + bgHeight);
+                canvas.DrawRoundRect(rect, 8, 8, bgPaint);
+
+                // Draw text lines
+                var textX = bgX + padding;
+                var textY = bgY + padding + paint.TextSize;
+                for (int i = 0; i < sensorLines.Count; i++)
+                {
+                    canvas.DrawText(sensorLines[i], textX, textY + (i * lineHeight), paint);
+                }
+
+                // Convert the bitmap back to a stream
+                using var image = SKImage.FromBitmap(overlayBitmap);
+                using var data = image.Encode(SKEncodedImageFormat.Jpeg, 90);
+
+                var outputStream = new MemoryStream();
+                data.SaveTo(outputStream);
+                outputStream.Position = 0;
+
+                return outputStream;
+            }
+            catch (Exception ex)
+            {
+                LogError("Error overlaying sensor data on image: {0}", ex.Message);
+                // Return original stream if overlay fails
+                imageStream.Position = 0;
+                return imageStream;
+            }
         }
 
         #endregion
