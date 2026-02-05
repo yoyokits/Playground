@@ -33,7 +33,24 @@ namespace TravelCamApp.ViewModels
                 ["Speed"] = "0"
             };
 
+        private static readonly IReadOnlyDictionary<string, TimeSpan> DefaultUpdateIntervals =
+            new Dictionary<string, TimeSpan>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["City"] = TimeSpan.FromMinutes(10),      // Standard update
+                ["Country"] = TimeSpan.FromMinutes(10),   // Standard update
+                ["Temperature"] = TimeSpan.FromMinutes(10), // Standard update
+                ["Altitude"] = TimeSpan.FromSeconds(10),  // Fast update
+                ["Latitude"] = TimeSpan.FromSeconds(2),   // Fast update
+                ["Longitude"] = TimeSpan.FromSeconds(2),  // Fast update
+                ["Date"] = TimeSpan.FromMinutes(10),      // Standard update
+                ["Time"] = TimeSpan.FromSeconds(1),       // Fast update
+                ["Heading"] = TimeSpan.FromMilliseconds(500), // Very fast update
+                ["Speed"] = TimeSpan.FromSeconds(2),      // Fast update
+                ["Compass"] = TimeSpan.FromMilliseconds(500) // Very fast update
+            };
+
         private string _value;
+        private TimeSpan _updateInterval;
 
         #endregion Fields
 
@@ -43,6 +60,16 @@ namespace TravelCamApp.ViewModels
         {
             Name = name;
             _value = value;
+
+            // Set default update interval based on sensor type
+            if (DefaultUpdateIntervals.TryGetValue(name, out var interval))
+            {
+                _updateInterval = interval;
+            }
+            else
+            {
+                _updateInterval = TimeSpan.FromSeconds(10); // Default to 10 seconds
+            }
         }
 
         #endregion Constructors
@@ -89,6 +116,19 @@ namespace TravelCamApp.ViewModels
             }
         }
 
+        public TimeSpan UpdateInterval
+        {
+            get => _updateInterval;
+            set
+            {
+                if (_updateInterval != value)
+                {
+                    _updateInterval = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         #endregion Properties
 
         #region Methods
@@ -114,6 +154,8 @@ namespace TravelCamApp.ViewModels
         private double _verticalPosition = 1.0;   // Bottom side (0 = top, 1 = bottom)
         private double _fontSize = 14.0;          // Default font size
         private bool _isMapOverlayVisible = false; // Whether map overlay is visible
+        private bool _hasCompass = false;          // Whether compass is visible
+        private double _compassDegree = 0.0;       // Current compass degree
 
         #endregion Fields
 
@@ -202,6 +244,32 @@ namespace TravelCamApp.ViewModels
             }
         }
 
+        public bool HasCompass
+        {
+            get => _hasCompass;
+            set
+            {
+                if (_hasCompass != value)
+                {
+                    _hasCompass = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public double CompassDegree
+        {
+            get => _compassDegree;
+            set
+            {
+                if (_compassDegree != value)
+                {
+                    _compassDegree = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         #endregion Properties
 
         #region Methods
@@ -235,6 +303,18 @@ namespace TravelCamApp.ViewModels
             UpdateSensorDisplayItemValue("Time", sensorData.Timestamp.ToString("HH:mm:ss"));
             UpdateSensorDisplayItemValue("Heading", sensorData.Heading.HasValue ? sensorData.Heading.Value.ToString("F0") : string.Empty);
             UpdateSensorDisplayItemValue("Speed", sensorData.Speed.HasValue ? sensorData.Speed.Value.ToString("F1") : string.Empty);
+            UpdateSensorDisplayItemValue("Compass", sensorData.Heading.HasValue ? $"{sensorData.Heading.Value:F0}°" : "0°");
+
+            // Update compass-specific properties
+            var compassItem = _sensorDisplayItemsMap.GetValueOrDefault("Compass");
+            if (compassItem != null)
+            {
+                // Compass is always treated separately from other sensors
+                // HasCompass indicates if compass is visible but doesn't hide other sensors
+                HasCompass = _visibleSensorDisplayItems.Contains(compassItem);
+            }
+
+            CompassDegree = sensorData.Heading ?? 0.0;
         }
 
         /// <summary>
@@ -257,6 +337,12 @@ namespace TravelCamApp.ViewModels
                 {
                     _visibleSensorDisplayItems.Remove(sensorItem);
                 }
+
+                // Update HasCompass if the compass visibility changed
+                if (name.Equals("Compass", StringComparison.OrdinalIgnoreCase))
+                {
+                    HasCompass = isVisible;
+                }
             }
         }
 
@@ -271,6 +357,12 @@ namespace TravelCamApp.ViewModels
             if (isVisible)
             {
                 _visibleSensorDisplayItems.Add(item);
+
+                // Update HasCompass if adding the compass item
+                if (item.Name.Equals("Compass", StringComparison.OrdinalIgnoreCase))
+                {
+                    HasCompass = true;
+                }
             }
         }
 
@@ -287,6 +379,7 @@ namespace TravelCamApp.ViewModels
             AddSensorDisplayItem(new SensorDisplayItem("Time", DateTime.Now.ToString("HH:mm:ss")), false);
             AddSensorDisplayItem(new SensorDisplayItem("Heading", ""), false);
             AddSensorDisplayItem(new SensorDisplayItem("Speed", ""), false);
+            AddSensorDisplayItem(new SensorDisplayItem("Compass", "0°"), false);
         }
 
         /// <summary>

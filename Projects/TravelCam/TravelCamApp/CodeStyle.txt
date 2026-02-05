@@ -12,6 +12,18 @@
 
 ## General Principles
 
+### Required File Header
+Every source code file must begin with the following header:
+```
+// ========================================== //
+// Developer: Yohanes Wahyu Nurcahyo          //
+// Website: https://github.com/yoyokits       //
+// ========================================== //
+```
+
+### Single Class/Enum Per File Rule
+Each class or enum must be placed in its own file. A single file cannot contain multiple classes or enums. This improves code organization, readability, and maintainability.
+
 ### SOLID Principles
 - **Single Responsibility Principle**: Each class should have one reason to change
 - **Open/Closed Principle**: Classes should be open for extension but closed for modification
@@ -207,12 +219,17 @@ public class CameraHelper
 - [ ] Is the code over-engineered for current needs?
 - [ ] Are there speculative implementations?
 
-#### 6. Performance & Security
+#### 6. Header and File Organization Compliance
+- [ ] Do all files contain the required header?
+- [ ] Does each file contain only one class or enum?
+- [ ] Are there any files that violate the single class/enum rule?
+
+#### 7. Performance & Security
 - [ ] Are there any obvious performance bottlenecks?
 - [ ] Are resources properly disposed?
 - [ ] Are there any security vulnerabilities?
 
-#### 7. Documentation
+#### 8. Documentation
 - [ ] Are public methods documented with XML comments?
 - [ ] Are complex algorithms explained?
 - [ ] Are TODOs and FIXMEs addressed or scheduled?

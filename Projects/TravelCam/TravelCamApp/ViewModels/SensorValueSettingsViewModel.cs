@@ -14,7 +14,7 @@ using TravelCamApp.Models;
 
 namespace TravelCamApp.ViewModels
 {
-    public class SensorValueSettingsViewModel
+    public class SensorValueSettingsViewModel : INotifyPropertyChanged
     {
         #region Fields
 
@@ -36,11 +36,10 @@ namespace TravelCamApp.ViewModels
             InitializeDefaultSensorItems();
 
             // Initialize commands
-            MoveToVisibleCommand = new Command<SensorItem>(MoveToVisible);
-            MoveToAvailableCommand = new Command<SensorItem>(MoveToAvailable);
+            MoveToVisibleCommand = new Command<SensorItem>(async (item) => await MoveToVisibleAsync(item));
+            MoveToAvailableCommand = new Command<SensorItem>(async (item) => await MoveToAvailableAsync(item));
             MoveUpCommand = new Command<SensorItem>(MoveUp);
             MoveDownCommand = new Command<SensorItem>(MoveDown);
-            SaveSettingsCommand = new Command(async () => await ExecuteSaveSettingsAsync());
         }
 
         #endregion Constructors
@@ -116,7 +115,6 @@ namespace TravelCamApp.ViewModels
         public ICommand MoveToVisibleCommand { get; }
         public ICommand MoveUpCommand { get; }
         public ICommand MoveDownCommand { get; }
-        public ICommand SaveSettingsCommand { get; }
         public ObservableCollection<SensorItem> VisibleSensorItems { get; }
 
         #endregion Properties
@@ -164,7 +162,7 @@ namespace TravelCamApp.ViewModels
             }
         }
 
-        public void MoveToAvailable(SensorItem item)
+        public async Task MoveToAvailableAsync(SensorItem item)
         {
             System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] MoveToAvailable called. Item: {item?.Name ?? "NULL"}");
             System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] SelectedVisibleItem: {SelectedVisibleItem?.Name ?? "NULL"}");
@@ -197,6 +195,9 @@ namespace TravelCamApp.ViewModels
                 
                 // Clear selection
                 SelectedVisibleItem = null;
+                
+                // Auto-save settings
+                await SaveSettingsAsync();
             }
             else
             {
@@ -222,7 +223,7 @@ namespace TravelCamApp.ViewModels
             }
         }
 
-        public void MoveToVisible(SensorItem item)
+        public async Task MoveToVisibleAsync(SensorItem item)
         {
             System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] MoveToVisible called. Item: {item?.Name ?? "NULL"}");
             System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] SelectedAvailableItem: {SelectedAvailableItem?.Name ?? "NULL"}");
@@ -255,6 +256,9 @@ namespace TravelCamApp.ViewModels
                 
                 // Clear selection
                 SelectedAvailableItem = null;
+                
+                // Auto-save settings
+                await SaveSettingsAsync();
             }
             else
             {
@@ -274,27 +278,23 @@ namespace TravelCamApp.ViewModels
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        private async Task ExecuteSaveSettingsAsync()
-        {
-            await SaveSettingsAsync();
-        }
-
         private void InitializeDefaultSensorItems()
         {
-            // Define all possible sensor items
+            // Define all possible sensor items with their update intervals
             var allSensorItems = new[]
             {
-                new SensorItem("City", "Jakarta", false),
-                new SensorItem("Country", "Indonesia", false),
-                new SensorItem("Temperature", "28°C", false),
-                new SensorItem("Altitude", "12m", false),
-                new SensorItem("Latitude", "-6.2088", false),
-                new SensorItem("Longitude", "106.8456", false),
-                new SensorItem("Date", DateTime.Now.ToString("MM/dd/yyyy"), false),
-                new SensorItem("Time", DateTime.Now.ToString("HH:mm:ss"), false),
-                new SensorItem("Heading", "0°", false),
-                new SensorItem("Speed", "0 m/s", false),
-                new SensorItem("Map", "Map View", false) // Add map overlay option
+                new SensorItem("City", "Jakarta", false, TimeSpan.FromMinutes(10)),      // Standard update
+                new SensorItem("Country", "Indonesia", false, TimeSpan.FromMinutes(10)), // Standard update
+                new SensorItem("Temperature", "28°C", false, TimeSpan.FromMinutes(10)),  // Standard update
+                new SensorItem("Altitude", "12m", false, TimeSpan.FromSeconds(10)),     // Fast update
+                new SensorItem("Latitude", "-6.2088", false, TimeSpan.FromSeconds(2)),  // Fast update
+                new SensorItem("Longitude", "106.8456", false, TimeSpan.FromSeconds(2)), // Fast update
+                new SensorItem("Date", DateTime.Now.ToString("MM/dd/yyyy"), false, TimeSpan.FromMinutes(10)), // Standard update
+                new SensorItem("Time", DateTime.Now.ToString("HH:mm:ss"), false, TimeSpan.FromSeconds(1)),   // Fast update
+                new SensorItem("Heading", "0°", false, TimeSpan.FromMilliseconds(500)), // Very fast update
+                new SensorItem("Speed", "0 m/s", false, TimeSpan.FromSeconds(2)),       // Fast update
+                new SensorItem("Compass", "0°", false, TimeSpan.FromMilliseconds(500)), // Very fast update
+                new SensorItem("Map", "Map View", false, TimeSpan.FromMinutes(10))      // Standard update
             };
 
             // Set default visible items
