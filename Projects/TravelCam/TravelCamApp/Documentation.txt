@@ -1,0 +1,37 @@
+# TravelCam Application - Sensor Properties Documentation
+
+## Overview
+This document describes all sensor properties available in the TravelCam application, including their update intervals and categories.
+
+## Sensor Properties with Update Intervals
+
+| Sensor Property    | Description                                    | Update Interval      | Category        |
+|--------------------|------------------------------------------------|----------------------|-----------------|
+| **City**           | Current city name (e.g., "Jakarta")            | 10 minutes           | Standard Update |
+| **Country**        | Current country name (e.g., "Indonesia")       | 10 minutes           | Standard Update |
+| **Temperature**    | Current temperature (e.g., "28°C")             | 10 minutes           | Standard Update |
+| **Altitude**       | Height above sea level (e.g., "12m")           | 10 seconds           | Fast Update     |
+| **Latitude**       | Geographic latitude coordinate                   | 2 seconds            | Fast Update     |
+| **Longitude**      | Geographic longitude coordinate                  | 2 seconds            | Fast Update     |
+| **Date**           | Current date (e.g., "02/04/2026")              | 10 minutes           | Standard Update |
+| **Time**           | Current time (e.g., "10:30:45")                | 1 second             | Fast Update     |
+| **Heading**        | Direction/orientation (e.g., "0°")             | 500 milliseconds     | Very Fast Update|
+| **Speed**          | Movement speed (e.g., "0 m/s")                 | 2 seconds            | Fast Update     |
+| **Compass**        | Visual compass display with directional arrow    | 500 milliseconds     | Very Fast Update|
+| **Map**            | Map overlay option (toggleable)                  | 10 minutes           | Standard Update |
+
+## Update Categories
+
+- **Very Fast Update**: 500ms - for rapidly changing sensors like compass and heading
+- **Fast Update**: 1-10 seconds - for GPS-related data and time
+- **Standard Update**: 10 minutes - for location-based data like city/country and static data like temperature
+
+## Special Behavior
+
+- **Fast Movement Sensors** (GPS, Speed, Compass, Heading): Updated more frequently as they change rapidly
+- **Standard Update Sensors**: Updated every 10 minutes which is optimal for a camera app session (typically less than 1 hour)
+- **Default**: All sensors default to 10-minute intervals if not specifically configured
+
+## Purpose
+
+These sensor properties are collected from device sensors (GPS, compass, etc.) and external APIs (weather) and displayed in the camera overlay as configured by the user, with update frequencies optimized for battery life and data accuracy during typical camera app usage sessions.

@@ -15,6 +15,7 @@ namespace TravelCamApp.Views
         {
             InitializeComponent();
             System.Diagnostics.Debug.WriteLine("[SensorValueView] Initialized");
+            SensorOverlayBorder.SizeChanged += OnOverlaySizeChanged;
         }
 
         private void OnSensorOverlayTapped(object? sender, TappedEventArgs e)
@@ -27,6 +28,15 @@ namespace TravelCamApp.Views
         {
             System.Diagnostics.Debug.WriteLine("[SensorValueView] OnSensorOverlayClicked called (Button)");
             RaiseSettingsRequestedEvent();
+        }
+
+        private void OnOverlaySizeChanged(object? sender, EventArgs e)
+        {
+            if (TapOverlay != null && SensorOverlayBorder != null)
+            {
+                TapOverlay.WidthRequest = SensorOverlayBorder.Width;
+                TapOverlay.HeightRequest = SensorOverlayBorder.Height;
+            }
         }
 
         private void RaiseSettingsRequestedEvent()

@@ -851,114 +851,8 @@ namespace TravelCamApp.Views
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("[MainPage] ShowSensorValueSettings called");
-                
-                // Create the settings view
-                var settingsView = new SensorValueSettingsView();
-
-                // Load existing settings
-                var settingsViewModel = settingsView.BindingContext as SensorValueSettingsViewModel;
-                if (settingsViewModel != null)
-                {
-                    await settingsViewModel.LoadSettingsAsync();
-                    System.Diagnostics.Debug.WriteLine("[MainPage] Settings loaded. Available: {0}, Visible: {1}", 
-                        settingsViewModel.AvailableSensorItems.Count,
-                        settingsViewModel.VisibleSensorItems.Count);
-                }
-
-                // Create an overlay layout
-                var overlayLayout = new Grid
-                {
-                    BackgroundColor = Colors.Black.MultiplyAlpha(0.7f), // Semi-transparent background
-                    VerticalOptions = LayoutOptions.Fill,
-                    HorizontalOptions = LayoutOptions.Fill,
-                    InputTransparent = false
-                };
-
-                // Add the settings view to the overlay with a container for proper sizing
-                var settingsContainer = new Grid
-                {
-                    HorizontalOptions = LayoutOptions.Center,
-                    VerticalOptions = LayoutOptions.Center,
-                    WidthRequest = 300,
-                    Margin = new Thickness(20),
-                    InputTransparent = false
-                };
-                settingsContainer.Children.Add(settingsView);
-                settingsView.HorizontalOptions = LayoutOptions.Fill;
-                settingsView.VerticalOptions = LayoutOptions.Fill;
-                settingsView.InputTransparent = false;
-
-                overlayLayout.Children.Add(settingsContainer);
-
-                // Helper function to close overlay and reload settings
-                async void CloseOverlayAndReloadSettings()
-                {
-                    if (Content is Grid grid)
-                    {
-                        grid.Children.Remove(overlayLayout);
-                    }
-                    // Reload settings to update the sensor value display
-                    await ReloadSensorSettingsAsync();
-                }
-
-                // Add the overlay to the main page - use Grid instead of Layout
-                if (Content is Grid mainGrid)
-                {
-                    System.Diagnostics.Debug.WriteLine("[MainPage] Adding overlay to main Grid");
-                    
-                    // Add overlay to span all rows
-                    Grid.SetRowSpan(overlayLayout, 2);
-                    mainGrid.Children.Add(overlayLayout);
-
-                    // Add a close gesture to the overlay background (but not the settings container)
-                    var tapGesture = new TapGestureRecognizer();
-                    tapGesture.Tapped += async (s, e) =>
-                    {
-                        System.Diagnostics.Debug.WriteLine("[MainPage] Overlay background tapped - closing");
-                        CloseOverlayAndReloadSettings();
-                    };
-                    overlayLayout.GestureRecognizers.Add(tapGesture);
-
-                    // Prevent taps on the settings container from closing the overlay
-                    var containerTapGesture = new TapGestureRecognizer();
-                    containerTapGesture.Tapped += (s, e) =>
-                    {
-                        // Do nothing - just consume the tap
-                        System.Diagnostics.Debug.WriteLine("[MainPage] Settings container tapped - consuming");
-                    };
-                    settingsContainer.GestureRecognizers.Add(containerTapGesture);
-
-                    // Add a close button to the settings container
-                    var closeButton = new Button
-                    {
-                        Text = "✕",
-                        BackgroundColor = Colors.Red,
-                        TextColor = Colors.White,
-                        WidthRequest = 32,
-                        HeightRequest = 32,
-                        CornerRadius = 16,
-                        HorizontalOptions = LayoutOptions.End,
-                        VerticalOptions = LayoutOptions.Start,
-                        Margin = new Thickness(0, -16, -16, 0),
-                        ZIndex = 100
-                    };
-
-                    closeButton.Clicked += async (s, e) =>
-                    {
-                        System.Diagnostics.Debug.WriteLine("[MainPage] Close button clicked - closing overlay");
-                        CloseOverlayAndReloadSettings();
-                    };
-
-                    // Add the close button to the settings container
-                    settingsContainer.Children.Add(closeButton);
-                    
-                    System.Diagnostics.Debug.WriteLine("[MainPage] Overlay added successfully");
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine("[MainPage] Content is not a Grid, type: {0}", Content?.GetType().Name ?? "null");
-                }
+                System.Diagnostics.Debug.WriteLine("[MainPage] Navigating to SensorValueSettingsPage");
+                await Shell.Current.GoToAsync(nameof(SensorValueSettingsPage));
             }
             catch (Exception ex)
             {
@@ -998,55 +892,50 @@ namespace TravelCamApp.Views
                 LogDebug("[OnPreviewImageTapped] Opening most recent image: {0}", mostRecentImage);
 
 #if ANDROID
-                // For Android, open the specific image file which will allow viewing the folder
+                // For Android, open the gallery app so users can browse all images
                 try
                 {
-                    if (!string.IsNullOrEmpty(mostRecentImage) && File.Exists(mostRecentImage))
-                    {
-                        // Get the URI for the file using FileProvider for Android 7.0+
-                        var context = Android.App.Application.Context;
-                        var file = new Java.IO.File(mostRecentImage);
-                        
-                        Android.Net.Uri? uri;
-                        if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.N)
-                        {
-                            uri = AndroidX.Core.Content.FileProvider.GetUriForFile(
-                                context,
-                                $"{context.PackageName}.fileprovider",
-                                file);
-                        }
-                        else
-                        {
-                            uri = Android.Net.Uri.FromFile(file);
-                        }
-
-                        var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                        intent.SetDataAndType(uri, "image/*");
-                        intent.AddFlags(Android.Content.ActivityFlags.GrantReadUriPermission);
-                        intent.AddFlags(Android.Content.ActivityFlags.NewTask);
-                        
-                        context.StartActivity(intent);
-                        LogDebug("[OnPreviewImageTapped] Opened image successfully");
-                    }
-                    else
-                    {
-                        // Fallback: Open the gallery app
-                        var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                        intent.SetData(Android.Provider.MediaStore.Images.Media.ExternalContentUri);
-                        intent.SetFlags(Android.Content.ActivityFlags.NewTask);
-                        Android.App.Application.Context.StartActivity(intent);
-                    }
+                    var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
+                    intent.SetData(Android.Provider.MediaStore.Images.Media.ExternalContentUri);
+                    intent.SetFlags(Android.Content.ActivityFlags.NewTask);
+                    Android.App.Application.Context.StartActivity(intent);
+                    LogDebug("[OnPreviewImageTapped] Opened gallery app");
                 }
                 catch (Exception ex)
                 {
-                    LogError("[OnPreviewImageTapped] Error opening image: {0}", ex.Message);
-                    // Fallback: Try to open gallery
+                    LogError("[OnPreviewImageTapped] Error opening gallery: {0}", ex.Message);
+                    // Fallback: Try to open most recent image directly
                     try
                     {
-                        var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                        intent.SetData(Android.Provider.MediaStore.Images.Media.ExternalContentUri);
-                        intent.SetFlags(Android.Content.ActivityFlags.NewTask);
-                        Android.App.Application.Context.StartActivity(intent);
+                        if (!string.IsNullOrEmpty(mostRecentImage) && File.Exists(mostRecentImage))
+                        {
+                            var context = Android.App.Application.Context;
+                            var file = new Java.IO.File(mostRecentImage);
+
+                            Android.Net.Uri? uri;
+                            if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.N)
+                            {
+                                uri = AndroidX.Core.Content.FileProvider.GetUriForFile(
+                                    context,
+                                    $"{context.PackageName}.fileprovider",
+                                    file);
+                            }
+                            else
+                            {
+                                uri = Android.Net.Uri.FromFile(file);
+                            }
+
+                            var imageIntent = new Android.Content.Intent(Android.Content.Intent.ActionView);
+                            imageIntent.SetDataAndType(uri, "image/*");
+                            imageIntent.AddFlags(Android.Content.ActivityFlags.GrantReadUriPermission);
+                            imageIntent.AddFlags(Android.Content.ActivityFlags.NewTask);
+                            context.StartActivity(imageIntent);
+                            LogDebug("[OnPreviewImageTapped] Opened image fallback successfully");
+                        }
+                        else
+                        {
+                            await Shell.Current.DisplayAlertAsync("Open Gallery", "Please use your device's gallery app to view your photos in the CekliCam folder.", "OK");
+                        }
                     }
                     catch
                     {
