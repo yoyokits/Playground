@@ -998,55 +998,50 @@ namespace TravelCamApp.Views
                 LogDebug("[OnPreviewImageTapped] Opening most recent image: {0}", mostRecentImage);
 
 #if ANDROID
-                // For Android, open the specific image file which will allow viewing the folder
+                // For Android, open the gallery app so users can browse all images
                 try
                 {
-                    if (!string.IsNullOrEmpty(mostRecentImage) && File.Exists(mostRecentImage))
-                    {
-                        // Get the URI for the file using FileProvider for Android 7.0+
-                        var context = Android.App.Application.Context;
-                        var file = new Java.IO.File(mostRecentImage);
-                        
-                        Android.Net.Uri? uri;
-                        if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.N)
-                        {
-                            uri = AndroidX.Core.Content.FileProvider.GetUriForFile(
-                                context,
-                                $"{context.PackageName}.fileprovider",
-                                file);
-                        }
-                        else
-                        {
-                            uri = Android.Net.Uri.FromFile(file);
-                        }
-
-                        var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                        intent.SetDataAndType(uri, "image/*");
-                        intent.AddFlags(Android.Content.ActivityFlags.GrantReadUriPermission);
-                        intent.AddFlags(Android.Content.ActivityFlags.NewTask);
-                        
-                        context.StartActivity(intent);
-                        LogDebug("[OnPreviewImageTapped] Opened image successfully");
-                    }
-                    else
-                    {
-                        // Fallback: Open the gallery app
-                        var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                        intent.SetData(Android.Provider.MediaStore.Images.Media.ExternalContentUri);
-                        intent.SetFlags(Android.Content.ActivityFlags.NewTask);
-                        Android.App.Application.Context.StartActivity(intent);
-                    }
+                    var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
+                    intent.SetData(Android.Provider.MediaStore.Images.Media.ExternalContentUri);
+                    intent.SetFlags(Android.Content.ActivityFlags.NewTask);
+                    Android.App.Application.Context.StartActivity(intent);
+                    LogDebug("[OnPreviewImageTapped] Opened gallery app");
                 }
                 catch (Exception ex)
                 {
-                    LogError("[OnPreviewImageTapped] Error opening image: {0}", ex.Message);
-                    // Fallback: Try to open gallery
+                    LogError("[OnPreviewImageTapped] Error opening gallery: {0}", ex.Message);
+                    // Fallback: Try to open most recent image directly
                     try
                     {
-                        var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                        intent.SetData(Android.Provider.MediaStore.Images.Media.ExternalContentUri);
-                        intent.SetFlags(Android.Content.ActivityFlags.NewTask);
-                        Android.App.Application.Context.StartActivity(intent);
+                        if (!string.IsNullOrEmpty(mostRecentImage) && File.Exists(mostRecentImage))
+                        {
+                            var context = Android.App.Application.Context;
+                            var file = new Java.IO.File(mostRecentImage);
+
+                            Android.Net.Uri? uri;
+                            if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.N)
+                            {
+                                uri = AndroidX.Core.Content.FileProvider.GetUriForFile(
+                                    context,
+                                    $"{context.PackageName}.fileprovider",
+                                    file);
+                            }
+                            else
+                            {
+                                uri = Android.Net.Uri.FromFile(file);
+                            }
+
+                            var imageIntent = new Android.Content.Intent(Android.Content.Intent.ActionView);
+                            imageIntent.SetDataAndType(uri, "image/*");
+                            imageIntent.AddFlags(Android.Content.ActivityFlags.GrantReadUriPermission);
+                            imageIntent.AddFlags(Android.Content.ActivityFlags.NewTask);
+                            context.StartActivity(imageIntent);
+                            LogDebug("[OnPreviewImageTapped] Opened image fallback successfully");
+                        }
+                        else
+                        {
+                            await Shell.Current.DisplayAlertAsync("Open Gallery", "Please use your device's gallery app to view your photos in the CekliCam folder.", "OK");
+                        }
                     }
                     catch
                     {

@@ -39,6 +39,17 @@ namespace TravelCamApp.Helpers
         /// </summary>
         public event Action<SensorData>? SensorDataUpdatedCallback;
 
+        // Track last update times for each sensor type
+        private DateTime _lastLocationUpdate = DateTime.MinValue;
+        private DateTime _lastWeatherUpdate = DateTime.MinValue;
+        private DateTime _lastGeneralUpdate = DateTime.MinValue;
+
+        // Compass-related fields for continuous monitoring
+        private double? _currentCompassHeading = null;
+        private bool _isCompassActive = false;
+        private DateTime _lastCompassUpdate = DateTime.MinValue;
+        private static readonly TimeSpan CompassUpdateInterval = TimeSpan.FromMilliseconds(500);
+
         /// <summary>
         /// Gets the current sensor data.
         /// </summary>
@@ -52,12 +63,15 @@ namespace TravelCamApp.Helpers
             // Ensure location permissions are granted
             await RequestLocationPermissionAsync();
 
+            // Start compass monitoring
+            StartCompassMonitoring();
+
             // Start collecting data immediately
             await UpdateSensorDataAsync();
 
-            // Set up periodic updates every 5 seconds
-            _updateTimer = new Timer(async _ => await UpdateSensorDataAsync(), null,
-                TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+            // Set up high-frequency timer for checking individual sensor updates
+            _updateTimer = new Timer(async _ => await CheckAndPerformUpdatesAsync(), null,
+                TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
         }
 
         /// <summary>
@@ -85,11 +99,216 @@ namespace TravelCamApp.Helpers
         }
 
         /// <summary>
+        /// Checks and performs updates for sensors based on their individual update intervals.
+        /// </summary>
+        private async Task CheckAndPerformUpdatesAsync()
+        {
+            if (_isUpdating) return; // Prevent overlapping updates
+
+            try
+            {
+                _isUpdating = true;
+
+                var now = DateTime.UtcNow;
+                var newData = new SensorData
+                {
+                    Timestamp = now,
+                    Latitude = _currentData.Latitude,
+                    Longitude = _currentData.Longitude,
+                    Altitude = _currentData.Altitude,
+                    Temperature = _currentData.Temperature,
+                    City = _currentData.City,
+                    Country = _currentData.Country,
+                    Heading = _currentData.Heading,
+                    Speed = _currentData.Speed
+                };
+
+                bool needsUpdate = false;
+
+                // Update location data (every 2 seconds for Lat/Lon, 10 seconds for others)
+                if ((now - _lastLocationUpdate).TotalSeconds >= 2)
+                {
+                    var location = await GetLocationAsync();
+                    if (location != null)
+                    {
+                        if (location.Latitude != 0 || location.Longitude != 0)
+                        {
+                            newData.Latitude = location.Latitude;
+                            newData.Longitude = location.Longitude;
+                        }
+
+                        // Only update altitude if it's a valid value (not NaN or unrealistic)
+                        if (location.Altitude.HasValue && !double.IsNaN(location.Altitude.Value) && location.Altitude.Value > -10000 && location.Altitude.Value < 9000)
+                        {
+                            newData.Altitude = location.Altitude;
+                        }
+                        else
+                        {
+                            // Keep the previous altitude value if current one is invalid
+                            newData.Altitude = _currentData.Altitude;
+                        }
+
+                        // Convert coordinates to city name (less frequent - every 10 seconds)
+                        if ((now - _lastLocationUpdate).TotalSeconds >= 10)
+                        {
+                            if (location.Latitude != 0 || location.Longitude != 0)
+                            {
+                                var placemark = await GetPlacemarkAsync(location.Latitude, location.Longitude);
+                                if (placemark != null)
+                                {
+                                    var city = placemark.Locality ?? placemark.SubAdminArea ?? placemark.AdminArea;
+                                    if (!string.IsNullOrWhiteSpace(city))
+                                    {
+                                        newData.City = city;
+                                    }
+
+                                    if (!string.IsNullOrWhiteSpace(placemark.CountryName))
+                                    {
+                                        newData.Country = placemark.CountryName;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (location.Speed.HasValue)
+                        {
+                            newData.Speed = location.Speed.Value;
+                        }
+                    }
+
+                    _lastLocationUpdate = now;
+                    needsUpdate = true;
+                }
+
+                // Update compass heading (very fast - every 500ms)
+                var currentCompassHeading = GetCompassReading();
+                if (currentCompassHeading.HasValue && currentCompassHeading != newData.Heading)
+                {
+                    newData.Heading = currentCompassHeading;
+                    needsUpdate = true;
+                }
+
+                // Update weather data (moderate frequency - every minute)
+                if ((now - _lastWeatherUpdate).TotalMinutes >= 1)
+                {
+                    if (newData.Latitude != 0 || newData.Longitude != 0)
+                    {
+                        newData.Temperature = await GetTemperatureAsync(newData.Latitude, newData.Longitude);
+                    }
+                    _lastWeatherUpdate = now;
+                    needsUpdate = true;
+                }
+
+                // Update time (every second)
+                if ((now - _lastGeneralUpdate).TotalSeconds >= 1)
+                {
+                    // Time is updated in the timestamp
+                    _lastGeneralUpdate = now;
+                    needsUpdate = true;
+                }
+
+                if (needsUpdate)
+                {
+                    _currentData = newData;
+
+                    // Trigger the event to notify listeners
+                    SensorDataUpdated?.Invoke(this, _currentData);
+
+                    // Call the callback for UI updates
+                    SensorDataUpdatedCallback?.Invoke(_currentData);
+
+                    // Save to file
+                    SaveSensorData(_currentData);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in CheckAndPerformUpdatesAsync: {ex.Message}");
+            }
+            finally
+            {
+                _isUpdating = false;
+            }
+        }
+
+        /// <summary>
+        /// Starts continuous compass monitoring.
+        /// </summary>
+        private void StartCompassMonitoring()
+        {
+            if (Compass.Default.IsSupported && !_isCompassActive)
+            {
+                try
+                {
+                    Compass.Default.ReadingChanged += OnCompassReadingChanged;
+                    // Use fastest available speed for the most frequent updates
+                    Compass.Default.Start(SensorSpeed.Fastest);
+                    _isCompassActive = true;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error starting compass monitoring: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handles compass reading changes.
+        /// </summary>
+        /// <param name="sender">The sender of the event.</param>
+        /// <param name="e">The compass reading changed event args.</param>
+        private void OnCompassReadingChanged(object sender, CompassChangedEventArgs e)
+        {
+            _currentCompassHeading = e.Reading.HeadingMagneticNorth;
+
+            var now = DateTime.UtcNow;
+            if (now - _lastCompassUpdate < CompassUpdateInterval)
+            {
+                return;
+            }
+
+            _lastCompassUpdate = now;
+            _currentData.Heading = _currentCompassHeading;
+            _currentData.Timestamp = now;
+
+            SensorDataUpdated?.Invoke(this, _currentData);
+            SensorDataUpdatedCallback?.Invoke(_currentData);
+        }
+
+        /// <summary>
         /// Stops the periodic updates.
         /// </summary>
         public void Stop()
         {
             _updateTimer?.Dispose();
+
+            // Stop compass monitoring
+            StopCompassMonitoring();
+
+            // Reset tracking times
+            _lastLocationUpdate = DateTime.MinValue;
+            _lastWeatherUpdate = DateTime.MinValue;
+            _lastGeneralUpdate = DateTime.MinValue;
+        }
+
+        /// <summary>
+        /// Stops compass monitoring.
+        /// </summary>
+        private void StopCompassMonitoring()
+        {
+            if (_isCompassActive)
+            {
+                try
+                {
+                    Compass.Default.Stop();
+                    Compass.Default.ReadingChanged -= OnCompassReadingChanged;
+                    _isCompassActive = false;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error stopping compass monitoring: {ex.Message}");
+                }
+            }
         }
 
         /// <summary>
@@ -159,12 +378,6 @@ namespace TravelCamApp.Helpers
                         }
                     }
 
-                    // Get compass heading
-                    if (Compass.Default.IsSupported)
-                    {
-                        var heading = await GetCompassReadingAsync();
-                        newData.Heading = heading;
-                    }
 
                     if (location?.Speed.HasValue == true)
                     {
@@ -172,18 +385,9 @@ namespace TravelCamApp.Helpers
                     }
                 });
 
-                // Collect slow data in parallel
-                var slowDataTask = Task.Run(async () =>
-                {
-                    // Get temperature from external API (simulated)
-                    if (newData.Latitude != 0 || newData.Longitude != 0)
-                    {
-                        newData.Temperature = await GetTemperatureAsync(newData.Latitude, newData.Longitude);
-                    }
-                });
 
-                // Wait for both tasks to complete
-                await Task.WhenAll(fastDataTask, slowDataTask);
+                // Wait for fast data task to complete
+                await fastDataTask;
 
                 // Update current data
                 _currentData = newData;
@@ -319,36 +523,13 @@ namespace TravelCamApp.Helpers
         }
 
         /// <summary>
-        /// Gets the current compass heading.
+        /// Gets the current compass reading.
         /// </summary>
         /// <returns>The heading in degrees, or null if not available.</returns>
-        private async Task<double?> GetCompassReadingAsync()
+        private double? GetCompassReading()
         {
-            try
-            {
-                if (!Compass.Default.IsSupported)
-                {
-                    return null;
-                }
-
-                var tcs = new TaskCompletionSource<CompassChangedEventArgs>();
-                EventHandler<CompassChangedEventArgs> handler = (s, e) => tcs.TrySetResult(e);
-
-                Compass.Default.ReadingChanged += handler;
-                Compass.Default.Start(SensorSpeed.Fastest);
-
-                var result = await tcs.Task.TimeoutAfter(TimeSpan.FromSeconds(2));
-
-                Compass.Default.Stop();
-                Compass.Default.ReadingChanged -= handler;
-
-                return result.Reading.HeadingMagneticNorth;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Compass error: {ex.Message}");
-                return null;
-            }
+            // Return the current cached compass heading
+            return _currentCompassHeading;
         }
 
         /// <summary>

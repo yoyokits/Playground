@@ -29,7 +29,7 @@ namespace TravelCamApp.Helpers
             try
             {
                 var settingsPath = Path.Combine(FileSystem.AppDataDirectory, SETTINGS_FILE_NAME);
-                
+
                 var config = new SensorItemsConfiguration
                 {
                     Items = new List<SensorItemConfig>()
@@ -40,7 +40,8 @@ namespace TravelCamApp.Helpers
                     config.Items.Add(new SensorItemConfig
                     {
                         Name = item.Name,
-                        IsVisible = item.IsVisible
+                        IsVisible = item.IsVisible,
+                        UpdateInterval = item.UpdateInterval
                     });
                 }
 
@@ -51,9 +52,9 @@ namespace TravelCamApp.Helpers
                 };
 
                 var json = JsonSerializer.Serialize(config, options);
-                
+
                 await File.WriteAllTextAsync(settingsPath, json);
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -105,13 +106,14 @@ namespace TravelCamApp.Helpers
         {
             if (config?.Items == null) return;
 
-            // First, set visibility based on the configuration
+            // First, set visibility and update interval based on the configuration
             foreach (var item in allSensorItems)
             {
                 var configItem = config.Items.Find(ci => ci.Name == item.Name);
                 if (configItem != null)
                 {
                     item.IsVisible = configItem.IsVisible;
+                    item.UpdateInterval = configItem.UpdateInterval;
                 }
             }
         }
@@ -151,6 +153,7 @@ namespace TravelCamApp.Helpers
                 ["Time"] = new SensorItem("Time", DateTime.Now.ToString("HH:mm:ss"), false),
                 ["Heading"] = new SensorItem("Heading", "0°", false),
                 ["Speed"] = new SensorItem("Speed", "0 m/s", false),
+                ["Compass"] = new SensorItem("Compass", "0°", false),
                 ["Map"] = new SensorItem("Map", "Map View", false) // Add map overlay option
             };
 
@@ -167,6 +170,7 @@ namespace TravelCamApp.Helpers
                 if (allPossibleItems.TryGetValue(configItem.Name, out var item))
                 {
                     item.IsVisible = configItem.IsVisible;
+                    item.UpdateInterval = configItem.UpdateInterval; // Add update interval
                     addedItems.Add(configItem.Name);
 
                     if (configItem.IsVisible)
@@ -288,6 +292,7 @@ namespace TravelCamApp.Helpers
     {
         public string? Name { get; set; }
         public bool IsVisible { get; set; }
+        public TimeSpan UpdateInterval { get; set; } = TimeSpan.FromSeconds(10); // Default to 10 seconds
     }
 
     /// <summary>

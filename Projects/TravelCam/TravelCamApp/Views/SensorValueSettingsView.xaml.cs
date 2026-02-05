@@ -61,7 +61,7 @@ namespace TravelCamApp.Views
             }
         }
 
-        private void OnAddButtonClicked(object sender, EventArgs e)
+        private async void OnAddButtonClicked(object sender, EventArgs e)
         {
             System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Add button clicked");
             var selectedItem = AvailableSensorsList.SelectedItem as SensorItem;
@@ -69,7 +69,7 @@ namespace TravelCamApp.Views
             
             if (selectedItem != null)
             {
-                ViewModel.MoveToVisible(selectedItem);
+                await ViewModel.MoveToVisibleAsync(selectedItem);
                 AvailableSensorsList.SelectedItem = null;
             }
             else
@@ -78,7 +78,7 @@ namespace TravelCamApp.Views
             }
         }
 
-        private void OnRemoveButtonClicked(object sender, EventArgs e)
+        private async void OnRemoveButtonClicked(object sender, EventArgs e)
         {
             System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Remove button clicked");
             var selectedItem = VisibleSensorsList.SelectedItem as SensorItem;
@@ -86,7 +86,7 @@ namespace TravelCamApp.Views
             
             if (selectedItem != null)
             {
-                ViewModel.MoveToAvailable(selectedItem);
+                await ViewModel.MoveToAvailableAsync(selectedItem);
                 VisibleSensorsList.SelectedItem = null;
             }
             else
@@ -105,13 +105,21 @@ namespace TravelCamApp.Views
             {
                 System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Item {0}: {1}", i, items[i].Name);
             }
+            
+            // Auto-save after reordering
+            _ = ViewModel.SaveSettingsAsync();
         }
 
-        private async void OnSaveSettingsClicked(object sender, EventArgs e)
+        private async void OnFontSizeChanged(object sender, EventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Save button clicked");
+            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Font size changed");
             await ViewModel.SaveSettingsAsync();
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Settings saved");
+        }
+
+        private async void OnMapOverlayToggled(object sender, ToggledEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Map overlay toggled");
+            await ViewModel.SaveSettingsAsync();
         }
     }
 }

@@ -11,6 +11,7 @@ namespace TravelCamApp.Models
         private string _name;
         private string _value;
         private bool _isVisible;
+        private TimeSpan _updateInterval;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SensorItem"/> class.
@@ -18,11 +19,13 @@ namespace TravelCamApp.Models
         /// <param name="name">The name of the sensor (e.g., "Temperature", "City")</param>
         /// <param name="value">The current value of the sensor</param>
         /// <param name="isVisible">Whether the sensor item should be visible</param>
-        public SensorItem(string name, string value, bool isVisible = true)
+        /// <param name="updateInterval">How often the sensor should be updated</param>
+        public SensorItem(string name, string value, bool isVisible = true, TimeSpan? updateInterval = null)
         {
             _name = name ?? throw new ArgumentNullException(nameof(name));
             _value = value ?? "";
             _isVisible = isVisible;
+            _updateInterval = updateInterval ?? TimeSpan.FromSeconds(10); // Default to 10 seconds
         }
 
         /// <summary>
@@ -37,6 +40,22 @@ namespace TravelCamApp.Models
                 {
                     _name = value;
                     OnPropertyChanged(nameof(Name));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the update interval for this sensor
+        /// </summary>
+        public TimeSpan UpdateInterval
+        {
+            get => _updateInterval;
+            set
+            {
+                if (_updateInterval != value)
+                {
+                    _updateInterval = value;
+                    OnPropertyChanged(nameof(UpdateInterval));
                 }
             }
         }

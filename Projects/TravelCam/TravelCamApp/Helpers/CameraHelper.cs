@@ -15,7 +15,7 @@ using SkiaSharp;
 namespace TravelCamApp.Helpers
 {
     /// <summary>
-    /// Provides helper methods for camera operations including configuration, 
+    /// Provides helper methods for camera operations including configuration,
     /// preview control, recording, and photo capture.
     /// </summary>
     public static class CameraHelper
@@ -24,7 +24,7 @@ namespace TravelCamApp.Helpers
 
         private const int CAMERA_STABILIZATION_DELAY = 500; // Delay to allow camera callbacks to complete
 
-        #endregion
+        #endregion Fields
 
         #region Methods
 
@@ -298,7 +298,7 @@ namespace TravelCamApp.Helpers
                 }
 
                 LogDebug("[CameraHelper] Photo taken successfully. Stream type: {0}, Length: {1}, CanSeek: {2}",
-                    stream.GetType().Name, 
+                    stream.GetType().Name,
                     stream.CanSeek ? stream.Length.ToString() : "unknown",
                     stream.CanSeek);
 
@@ -309,12 +309,12 @@ namespace TravelCamApp.Helpers
                     var memoryStream = new MemoryStream();
                     await stream.CopyToAsync(memoryStream);
                     memoryStream.Position = 0;
-                    
+
                     LogDebug("[CameraHelper] Photo copied to MemoryStream. Length: {0} bytes", memoryStream.Length);
-                    
+
                     // Dispose the original stream
                     await stream.DisposeAsync();
-                    
+
                     return memoryStream;
                 }
 
@@ -764,6 +764,6 @@ namespace TravelCamApp.Helpers
             }
         }
 
-        #endregion
+        #endregion Methods
     }
 }

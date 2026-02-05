@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TravelCamApp.Views.CompassControl"
+             BackgroundColor="Transparent">
+    <Grid x:Name="CompassGrid"
+          HorizontalOptions="Center"
+          VerticalOptions="Center">
+        <GraphicsView x:Name="CompassGraphicsView"
+                      HeightRequest="180"
+                      WidthRequest="180"
+                      HorizontalOptions="Center"
+                      VerticalOptions="Center" />
+        <Label x:Name="DegreeLabel"
+               Text="0°"
+               FontSize="16"
+               FontAttributes="Bold"
+               TextColor="White"
+               HorizontalOptions="Center"
+               VerticalOptions="End"
+               Margin="0,0,0,8" />
+    </Grid>
+</ContentView>
