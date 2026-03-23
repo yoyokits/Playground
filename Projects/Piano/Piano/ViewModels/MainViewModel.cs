@@ -12,6 +12,8 @@ namespace Piano.ViewModels;
 /// </summary>
 public partial class MainViewModel : ObservableObject
 {
+    private readonly IAudioService _audioService;
+
     [ObservableProperty]
     private MusicSheet? _currentSheet = null;
 
@@ -40,6 +42,32 @@ public partial class MainViewModel : ObservableObject
     // The collection of all notes currently being displayed in the sheet (for highlighting)
     [ObservableProperty]
     private ObservableCollection<DisplayNote> _displayNotes = new();
+
+    /// <summary>
+    /// Constructor for dependency injection
+    /// </summary>
+    public MainViewModel(IAudioService audioService)
+    {
+        _audioService = audioService;
+    }
+
+    /// <summary>
+    /// Default constructor for XAML (uses platform service)
+    /// </summary>
+    public MainViewModel() : this(GetPlatformAudioService())
+    {
+    }
+
+    private static IAudioService GetPlatformAudioService()
+    {
+#if ANDROID
+        return AndroidAudioService.Instance;
+#elif WINDOWS
+        return WindowsAudioService.Instance;
+#else
+        throw new PlatformNotSupportedException("Audio service not supported on this platform");
+#endif
+    }
 
     public bool IsPlayMode
     {
@@ -123,7 +151,7 @@ public partial class MainViewModel : ObservableObject
         _playbackTimer?.Stop();
         _playbackTimer = null;
         _isPlaying = false;
-        AudioEngine.Instance.StopAll();
+        _audioService.StopAll();
         _currentPlayPosition = 0;
         UpdateDisplayNotes();
     }
@@ -144,7 +172,7 @@ public partial class MainViewModel : ObservableObject
             Octave = key.Octave,
             Duration = 0 // For interactive play, duration is indefinite
         };
-        AudioEngine.Instance.PlayNote(note);
+        _audioService.PlayNote(note);
     }
 
     [RelayCommand]
@@ -162,7 +190,7 @@ public partial class MainViewModel : ObservableObject
             Octave = key.Octave,
             Duration = 0
         };
-        AudioEngine.Instance.StopNote(note);
+        _audioService.StopNote(note);
     }
 
     private void PlaybackTimer_Tick(object? sender, EventArgs e)
@@ -230,45 +258,48 @@ public partial class MainViewModel : ObservableObject
     {
         PianoKeys.Clear();
 
-        // 3 octaves: C3 to B5 (C3, C#3, D3, D#3, E3, F3, F#3, G3, G#3, A3, A#3, B3,
-        //           C4, C#4, D4, D#4, E4, F4, F#4, G4, G#4, A4, A#4, B4,
-        //           C5, C#5, D5, D#5, E5, F5, F#5, G5, G#5, A5, A#5, B5)
-
+        // Create placeholder keys - positions will be recalculated by PianoKeysView
+        // based on actual canvas dimensions
         var octaves = new[] { 3, 4, 5 };
         var whiteNotes = new[] { "C", "D", "E", "F", "G", "A", "B" };
         var blackNotes = new[] { "C#", "D#", null, "F#", "G#", "A#" };
-        var blackKeyPositions = new[] { 0, 1, 3, 4, 5 }; // Index in white key sequence
-
-        double whiteKeyWidth = 50;
-        double blackKeyWidth = 30;
-        double xPos = 0;
 
         foreach (var octave in octaves)
         {
-            // White keys
+            // White keys - use placeholder positions (will be recalculated by View)
             for (int i = 0; i < whiteNotes.Length; i++)
             {
-                var key = new PianoKeyViewModel(whiteNotes[i], octave, false, xPos)
+                var key = new PianoKeyViewModel(whiteNotes[i], octave, false, i * 60)
                 {
                     IsPressed = false
                 };
                 PianoKeys.Add(key);
-                xPos += whiteKeyWidth;
             }
 
-            // Black keys (positioned between white keys)
-            double blackXOffset = whiteKeyWidth - (blackKeyWidth / 2);
+            // Black keys
             for (int i = 0; i < blackNotes.Length; i++)
             {
                 if (blackNotes[i] == null) continue;
-
-                var keyX = (xPos - whiteKeyWidth * (6 - i)) + blackXOffset;
+                // Placeholder position - will be recalculated by View
+                var keyX = (i + 1) * 60 - 15;
                 var key = new PianoKeyViewModel(blackNotes[i], octave, true, keyX)
                 {
                     IsPressed = false
                 };
                 PianoKeys.Add(key);
             }
+        }
+    }
+
+    /// <summary>
+    /// Updates piano key positions from the View (called after layout)
+    /// </summary>
+    public void UpdateKeyPositions(ObservableCollection<PianoKeyViewModel> keys)
+    {
+        PianoKeys.Clear();
+        foreach (var key in keys)
+        {
+            PianoKeys.Add(key);
         }
     }
 

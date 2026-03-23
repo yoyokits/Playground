@@ -2,6 +2,8 @@ using SkiaSharp;
 using SkiaSharp.Views.Maui;
 using SkiaSharp.Views.Maui.Controls;
 using Piano.ViewModels;
+using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace Piano.Views;
 
@@ -24,15 +26,17 @@ public partial class PianoKeysView : ContentView
     private SKPaint? _pressedBlackKeyPaint;
     private SKPaint? _shadowPaint;
 
-    // Piano configuration
+    // Piano configuration - 3 octaves: C3 to B5
     private const int NumberOfOctaves = 3;
     private const int StartOctave = 3; // C3
     private const int EndOctave = 5;   // B5
     private const float KeySpacing = 2f;
-    private const float WhiteKeyWidthBase = 60f;
-    private const float WhiteKeyHeightBase = 200f;
     private const float BlackKeyWidthRatio = 0.6f;
     private const float BlackKeyHeightRatio = 0.6f;
+
+    // Note names for 3 octaves
+    private readonly string[] _whiteNotes = { "C", "D", "E", "F", "G", "A", "B" };
+    private readonly string?[] _blackNotes = { "C#", "D#", null, "F#", "G#", "A#" };
 
     public PianoKeysView()
     {
@@ -51,13 +55,57 @@ public partial class PianoKeysView : ContentView
             vm.PropertyChanged += ViewModel_PropertyChanged;
         }
         SetupPaints();
+        CalculateKeyDimensions();
+        InitializeKeyPositions();
         Canvas.InvalidateSurface();
     }
 
     private void OnSizeChanged(object? sender, EventArgs e)
     {
         CalculateKeyDimensions();
+        InitializeKeyPositions();
+        SetupPaints(); // Recreate paints with new dimensions
         Canvas.InvalidateSurface();
+    }
+
+    private void InitializeKeyPositions()
+    {
+        if (_viewModel == null || _whiteKeyWidth <= 0) return;
+
+        // Rebuild piano keys with correct positions based on actual canvas dimensions
+        _viewModel.PianoKeys.Clear();
+
+        double xPos = 0;
+        var octaves = new[] { 3, 4, 5 };
+
+        foreach (var octave in octaves)
+        {
+            // White keys
+            for (int i = 0; i < _whiteNotes.Length; i++)
+            {
+                var key = new PianoKeyViewModel(_whiteNotes[i], octave, false, xPos)
+                {
+                    IsPressed = false
+                };
+                _viewModel.PianoKeys.Add(key);
+                xPos += _whiteKeyWidth + KeySpacing;
+            }
+
+            // Black keys (positioned between white keys)
+            double blackXOffset = _whiteKeyWidth - (_blackKeyWidth / 2);
+            for (int i = 0; i < _blackNotes.Length; i++)
+            {
+                if (_blackNotes[i] == null) continue;
+
+                // Calculate position relative to previous white key
+                double keyX = (xPos - _whiteKeyWidth - KeySpacing) + blackXOffset;
+                var key = new PianoKeyViewModel(_blackNotes[i], octave, true, keyX)
+                {
+                    IsPressed = false
+                };
+                _viewModel.PianoKeys.Add(key);
+            }
+        }
     }
 
     private void CalculateKeyDimensions()
@@ -152,21 +200,25 @@ public partial class PianoKeysView : ContentView
         if (_viewModel?.PianoKeys == null || _viewModel.PianoKeys.Count == 0)
             return;
 
-        var whiteKeyIndex = 0;
-        var blackKeysQueue = new Queue<PianoKeyViewModel>();
+        // Ensure dimensions are calculated
+        if (_whiteKeyWidth <= 0 || _canvasWidth <= 0)
+        {
+            CalculateKeyDimensions();
+            InitializeKeyPositions();
+        }
 
-        foreach (var key in _viewModel.PianoKeys)
+        // Draw white keys first (background layer)
+        foreach (var key in _viewModel.PianoKeys.Where(k => !k.IsBlackKey))
         {
             var x = (float)key.XPosition;
-            if (key.IsBlackKey)
-            {
-                DrawKey(canvas, x, 0, _blackKeyWidth, _blackKeyHeight, _blackKeyPaint, _pressedBlackKeyPaint, key.IsPressed, cornerRadius: 4);
-            }
-            else
-            {
-                DrawKey(canvas, x, 0, _whiteKeyWidth, _whiteKeyHeight, _whiteKeyPaint, _pressedWhiteKeyPaint, key.IsPressed, cornerRadius: 6);
-                whiteKeyIndex++;
-            }
+            DrawKey(canvas, x, 0, _whiteKeyWidth, _whiteKeyHeight, _whiteKeyPaint!, _pressedWhiteKeyPaint!, key.IsPressed, cornerRadius: 6);
+        }
+
+        // Draw black keys on top
+        foreach (var key in _viewModel.PianoKeys.Where(k => k.IsBlackKey))
+        {
+            var x = (float)key.XPosition;
+            DrawKey(canvas, x, 0, _blackKeyWidth, _blackKeyHeight, _blackKeyPaint!, _pressedBlackKeyPaint!, key.IsPressed, cornerRadius: 4);
         }
     }
 

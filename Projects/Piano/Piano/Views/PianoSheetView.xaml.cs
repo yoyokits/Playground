@@ -43,21 +43,32 @@ public partial class PianoSheetView : ContentView
             vm.PropertyChanged += ViewModel_PropertyChanged;
         }
         SetupPaints();
+        UpdateCanvasDimensions();
         Canvas.InvalidateSurface();
     }
 
     private void OnSizeChanged(object? sender, EventArgs e)
     {
-        _canvasWidth = (float)Canvas.CanvasSize.Width;
-        _canvasHeight = (float)Canvas.CanvasSize.Height;
+        UpdateCanvasDimensions();
+        Canvas.InvalidateSurface();
+    }
 
-        if (_canvasWidth <= 0 || _canvasHeight <= 0)
+    private void UpdateCanvasDimensions()
+    {
+        var canvasWidth = (float)Canvas.CanvasSize.Width;
+        var canvasHeight = (float)Canvas.CanvasSize.Height;
+
+        if (canvasWidth <= 0 || canvasHeight <= 0)
         {
-            _canvasWidth = (float)this.Width;
-            _canvasHeight = (float)this.Height;
+            canvasWidth = (float)this.Width;
+            canvasHeight = (float)this.Height;
         }
 
-        Canvas.InvalidateSurface();
+        if (canvasWidth > 0 && canvasHeight > 0)
+        {
+            _canvasWidth = canvasWidth;
+            _canvasHeight = canvasHeight;
+        }
     }
 
     private void SetupPaints()
@@ -122,6 +133,12 @@ public partial class PianoSheetView : ContentView
     {
         var canvas = e.Surface.Canvas;
         canvas.Clear();
+
+        // Ensure dimensions are set
+        if (_canvasWidth <= 0 || _canvasHeight <= 0)
+        {
+            UpdateCanvasDimensions();
+        }
 
         if (_viewModel == null || _viewModel.DisplayNotes.Count == 0)
         {

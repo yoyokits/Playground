@@ -1,20 +1,23 @@
 # Piano App - Development Guidelines
 
 ## Current Status (2026-03-23)
-⚠️ **Build Blocked** - The app has compilation errors preventing runtime testing. See "Known Build Issues" below.
+✅ **Build Passing** - All critical issues fixed. App is runnable with:
+- Working audio on Android (using AudioTrack API)
+- Touch-responsive piano keys (coordinates recalculated based on canvas size)
+- Proper sheet music rendering (dimensions initialized on load)
 
 ## Project Overview
 .NET MAUI Piano App with MVVM pattern. Features:
 - Piano sheet music display (Full Sheet mode & Play mode with green highlight)
 - Professional piano keys (3 octaves: C3-B5) rendered with SkiaSharp
-- Synthesized audio using NAudio
+- Synthesized audio using platform-specific implementations
 - Load/play JSON-formatted sheet music
 
 ## Tech Stack
 - **Framework**: .NET 10.0 / .NET MAUI
 - **MVVM**: CommunityToolkit.Mvvm
 - **Graphics**: SkiaSharp
-- **Audio**: NAudio (wave generation)
+- **Audio**: Platform-specific (Android: AudioTrack, Windows: NAudio)
 - **Platforms**: Android, iOS, Windows
 
 ## Coding Conventions
@@ -39,7 +42,7 @@ Piano/
 │   ├── MusicSheet.cs
 │   └── NoteSequence.cs
 ├── Services/
-│   └── AudioEngine.cs
+│   └── IAudioService.cs (cross-platform interface)
 ├── ViewModels/
 │   ├── MainViewModel.cs
 │   └── PianoKeyViewModel.cs
@@ -49,8 +52,10 @@ Piano/
 │   └── PianoKeysView.xaml(.cs)
 ├── Platforms/
 │   ├── Android/
+│   │   └── AndroidAudioService.cs
 │   ├── iOS/
 │   └── Windows/
+│       └── WindowsAudioService.cs
 ├── Assets/
 │   ├── Samples/
 │   │   └── twinkle.json
@@ -102,7 +107,7 @@ Piano/
 ## NuGet Packages
 - CommunityToolkit.Mvvm (latest)
 - SkiaSharp.Views.Maui.Controls (latest)
-- NAudio (latest or platform-specific alternative if latency issues)
+- NAudio (for Windows audio only)
 
 ## Build & Run
 - Ensure .NET 10 SDK and MAUI workload installed: `dotnet workload install maui`
@@ -110,7 +115,15 @@ Piano/
 - Build: `dotnet build`
 - Run: `dotnet run` or use Visual Studio 2022+ (17.8+)
 
-✅ **Build Status** (2026-03-23): All critical errors fixed. Build succeeds with warnings only (MVVMTK0034 style warnings about direct field access).
+✅ **Build Status** (2026-03-23): Build succeeds with warnings only (MVVMTK0034 style warnings about direct field access).
+
+## Recent Fixes (2026-03-23)
+- **Cross-platform Audio**: Replaced NAudio-only audio with platform-specific implementations
+  - `IAudioService.cs` - Cross-platform interface
+  - `AndroidAudioService.cs` - Uses Android AudioTrack API
+  - `WindowsAudioService.cs` - Uses NAudio for Windows
+- **Piano Touch Input**: Fixed coordinate mismatch between ViewModel (hardcoded 50px) and View (calculated from canvas size)
+- **Sheet Rendering**: Fixed canvas dimensions not being initialized before rendering
 
 ## Testing
 - Manual test: Load sample JSON, press Play, verify:
@@ -127,10 +140,12 @@ Piano/
 - UI: Disable unnecessary animations on low-end devices
 
 ## Common Pitfalls
+- Audio: NAudio is Windows-only; use platform-specific audio APIs for cross-platform apps
 - Audio latency: Test on all platforms; may need platform-specific optimizations
-- SkiaSharp touch events: Coordinates mapping on different screen densities
+- SkiaSharp touch events: Coordinates mapping on different screen densities - always calculate positions from actual canvas size
 - Threading: Audio on background thread; UI updates via Dispatcher
 - Memory: Dispose audio buffers properly; avoid leaks in long play sessions
+- Canvas dimensions: Always initialize dimensions in OnLoaded before rendering
 
 ## Future Enhancements
 - MIDI file import/export

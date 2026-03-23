@@ -1,85 +1,64 @@
-using System.Collections.Concurrent;
 using NAudio.Wave;
 using Piano.Models;
+using System.Collections.Concurrent;
 
 namespace Piano.Services;
 
 /// <summary>
-/// Singleton audio engine for synthesizing and playing piano notes
-/// Uses NAudio to generate waveforms with ADSR envelope
+/// Windows-specific audio implementation using NAudio
 /// </summary>
-public class AudioEngine : IDisposable
+public class WindowsAudioService : IAudioService, IDisposable
 {
-    private readonly ConcurrentDictionary<Note, WaveOutEvent> _activeNotes = new();
-    private WaveFormat _waveFormat;
+    private readonly ConcurrentDictionary<int, (WaveOutEvent waveOut, AdsrWaveProvider provider)> _activeNotes = new();
     private bool _disposed;
-
-    // Audio parameters
     private const int SampleRate = 44100;
-    private const int Amplitude = 16384; // 16-bit audio amplitude (max 32767)
-    private const double AttackTime = 0.01; // 10ms
-    private const double DecayTime = 0.05; // 50ms
-    private const double SustainLevel = 0.7;
-    private const double ReleaseTime = 0.1; // 100ms
+    private const int Amplitude = 16384;
 
-    private static AudioEngine? _instance;
-    public static AudioEngine Instance => _instance ??= new AudioEngine();
+    private static WindowsAudioService? _instance;
+    public static WindowsAudioService Instance => _instance ??= new WindowsAudioService();
 
-    private AudioEngine()
-    {
-        _waveFormat = new WaveFormat(SampleRate, 16, 1); // 16-bit mono
-    }
+    private WindowsAudioService() { }
 
-    /// <summary>
-    /// Plays a note with ADSR envelope
-    /// </summary>
     public void PlayNote(Note note)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(AudioEngine));
+        if (_disposed) return;
+
+        var key = GetNoteKey(note);
+        StopNote(note); // Stop existing
 
         var frequency = note.GetFrequency();
         var waveOut = new WaveOutEvent();
         var provider = new TriangleWaveProvider(frequency, SampleRate, Amplitude);
+        var adsrProvider = new AdsrWaveProvider(provider, SampleRate,
+            TimeSpan.FromSeconds(0.01), TimeSpan.FromSeconds(0.05), 0.7, TimeSpan.FromSeconds(0.1));
 
-        // Apply ADSR envelope manually via custom provider
-        var envelopeProvider = new AdsrWaveProvider(provider, SampleRate,
-            attack: TimeSpan.FromSeconds(AttackTime),
-            decay: TimeSpan.FromSeconds(DecayTime),
-            sustain: SustainLevel,
-            release: TimeSpan.FromSeconds(ReleaseTime));
-
-        waveOut.Init(envelopeProvider);
+        waveOut.Init(adsrProvider);
         waveOut.Play();
 
-        _activeNotes[note] = waveOut;
+        _activeNotes[key] = (waveOut, adsrProvider);
     }
 
-    /// <summary>
-    /// Stops a specific note with release envelope
-    /// </summary>
     public void StopNote(Note note)
     {
-        if (_activeNotes.TryRemove(note, out var waveOut))
+        var key = GetNoteKey(note);
+        if (_activeNotes.TryRemove(key, out var player))
         {
-            // Trigger release
-            waveOut.Stop();
-            waveOut.Dispose();
+            player.waveOut.Stop();
+            player.waveOut.Dispose();
         }
     }
 
-    /// <summary>
-    /// Stops all currently playing notes
-    /// </summary>
     public void StopAll()
     {
         foreach (var kvp in _activeNotes)
         {
-            kvp.Value.Stop();
-            kvp.Value.Dispose();
+            kvp.Value.waveOut.Stop();
+            kvp.Value.waveOut.Dispose();
         }
         _activeNotes.Clear();
     }
+
+    private int GetNoteKey(Note note) => (note.Octave * 100) + note.Name.GetHashCode();
 
     public void Dispose()
     {
@@ -91,25 +70,19 @@ public class AudioEngine : IDisposable
     }
 }
 
-/// <summary>
-/// Custom wave provider that applies ADSR envelope to an underlying provider
-/// </summary>
+// NAudio providers (moved here for Windows)
 internal class AdsrWaveProvider : IWaveProvider
 {
     private readonly IWaveProvider _source;
     private readonly int _sampleRate;
-    private readonly double _attackTime;
-    private readonly double _decayTime;
-    private readonly double _sustainLevel;
-    private readonly double _releaseTime;
-
+    private readonly double _attackTime, _decayTime, _sustainLevel, _releaseTime;
     private int _samplesPlayed;
     private bool _noteReleased;
     private int _releaseSamplesPlayed;
-    private bool _isPlaying;
 
-    public AdsrWaveProvider(IWaveProvider source, int sampleRate,
-        TimeSpan attack, TimeSpan decay, double sustain, TimeSpan release)
+    public WaveFormat WaveFormat { get; }
+
+    public AdsrWaveProvider(IWaveProvider source, int sampleRate, TimeSpan attack, TimeSpan decay, double sustain, TimeSpan release)
     {
         _source = source;
         _sampleRate = sampleRate;
@@ -120,38 +93,28 @@ internal class AdsrWaveProvider : IWaveProvider
         WaveFormat = source.WaveFormat;
     }
 
-    public WaveFormat WaveFormat { get; }
-
     public int Read(byte[] buffer, int offset, int count)
     {
-        int samplesNeeded = count / 2; // 16-bit = 2 bytes per sample
+        int samplesNeeded = count / 2;
         int samplesWritten = 0;
 
         while (samplesWritten < samplesNeeded)
         {
-            // Read from source
             var tempBuffer = new byte[2];
             int bytesRead = _source.Read(tempBuffer, 0, 2);
-            if (bytesRead < 2)
-                break;
+            if (bytesRead < 2) break;
 
             short sample = BitConverter.ToInt16(tempBuffer, 0);
-            double sampleDouble = sample / 32768.0; // Convert to [-1, 1]
-
-            // Calculate envelope
+            double sampleDouble = sample / 32768.0;
             double envelope = CalculateEnvelope();
-
-            // Apply envelope
             sampleDouble *= envelope;
             sample = (short)(sampleDouble * 32767);
 
-            // Write to output buffer
             buffer[offset + samplesWritten * 2] = (byte)(sample & 0xFF);
             buffer[offset + samplesWritten * 2 + 1] = (byte)((sample >> 8) & 0xFF);
             samplesWritten++;
             _samplesPlayed++;
         }
-
         return samplesWritten * 2;
     }
 
@@ -159,24 +122,16 @@ internal class AdsrWaveProvider : IWaveProvider
     {
         if (_noteReleased)
         {
-            // Release phase
             double releaseSamples = _releaseTime * _sampleRate;
             double releaseProgress = (double)_releaseSamplesPlayed / releaseSamples;
-            if (releaseProgress >= 1.0)
-                return 0.0;
-
+            if (releaseProgress >= 1.0) return 0.0;
             _releaseSamplesPlayed++;
-            return 1.0 - releaseProgress; // Linear decay from current level to 0
+            return 1.0 - releaseProgress;
         }
 
-        // Attack phase
         double attackSamples = _attackTime * _sampleRate;
-        if (_samplesPlayed < attackSamples)
-        {
-            return _samplesPlayed / attackSamples;
-        }
+        if (_samplesPlayed < attackSamples) return _samplesPlayed / attackSamples;
 
-        // Decay phase
         double decaySamples = _decayTime * _sampleRate;
         int decayStart = (int)attackSamples;
         if (_samplesPlayed < decayStart + decaySamples)
@@ -184,24 +139,15 @@ internal class AdsrWaveProvider : IWaveProvider
             double decayProgress = (_samplesPlayed - decayStart) / decaySamples;
             return 1.0 - (1.0 - _sustainLevel) * decayProgress;
         }
-
-        // Sustain phase
         return _sustainLevel;
     }
 
     public void Release()
     {
-        if (!_noteReleased)
-        {
-            _noteReleased = true;
-            _isPlaying = false;
-        }
+        if (!_noteReleased) _noteReleased = true;
     }
 }
 
-/// <summary>
-/// Triangle wave provider for generating smooth waveforms
-/// </summary>
 internal class TriangleWaveProvider : IWaveProvider
 {
     private readonly double _frequency;
@@ -227,13 +173,10 @@ internal class TriangleWaveProvider : IWaveProvider
 
         while (samplesWritten < samplesNeeded)
         {
-            // Generate triangle wave: goes from -1 to 1 and back
             double phaseIncrement = 2.0 * Math.PI * _frequency / _sampleRate;
             _phase += phaseIncrement;
-            if (_phase >= 2.0 * Math.PI)
-                _phase -= 2.0 * Math.PI;
+            if (_phase >= 2.0 * Math.PI) _phase -= 2.0 * Math.PI;
 
-            // Triangle wave: absolute value of sawtooth, then inverted
             double sample = 1.0 - 2.0 * Math.Abs(_phase / (2.0 * Math.PI) - 0.5) * 2.0;
             sample *= _amplitude;
 
@@ -242,7 +185,6 @@ internal class TriangleWaveProvider : IWaveProvider
             buffer[offset + samplesWritten * 2 + 1] = (byte)((sampleShort >> 8) & 0xFF);
             samplesWritten++;
         }
-
         return samplesWritten * 2;
     }
 }
