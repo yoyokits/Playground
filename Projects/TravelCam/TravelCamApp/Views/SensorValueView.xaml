@@ -8,8 +8,8 @@
     <Grid HorizontalOptions="Start" VerticalOptions="Start">
         <!-- Background Border with content -->
         <Border x:Name="SensorOverlayBorder"
-                Margin="16"
-                Padding="16,12"
+                Margin="8"
+                Padding="8,6"
                 BackgroundColor="#AA000000"
                 StrokeThickness="0"
                 StrokeShape="RoundRectangle 12"
@@ -61,13 +61,11 @@
 
         <!-- Invisible button overlay to capture taps reliably on all devices -->
         <Button x:Name="TapOverlay"
-                Margin="16"
+                Margin="8"
                 BackgroundColor="Transparent"
                 BorderWidth="0"
                 Clicked="OnSensorOverlayClicked"
                 HorizontalOptions="Start"
-                VerticalOptions="Start"
-                WidthRequest="{Binding Source={x:Reference SensorOverlayBorder}, Path=Width}"
-                HeightRequest="{Binding Source={x:Reference SensorOverlayBorder}, Path=Height}" />
+                VerticalOptions="Start" />
     </Grid>
 </ContentView>

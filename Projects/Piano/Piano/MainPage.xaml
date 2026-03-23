@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:views="clr-namespace:Piano.Views"
+    xmlns:vm="clr-namespace:Piano.ViewModels"
+    xmlns:local="clr-namespace:Piano"
+    x:Class="Piano.MainPage"
+    x:DataType="vm:MainViewModel"
+    BackgroundColor="#1E1E1E">
+
+    <ContentPage.BindingContext>
+        <vm:MainViewModel />
+    </ContentPage.BindingContext>
+
+    <Grid RowDefinitions="Auto,*,Auto,*" Padding="0">
+
+        <!-- Resources -->
+        <Grid.Resources>
+            <local:BoolToModeTextConverter x:Key="BoolToModeTextConverter" />
+        </Grid.Resources>
+
+        <!-- Control Bar -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Padding="10" BackgroundColor="#2C2C2C">
+            <Label
+                Grid.Column="0"
+                Text="{Binding SheetTitle}"
+                FontSize="18"
+                FontAttributes="Bold"
+                TextColor="White"
+                VerticalOptions="Center" />
+
+            <Button
+                Grid.Column="1"
+                Text="Load Sheet"
+                Command="{Binding LoadSheetCommand}"
+                BackgroundColor="#4CAF50"
+                TextColor="White"
+                CornerRadius="5"
+                Padding="15,5"
+                Margin="5,0" />
+
+            <Button
+                Grid.Column="2"
+                Text="{Binding IsPlayMode, Converter={StaticResource BoolToModeTextConverter}}"
+                Command="{Binding ToggleModeCommand}"
+                BackgroundColor="#2196F3"
+                TextColor="White"
+                CornerRadius="5"
+                Padding="15,5"
+                Margin="5,0" />
+        </Grid>
+
+        <!-- Piano Sheet View (Scrollable) -->
+        <ScrollView Grid.Row="1" Orientation="Vertical">
+            <views:PianoSheetView
+                HeightRequest="400"
+                BindingContext="{Binding .}" />
+        </ScrollView>
+
+        <!-- Playback Controls -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*,*" Padding="10" BackgroundColor="#2C2C2C">
+            <Button
+                Grid.Column="0"
+                Text="Play"
+                Command="{Binding PlayCommand}"
+                BackgroundColor="#FF9800"
+                TextColor="White"
+                CornerRadius="5"
+                Padding="20,10"
+                HorizontalOptions="Center" />
+
+            <Button
+                Grid.Column="1"
+                Text="Stop"
+                Command="{Binding StopCommand}"
+                BackgroundColor="#F44336"
+                TextColor="White"
+                CornerRadius="5"
+                Padding="20,10"
+                HorizontalOptions="Center" />
+
+            <Label
+                Grid.Column="2"
+                Text="{Binding IsPlaying, StringFormat='Playing: {0}'}"
+                TextColor="White"
+                VerticalOptions="Center"
+                HorizontalOptions="Center" />
+        </Grid>
+
+        <!-- Piano Keys View -->
+        <views:PianoKeysView Grid.Row="3" />
+
+    </Grid>
+
+</ContentPage>

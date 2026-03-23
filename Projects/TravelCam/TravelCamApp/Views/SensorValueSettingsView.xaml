@@ -227,9 +227,6 @@
 
                     <!-- Map Overlay Toggle -->
                     <Grid ColumnDefinitions="*,Auto" Padding="12" BackgroundColor="{StaticResource MD3SurfaceVariant}">
-                        <Grid.StrokeShape>
-                            <RoundRectangle CornerRadius="8" />
-                        </Grid.StrokeShape>
                         <VerticalStackLayout Grid.Column="0" VerticalOptions="Center" Spacing="4">
                             <Label Text="Map Overlay"
                                    FontSize="14"
