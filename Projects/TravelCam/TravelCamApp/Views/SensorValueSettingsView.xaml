@@ -129,6 +129,25 @@
                 </VerticalStackLayout>
             </Border>
 
+            <!-- Action Buttons -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button Grid.Column="0"
+                        Text="＋ Add"
+                        Clicked="OnAddButtonClicked"
+                        BackgroundColor="{StaticResource MD3Primary}"
+                        TextColor="{StaticResource MD3OnPrimary}"
+                        FontSize="12"
+                        HeightRequest="32"
+                        CornerRadius="16" />
+                <Button Grid.Column="1"
+                        Text="− Remove"
+                        Clicked="OnRemoveButtonClicked"
+                        BackgroundColor="{StaticResource MD3SecondaryContainer}"
+                        TextColor="{StaticResource MD3OnSurface}"
+                        FontSize="12"
+                        HeightRequest="32"
+                        CornerRadius="16" />
+            </Grid>
 
             <!-- Available Sensors Section -->
             <Border BackgroundColor="{StaticResource MD3Surface}"
@@ -226,24 +245,36 @@
                     </Grid>
 
                     <!-- Map Overlay Toggle -->
-                    <Grid ColumnDefinitions="*,Auto" Padding="12" BackgroundColor="{StaticResource MD3SurfaceVariant}">
-                        <VerticalStackLayout Grid.Column="0" VerticalOptions="Center" Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" Padding="8" BackgroundColor="{StaticResource MD3SurfaceVariant}">
+                        <Grid.StrokeShape>
+                            <RoundRectangle CornerRadius="6" />
+                        </Grid.StrokeShape>
+                        <VerticalStackLayout Grid.Column="0" VerticalOptions="Center" Spacing="2">
                             <Label Text="Map Overlay"
-                                   FontSize="14"
+                                   FontSize="13"
                                    TextColor="{StaticResource MD3OnSurface}" />
                             <Label Text="Show map on overlay"
-                                   FontSize="12"
+                                   FontSize="11"
                                    TextColor="{StaticResource MD3OnSurfaceVariant}" />
                         </VerticalStackLayout>
                         <Switch Grid.Column="1"
                                 IsToggled="{Binding IsMapOverlayVisible}"
-                                Toggled="OnMapOverlayToggled"
                                 OnColor="{StaticResource MD3Primary}"
                                 ThumbColor="{StaticResource MD3Surface}"
                                 VerticalOptions="Center" />
                     </Grid>
                 </VerticalStackLayout>
             </Border>
+
+            <!-- Save Button -->
+            <Button Text="Save Settings"
+                    Clicked="OnSaveSettingsClicked"
+                    BackgroundColor="{StaticResource MD3Primary}"
+                    TextColor="{StaticResource MD3OnPrimary}"
+                    FontSize="14"
+                    FontAttributes="Bold"
+                    HeightRequest="44"
+                    CornerRadius="22" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentView>

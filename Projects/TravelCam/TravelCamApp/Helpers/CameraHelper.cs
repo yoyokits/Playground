@@ -299,6 +299,7 @@ namespace TravelCamApp.Helpers
 
                 LogDebug("[CameraHelper] Photo taken successfully. Stream type: {0}, Length: {1}, CanSeek: {2}",
                     stream.GetType().Name,
+                    stream.GetType().Name, 
                     stream.CanSeek ? stream.Length.ToString() : "unknown",
                     stream.CanSeek);
 

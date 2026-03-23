@@ -121,5 +121,12 @@ namespace TravelCamApp.Views
             System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Map overlay toggled");
             await ViewModel.SaveSettingsAsync();
         }
+
+        private async void OnSaveSettingsClicked(object sender, EventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Save button clicked");
+            await ViewModel.SaveSettingsAsync();
+            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Settings saved");
+        }
     }
 }

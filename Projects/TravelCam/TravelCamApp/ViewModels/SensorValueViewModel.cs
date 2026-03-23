@@ -406,6 +406,29 @@ namespace TravelCamApp.ViewModels
         }
 
         /// <summary>
+        /// Applies saved sensor items configuration to the visible sensor display items
+        /// </summary>
+        /// <param name="config">The configuration to apply</param>
+        public void ApplyConfiguration(Helpers.SensorItemsConfiguration? config)
+        {
+            if (config?.Items == null) return;
+
+            // Clear and rebuild visible items based on configuration
+            _visibleSensorDisplayItems.Clear();
+
+            // Add items in the order they appear in the configuration
+            foreach (var configItem in config.Items)
+            {
+                if (configItem.IsVisible && _sensorDisplayItemsMap.TryGetValue(configItem.Name ?? string.Empty, out var displayItem))
+                {
+                    _visibleSensorDisplayItems.Add(displayItem);
+                }
+            }
+
+            OnPropertyChanged(nameof(VisibleSensorDisplayItems));
+        }
+
+        /// <summary>
         /// Updates the value of a sensor display item by name
         /// </summary>
         /// <param name="name">The name of the sensor display item to update</param>
