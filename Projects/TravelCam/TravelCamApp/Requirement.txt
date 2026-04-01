@@ -1,8 +1,9 @@
 ================================================================================
                          TRAVELCAM APPLICATION REQUIREMENTS
+                         Updated: v0.4.0 — Architecture Refactor Complete
 ================================================================================
 
-**CURRENT VERSION FOCUS: Android Devices (API 21+)**
+**CURRENT VERSION FOCUS: Android Devices (API 29+)**
 This version prioritizes Android platform development and testing.
 iOS and other platforms may be added in future versions.
 
@@ -22,9 +23,8 @@ iOS and other platforms may be added in future versions.
    - Support for generated data like City, Date, Time, Country from GPS location
    - Default visible sensors: City, Country, Temperature
    - Ability to customize SensorItems and save settings as JSON file
-   - Flash control
-   - Zoom functionality
-   - Use latest Camera.MAUI APIs (upgrade to latest version)
+   - Flash control [HELPER COMPLETE — UI button needed]
+   - Zoom functionality [HELPER COMPLETE — UI slider needed]
 
 3. SENSOR VALUE APPEARANCE SETTINGS
    - Add `SensorValueSettings` view with a `SensorValueSettingsViewModel`
@@ -44,37 +44,27 @@ iOS and other platforms may be added in future versions.
 4. OVERLAY INFORMATION
    - Real-time overlay display on camera preview
    - Overlay data includes:
-     * Temperature (current weather)
+     * Temperature (current weather) [Open-Meteo API integrated — untested on device]
      * City name (from GPS location)
      * Height/Altitude (from GPS)
-     * Map view (optional, can be toggled)
-     * Compass visualization (new feature)
+     * Map view (optional, can be toggled) [NOT YET IMPLEMENTED]
    - Default overlay: All info WITHOUT map
    - Overlay position: FIXED at bottom-right of camera preview
    - Use latest MAUI Graphics APIs for compass and overlay rendering
 
-5. COMPASS CONTROL FEATURE
-   - Visual compass control showing current heading
-   - Contains compass needle pointing to magnetic north
-   - Major tick marks every 30 degrees (like clock hours)
-   - Minor tick marks every 15 degrees (half-hour marks)
-   - Displays current degree value
-   - Style follows Google Material Design 3 guidelines
-   - Use latest MAUI Graphics and SkiaSharp APIs for rendering
-
-6. OUTPUT FILES
-   - Storage location: App folder "CekliCam/" (in public Pictures directory)
-   - File naming format: {Year}-{Month}-{Day}-{City}-{IncrementNumber}
-     Example: 2024-12-25-CekliCam-001.jpg
-
-   - Each capture produces ONE file in the main directory:
+5. OUTPUT FILES
+   - Storage location: MediaStore "Pictures/CekliCam/" (via MediaStore API)
+   - File naming format: {Year}-{Month}-{Day}_{Time}_{City}.jpg
+     Example: 2026-04-01_143022_Jakarta.jpg
+   - Each capture produces ONE file in the MediaStore gallery:
      - Photos: .jpg files
      - Videos: .mp4 files
+   - Temp files written to ExternalCacheDir first, then published to MediaStore
 
 7. GALLERY INTEGRATION
    - Clicking the preview image opens the most recent captured image
    - The gallery app opens showing the image, allowing user to browse the folder
-   - On Android: Opens the specific image file using FileProvider
+   - On Android: Opens via FileProvider with content:// URI
    - On iOS: Opens the Photos app to the app's media
    - On other platforms: Opens the default file viewer for the image
 
@@ -85,9 +75,8 @@ iOS and other platforms may be added in future versions.
 9. PERMISSIONS REQUIRED
    - Camera access
    - Microphone access (for video)
-   - Video recording permission (Android)
    - Location/GPS access
-   - Storage/file system access
+   - Storage/file system access (via MediaStore, no direct storage write permission)
    - Internet access (for weather data and maps)
 
 ================================================================================
@@ -99,33 +88,33 @@ iOS and other platforms may be added in future versions.
     - Row 0 (*): Camera preview area
     - Row 1 (Auto): Control panel
 
-    10.1 CAMERA PREVIEW AREA (Row 0)
-        - CameraView: Fill entire row
-        - SensorValueView overlay:
-          * Position: Bottom-Right (HorizontalOptions="End", VerticalOptions="End")
-          * Margin: 16dp
-          * Background: Semi-transparent black (#AA000000)
-          * Corner radius: 8dp
-          * Contains: List of visible sensor values OR CompassControl when Compass is selected
-        - Recording indicator:
-          * Position: Top-Center
-          * Visible only when recording
-          * Shows "REC" label and elapsed time
-        - Exit button (DEBUG only):
-          * Position: Top-Left
-          * Visible only in debug builds
+   9.1 CAMERA PREVIEW AREA (Row 0)
+       - CameraView (Camera.MAUI): Fill entire row
+       - Permission overlay: ActivityIndicator + status text (shown until permission granted)
+       - SensorValueView overlay:
+         * Position: Bottom-Right (HorizontalOptions="End", VerticalOptions="End")
+         * Margin: 16dp
+         * Background: Semi-transparent black (#AA000000)
+         * Corner radius: 8dp
+         * Contains: List of visible sensor values
+         * Tap gesture: Opens SensorValueSettingsView
+       - Recording indicator:
+         * Position: Top-Center
+         * Visible only when recording
+         * Shows red dot and elapsed time (MM:SS)
+       - Exit button: REMOVED (no longer needed — standard Android back handles navigation)
 
-    10.2 CONTROL PANEL (Row 1)
-        - Background: Black
-        - Padding: 16dp horizontal, 12dp vertical
-        - First row: Main controls
-          * Left: Preview thumbnail (56x56dp circle with white border)
-          * Center: Shutter button (80x80dp circle)
-          * Right: Camera flip button (40x40dp)
-        - Second row: Mode selector
-          * Left: "Photo" label
-          * Right: "Video" label
-          * Active mode shown in bold
+   9.2 CONTROL PANEL (Row 1)
+       - Background: Black
+       - Padding: 16dp horizontal, 12dp vertical
+       - First row: Main controls
+         * Left: Preview thumbnail (56x56dp circle with white border)
+         * Center: Shutter button (80x80dp circle) — mode text changes (Photo/Video)
+         * Right: Camera flip button (48x48dp, emoji: 🔄)
+       - Second row: Mode selector
+         * Left: "Photo" label
+         * Right: "Video" label
+         * Active mode shown in bold
 
 11. SENSOR VALUE SETTINGS VIEW (Overlay)
     - Appears as modal overlay when SensorValueView is tapped
@@ -137,21 +126,21 @@ iOS and other platforms may be added in future versions.
       * Corner radius: 12dp
     - Content sections:
       * Header: "Sensor Settings" (20sp, bold)
-      * Visible Sensors list (120dp height)
+      * Visible Sensors list (120dp height, drag-to-reorder)
       * Action buttons: Add/Remove (32dp height, pill shape)
       * Available Sensors list (120dp height)
       * Appearance settings (font size slider, map overlay toggle)
-      * Save button (44dp height, pill shape)
+      * Close button (44dp height, pill shape)
 
 12. SENSOR VALUE VIEW (Overlay on Camera)
     - Position: ALWAYS bottom-right of camera preview
     - Do NOT use dynamic positioning via ViewModel converters
     - Margin: 16dp from edges
-    - Padding: 16dp horizontal, 12dp vertical
+    - Padding: 12dp horizontal, 10dp vertical
     - Background: #AA000000 (semi-transparent black)
-    - Border: None (StrokeThickness="0")
-    - Corner radius: 8dp
-    - Content: Either list of sensor values OR CompassControl depending on visibility
+    - Border: StrokeShape="RoundRectangle 8"
+    - Maximum width: 160dp
+    - Content: Vertical list of sensor values (only visible ones)
     - Tap gesture: Opens SensorValueSettingsView
     - Pan gesture: Disabled (fixed position)
 
@@ -165,19 +154,25 @@ iOS and other platforms may be added in future versions.
     - Use latest stable APIs and patterns for all components
 
 ================================================================================
-                              TECHNICAL NOTES
+                              TECHNICAL SPECIFICATIONS
 ================================================================================
 
-- Platform: .NET MAUI (.NET 10)
-- Architecture: MVVM pattern
-- Camera Library: Camera.MAUI (latest version)
+- Platform: .NET MAUI (.NET 10.0.30)
+- Architecture: MVVM pattern with Dependency Injection
+- Camera Library: Camera.MAUI 1.5.1
 - Location Services: MAUI Geolocation API
-- Weather API: TBD (OpenWeatherMap or similar)
-- Map Provider: TBD (Google Maps, Bing Maps, or OpenStreetMap)
+- Weather API: Open-Meteo (free, no API key)
+- Map Provider: TBD (not yet implemented)
 - UI Icons: Google Material Design 3 icon set (Material Symbols)
-- Graphics: Latest MAUI Graphics and SkiaSharp APIs
+- Gallery: Android MediaStore API (IsPending flag for safe writes)
+- Storage: Scoped Storage compliant (Android 10+ / API 29+)
+- Target SDK: API 35 (Android 15)
+- Min SDK: API 29 (Android 10)
+- DI Container: Microsoft.Extensions.DependencyInjection (built into MAUI)
 
-- Implement MAUI camera UX, capture workflows, and project standards
-- Use latest stable APIs and patterns for all components
+- Camera Lifecycle: Window.Resumed/Window.Stopped (not Page Appearing/Disappearing)
+- Sensor polling: 10-second interval via SensorHelper singleton
+- Camera.MAUI auto-restarts preview on Camera property change — no manual restart needed
+- Fire-and-forget initialization wrapped in SafeInitializeAsync to prevent constructor crashes
 
 ================================================================================
