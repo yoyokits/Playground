@@ -40,6 +40,7 @@ namespace TravelCamApp.Models
                 {
                     _name = value;
                     OnPropertyChanged(nameof(Name));
+                    NotifyDependentProperties(nameof(Name));
                 }
             }
         }
@@ -72,6 +73,7 @@ namespace TravelCamApp.Models
                 {
                     _value = value;
                     OnPropertyChanged(nameof(Value));
+                    NotifyDependentProperties(nameof(Value));
                 }
             }
         }
@@ -109,11 +111,13 @@ namespace TravelCamApp.Models
         protected virtual void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
-            // Notify dependent properties
+        private void NotifyDependentProperties(string propertyName)
+        {
             if (propertyName == nameof(Name) || propertyName == nameof(Value))
             {
-                OnPropertyChanged(nameof(NameAndValue));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NameAndValue)));
             }
         }
     }

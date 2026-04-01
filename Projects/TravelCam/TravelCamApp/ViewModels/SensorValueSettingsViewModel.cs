@@ -141,7 +141,20 @@ namespace TravelCamApp.ViewModels
         {
             try
             {
-                await SettingsHelper.SaveSensorItemsConfigurationAsync(VisibleSensorItems);
+                // Save ALL items (visible + available) so load preserves the full list
+                var allItems = new List<SensorItem>();
+                foreach (var item in VisibleSensorItems)
+                {
+                    item.IsVisible = true;
+                    allItems.Add(item);
+                }
+                foreach (var item in AvailableSensorItems)
+                {
+                    item.IsVisible = false;
+                    allItems.Add(item);
+                }
+
+                await SettingsHelper.SaveSensorItemsConfigurationAsync(allItems);
                 System.Diagnostics.Debug.WriteLine("[SensorValueSettingsViewModel] Settings saved");
             }
             catch (Exception ex)
@@ -152,7 +165,7 @@ namespace TravelCamApp.ViewModels
 
         #endregion
 
-        #region Commands
+        #region Move Operations
 
         public async Task MoveToVisibleAsync(SensorItem item)
         {

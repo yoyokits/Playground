@@ -41,4 +41,21 @@
     <SolidColorBrush x:Key="Gray600Brush" Color="{StaticResource Gray600}"/>
     <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}"/>
     <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}"/>
+
+    <!-- Material Design 3 color tokens (used by SensorValueSettingsView) -->
+    <Color x:Key="MD3Primary">#6750A4</Color>
+    <Color x:Key="MD3OnPrimary">#FFFFFF</Color>
+    <Color x:Key="MD3PrimaryContainer">#EADDFF</Color>
+    <Color x:Key="MD3OnPrimaryContainer">#21005D</Color>
+    <Color x:Key="MD3Secondary">#625B71</Color>
+    <Color x:Key="MD3SecondaryContainer">#E8DEF8</Color>
+    <Color x:Key="MD3OnSecondaryContainer">#1D192B</Color>
+    <Color x:Key="MD3Surface">#FFFBFE</Color>
+    <Color x:Key="MD3SurfaceVariant">#E7E0EC</Color>
+    <Color x:Key="MD3OnSurface">#1C1B1F</Color>
+    <Color x:Key="MD3OnSurfaceVariant">#49454F</Color>
+    <Color x:Key="MD3OutlineVariant">#CAC4D0</Color>
+    <Color x:Key="MD3Error">#B3261E</Color>
+    <Color x:Key="MD3OnError">#FFFFFF</Color>
+    <Color x:Key="MD3Success">#2E7D32</Color>
 </ResourceDictionary>

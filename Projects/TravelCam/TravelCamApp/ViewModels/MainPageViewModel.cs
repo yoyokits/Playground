@@ -1,27 +1,31 @@
-﻿// ========================================== //
+// ========================================== //
 // Developer: Yohanes Wahyu Nurcahyo          //
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 //
 // MainPageViewModel: Single coordinator for all camera, sensor,
-// and UI state. SensorHelper is the single source of sensor truth.
-// The view model subscribes to SensorDataUpdated and reflects
-// changes into SensorItems for display.
+// and UI state.
 //
-// Permissions are requested early (constructor) so the camera
-// can initialize as soon as the view binds.
+// Camera operations use CommunityToolkit.Maui.Camera (CameraView).
+// Photo capture results arrive via the MediaCaptured event routed
+// from MainPage.xaml.cs.  Video stream is returned synchronously
+// from StopVideoRecording().
+//
+// Sensor display is delegated to SensorValueViewModel, which
+// subscribes to SensorHelper independently.  SensorItems is
+// exposed here as a passthrough so XAML bindings are unchanged.
 
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using Camera.MAUI;
+using CommunityToolkit.Maui.Core;
+using CommunityToolkit.Maui.Views;
 using Microsoft.Maui.ApplicationModel;
-using Microsoft.Maui.Storage;
 using TravelCamApp.Helpers;
 using TravelCamApp.Models;
 
@@ -34,6 +38,7 @@ namespace TravelCamApp.ViewModels
         #region Fields
 
         private readonly SensorHelper _sensorHelper;
+        private readonly SensorValueViewModel _sensorValueViewModel;
 
         // Camera
         private CameraView? _cameraView;
@@ -45,11 +50,9 @@ namespace TravelCamApp.ViewModels
         private string? _lastCaptureImagePath;
         private bool _isShutterAnimated;
         private bool _isCapturing;
+        private bool _isTogglingRecording;
         private string _permissionStatus = "Initializing...";
         private bool _hasCameraPermission;
-
-        // Sensor data display
-        private ObservableCollection<SensorItem> _sensorItems = new();
 
         // Overlay visibility
         private bool _isSensorOverlayVisible = true;
@@ -58,13 +61,17 @@ namespace TravelCamApp.ViewModels
         // Timer for recording display
         private System.Timers.Timer? _recordingTimer;
         private DateTime _recordingStart;
-        private string? _currentVideoPath;
 
         // Flash
         private string _flashModeText = "Off";
 
         // Zoom
         private double _zoomFactor;
+
+        // Lifecycle guards
+        private bool _lifecycleSubscribed;
+        private bool _isDestroyed;
+        private bool _viewReadyCalled;
 
         #endregion
 
@@ -75,11 +82,7 @@ namespace TravelCamApp.ViewModels
         public CameraView? CameraView
         {
             get => _cameraView;
-            set
-            {
-                _cameraView = value;
-                OnPropertyChanged();
-            }
+            set { _cameraView = value; OnPropertyChanged(); }
         }
 
         public bool IsPreviewRunning
@@ -156,17 +159,20 @@ namespace TravelCamApp.ViewModels
                 _zoomFactor = value;
                 OnPropertyChanged();
                 if (_cameraView != null)
-                {
                     CameraHelper.SetZoom(_cameraView, value);
-                }
             }
         }
 
-        public ObservableCollection<SensorItem> SensorItems
-        {
-            get => _sensorItems;
-            set { _sensorItems = value; OnPropertyChanged(); }
-        }
+        /// <summary>
+        /// Passthrough to SensorValueViewModel.SensorItems.
+        /// Existing XAML bindings (SensorValueView, SensorValueSettingsView) use this.
+        /// </summary>
+        public ObservableCollection<SensorItem> SensorItems => _sensorValueViewModel.SensorItems;
+
+        /// <summary>
+        /// Exposes the dedicated sensor display sub-ViewModel for consumers that need it.
+        /// </summary>
+        public SensorValueViewModel SensorValueViewModel => _sensorValueViewModel;
 
         #endregion
 
@@ -185,33 +191,26 @@ namespace TravelCamApp.ViewModels
 
         #region Constructor
 
-        public MainPageViewModel(SensorHelper sensorHelper)
+        public MainPageViewModel(SensorHelper sensorHelper, SensorValueViewModel sensorValueViewModel)
         {
             _sensorHelper = sensorHelper;
-
-            // Initialize sensor items with defaults
-            InitializeSensorItems();
-
-            // Subscribe to sensor updates
-            _sensorHelper.SensorDataUpdatedCallback += OnSensorDataUpdated;
+            _sensorValueViewModel = sensorValueViewModel;
 
             // Commands
-            ToggleCameraCommand = new Command(async () => this.ToggleCameraAsync());
+            ToggleCameraCommand = new Command(async () => await ToggleCameraAsync());
             CaptureCommand = new Command(async () => await CaptureAsync());
             SetPhotoModeCommand = new Command(() => SelectedMode = CaptureMode.Photo);
             SetVideoModeCommand = new Command(() => SelectedMode = CaptureMode.Video);
-            ToggleFlashCommand = new Command(async () => await ToggleFlashAsync());
+            ToggleFlashCommand = new Command(() => ToggleFlash());
             OpenSettingsCommand = new Command(() => IsSettingsVisible = true);
             CloseSettingsCommand = new Command(async () => await CloseSettingsAsync());
             OpenGalleryCommand = new Command(async () => await OpenGalleryAsync());
 
-            // Initialize permissions and sensor collection on startup.
-            // Wrapped in SafeFireAndForget so exceptions during Activity
-            // reconstruction (e.g. Permissions.RequestAsync before Activity
-            // is fully ready) don't crash the process.
+            // Start permissions + sensors. Wrapped in SafeFireAndForget so exceptions
+            // during Activity reconstruction don't crash the process.
             _ = SafeInitializeAsync();
 
-            // Subscribe to app lifecycle so camera is stopped/restarted on background/foreground
+            // Subscribe to app lifecycle for camera stop/restart on background/foreground
             if (Application.Current is Application app)
             {
                 app.PageAppearing += OnPageAppearing;
@@ -223,16 +222,9 @@ namespace TravelCamApp.ViewModels
 
         #region Initialization
 
-        /// <summary>
-        /// Safe wrapper that catches any exception thrown by InitializeAsync
-        /// so a fire-and-forget call from the constructor never tears down the process.
-        /// </summary>
         private async Task SafeInitializeAsync()
         {
-            try
-            {
-                await InitializeAsync();
-            }
+            try { await InitializeAsync(); }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
@@ -241,22 +233,15 @@ namespace TravelCamApp.ViewModels
             }
         }
 
-        /// <summary>
-        /// Requests permissions, loads saved settings, and starts sensor collection.
-        /// Called from constructor -- fire and forget, camera starts when ready.
-        /// </summary>
         private async Task InitializeAsync()
         {
             if (_isDestroyed) return;
 
             PermissionStatus = "Requesting permissions...";
 
-            // 1. Request camera permission
+            // 1. Camera + microphone permission
             bool cameraOk = false;
-            try
-            {
-                cameraOk = await RequestCameraPermissionAsync();
-            }
+            try { cameraOk = await RequestCameraPermissionAsync(); }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
@@ -265,26 +250,11 @@ namespace TravelCamApp.ViewModels
 
             if (_isDestroyed) return;
 
-            if (!cameraOk)
-            {
-                PermissionStatus = "Camera permission denied";
-                HasCameraPermission = false;
-            }
-            else
-            {
-                HasCameraPermission = true;
-                PermissionStatus = "Camera ready";
-            }
+            HasCameraPermission = cameraOk;
+            PermissionStatus = cameraOk ? "Camera ready" : "Camera permission denied";
 
-            // 2. Request location permission
-            try
-            {
-                bool locationOk = await RequestLocationPermissionAsync();
-                if (!locationOk)
-                {
-                    System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Location permission not granted");
-                }
-            }
+            // 2. Location permission
+            try { await RequestLocationPermissionAsync(); }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
@@ -293,12 +263,9 @@ namespace TravelCamApp.ViewModels
 
             if (_isDestroyed) return;
 
-            // 3. Request storage permission (Android 12 and below)
+            // 3. Storage permission (Android ≤ 12)
 #if ANDROID
-            try
-            {
-                await RequestStoragePermissionsAsync();
-            }
+            try { await RequestStoragePermissionsAsync(); }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
@@ -308,8 +275,8 @@ namespace TravelCamApp.ViewModels
 
             if (_isDestroyed) return;
 
-            // 4. Load saved sensor settings
-            await LoadSensorSettingsAsync();
+            // 4. Apply persisted sensor settings via SensorValueViewModel
+            await _sensorValueViewModel.ApplyPersistedSettingsAsync();
 
             if (_isDestroyed) return;
 
@@ -321,14 +288,12 @@ namespace TravelCamApp.ViewModels
         {
             var status = await Permissions.CheckStatusAsync<Permissions.Camera>();
             if (status != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
-            {
                 status = await Permissions.RequestAsync<Permissions.Camera>();
-            }
+
             var micStatus = await Permissions.CheckStatusAsync<Permissions.Microphone>();
             if (micStatus != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
-            {
                 micStatus = await Permissions.RequestAsync<Permissions.Microphone>();
-            }
+
             return status == Microsoft.Maui.ApplicationModel.PermissionStatus.Granted;
         }
 
@@ -336,9 +301,7 @@ namespace TravelCamApp.ViewModels
         {
             var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
             if (status != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
-            {
                 status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
-            }
             return status == Microsoft.Maui.ApplicationModel.PermissionStatus.Granted;
         }
 
@@ -362,48 +325,16 @@ namespace TravelCamApp.ViewModels
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Storage permission error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] Storage permission error: {ex.Message}");
             }
         }
 #endif
-
-        /// <summary>
-        /// Loads saved sensor item visibility settings and applies them.
-        /// </summary>
-        private async Task LoadSensorSettingsAsync()
-        {
-            try
-            {
-                var config = await SettingsHelper.LoadSensorItemsConfigurationAsync();
-                if (config != null)
-                {
-                    SettingsHelper.ApplyConfigurationToSensorItems(new System.Collections.Generic.List<SensorItem>(_sensorItems), config);
-                }
-                else
-                {
-                    // Set defaults: City, Country, Temperature visible
-                    UpdateSensorItem("City", isVisible: true);
-                    UpdateSensorItem("Country", isVisible: true);
-                    UpdateSensorItem("Temperature", isVisible: true);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Load settings error: {ex.Message}");
-            }
-        }
 
         #endregion
 
         #region Lifecycle
 
-        private bool _lifecycleSubscribed;
-        private bool _isDestroyed;
-
-        /// <summary>
-        /// Subscribe to Window Resumed/Stopped events once the CameraView is available.
-        /// These fire reliably when the app enters foreground/background on Android.
-        /// </summary>
         private void EnsureWindowLifecycle()
         {
             if (_lifecycleSubscribed || _isDestroyed) return;
@@ -421,17 +352,14 @@ namespace TravelCamApp.ViewModels
         private async void OnWindowResumed(object? sender, EventArgs e)
         {
             if (_isDestroyed) return;
-
             try
             {
                 System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window Resumed");
-                // Restart sensor collection
                 await _sensorHelper.StartAsync();
-                // Restart camera preview
                 if (_cameraView != null && HasCameraPermission && !_isDestroyed)
                 {
-                    IsPreviewRunning = false; // reset so StartCameraPreviewAsync will run
-                    await StartCameraPreviewAsync();
+                    IsPreviewRunning = false;
+                    IsPreviewRunning = await CameraHelper.StartPreviewAsync(_cameraView);
                 }
             }
             catch (Exception ex)
@@ -445,32 +373,20 @@ namespace TravelCamApp.ViewModels
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window Stopped");
             try
             {
-                // Stop recording if active
                 if (_isRecording && _cameraView != null)
-                {
                     await StopRecordingAsync();
-                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Stop recording error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] Stop recording error: {ex.Message}");
             }
 
-            // Stop sensor updates (synchronous, safe)
             _sensorHelper.Stop();
 
-            // Stop camera preview
-            try
+            if (_cameraView != null)
             {
-                if (_cameraView != null)
-                {
-                    await CameraHelper.StopPreviewAsync(_cameraView);
-                    IsPreviewRunning = false;
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Stop preview error: {ex.Message}");
+                CameraHelper.StopPreview(_cameraView);
                 IsPreviewRunning = false;
             }
         }
@@ -480,7 +396,6 @@ namespace TravelCamApp.ViewModels
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window Destroying");
             _isDestroyed = true;
 
-            // Unsubscribe window events
             if (sender is Window window)
             {
                 window.Resumed -= OnWindowResumed;
@@ -488,18 +403,14 @@ namespace TravelCamApp.ViewModels
                 window.Destroying -= OnWindowDestroying;
             }
 
-            // Unsubscribe app-level events
             if (Application.Current is Application app)
             {
                 app.PageAppearing -= OnPageAppearing;
                 app.PageDisappearing -= OnPageDisappearing;
             }
 
-            // Unsubscribe sensor callback
-            _sensorHelper.SensorDataUpdatedCallback -= OnSensorDataUpdated;
-
-            // Ensure everything is stopped
             _sensorHelper.Stop();
+            _sensorValueViewModel.Dispose();
             _recordingTimer?.Dispose();
             _recordingTimer = null;
             _cameraView = null;
@@ -507,13 +418,12 @@ namespace TravelCamApp.ViewModels
 
         private void OnPageAppearing(object? sender, Page page)
         {
-            // Hook window lifecycle the first time our page appears
             EnsureWindowLifecycle();
         }
 
         private void OnPageDisappearing(object? sender, Page page)
         {
-            // No-op: Window.Stopped handles background transitions
+            // Window.Stopped handles background transitions
         }
 
         #endregion
@@ -521,8 +431,8 @@ namespace TravelCamApp.ViewModels
         #region Camera Operations
 
         /// <summary>
-        /// Called by the view once it has bound the CameraView.
-        /// This is where actual camera initialization happens.
+        /// Called by MainPage.OnAppearing after the CameraView is attached.
+        /// Idempotent — safe to call on every appearance.
         /// </summary>
         public async Task OnViewReady(CameraView cameraView)
         {
@@ -532,46 +442,46 @@ namespace TravelCamApp.ViewModels
 
             if (!HasCameraPermission)
             {
-                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] No camera permission, skipping preview");
+                System.Diagnostics.Debug.WriteLine(
+                    "[MainPageViewModel] No camera permission, skipping preview");
                 return;
             }
+
+            if (IsPreviewRunning) return;
 
             await StartCameraPreviewAsync();
         }
 
         private async Task StartCameraPreviewAsync()
         {
-            if (_isDestroyed || _cameraView == null)
-            {
-                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] CameraView not set or destroyed");
-                return;
-            }
+            if (_isDestroyed || _cameraView == null) return;
+            if (IsPreviewRunning) return;
 
-            if (IsPreviewRunning)
-            {
-                return;
-            }
-
-            // Select camera device and start preview
-            var selectedName = CameraHelper.SelectFirstAvailableCamera(_cameraView);
-
-            if (selectedName == null || _cameraView.Camera == null)
+            var selected = await CameraHelper.SelectFirstAvailableCameraAsync(_cameraView);
+            if (selected == null)
             {
                 PermissionStatus = "No camera device found";
                 IsPreviewRunning = false;
                 return;
             }
 
-            bool previewOk = await CameraHelper.StartPreviewAsync(_cameraView);
-            IsPreviewRunning = previewOk;
-            PermissionStatus = previewOk ? "Camera ready" : "Failed to start camera";
+            bool ok = await CameraHelper.StartPreviewAsync(_cameraView);
+            IsPreviewRunning = ok;
+            PermissionStatus = ok ? "Camera ready" : "Failed to start camera";
         }
 
-        private void ToggleCameraAsync()
+        private async Task ToggleCameraAsync()
         {
-            // Camera.MAUI auto-restarts preview internally when the Camera
-            // property is changed. No need to call StartPreviewAsync again.
-            CameraHelper.ToggleCameraDevice(_cameraView!);
+            if (_cameraView == null || !IsPreviewRunning) return;
+
+            // Stop preview first, toggle camera, then restart
+            CameraHelper.StopPreview(_cameraView);
+            IsPreviewRunning = false;
+
+            await CameraHelper.ToggleCameraDeviceAsync(_cameraView);
+
+            bool ok = await CameraHelper.StartPreviewAsync(_cameraView);
+            IsPreviewRunning = ok;
         }
 
         #endregion
@@ -583,13 +493,9 @@ namespace TravelCamApp.ViewModels
             if (_cameraView == null || !IsPreviewRunning) return;
 
             if (SelectedMode == CaptureMode.Photo)
-            {
                 await CapturePhotoAsync();
-            }
             else
-            {
                 await ToggleRecordingAsync();
-            }
         }
 
         private async Task CapturePhotoAsync()
@@ -599,15 +505,35 @@ namespace TravelCamApp.ViewModels
 
             try
             {
-                // Trigger shutter animation
                 IsShutterAnimated = true;
-                await Task.Delay(300);
+                await Task.Delay(200);
                 IsShutterAnimated = false;
 
-                var stream = await CameraHelper.TakePhotoAsync(_cameraView!);
+                // Trigger capture; result arrives via MediaCaptured event → OnMediaCaptured
+                await CameraHelper.TriggerCaptureAsync(_cameraView!);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] CapturePhotoAsync error: {ex.Message}");
+                _isCapturing = false;
+            }
+        }
+
+        /// <summary>
+        /// Called by MainPage when the CameraView fires MediaCaptured.
+        /// Saves the photo to the gallery and updates the thumbnail.
+        /// </summary>
+        public async Task OnMediaCaptured(Stream? stream)
+        {
+            if (_isDestroyed) return;
+
+            try
+            {
                 if (stream == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("[MainPageViewModel] CapturePhotoAsync returned null stream");
+                    System.Diagnostics.Debug.WriteLine(
+                        "[MainPageViewModel] OnMediaCaptured: null stream");
                     return;
                 }
 
@@ -617,11 +543,18 @@ namespace TravelCamApp.ViewModels
                 if (!string.IsNullOrEmpty(savedPath))
                 {
                     _lastCaptureImagePath = savedPath;
-                    LastCaptureImage = savedPath.StartsWith("content://", StringComparison.OrdinalIgnoreCase)
+                    LastCaptureImage = savedPath.StartsWith("content://",
+                        StringComparison.OrdinalIgnoreCase)
                         ? ImageSource.FromUri(new Uri(savedPath))
                         : ImageSource.FromFile(savedPath);
-                    System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Photo saved: {savedPath}");
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MainPageViewModel] Photo saved: {savedPath}");
                 }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] OnMediaCaptured error: {ex.Message}");
             }
             finally
             {
@@ -629,57 +562,71 @@ namespace TravelCamApp.ViewModels
             }
         }
 
+        /// <summary>
+        /// Called by MainPage when the CameraView fires MediaCaptureFailed.
+        /// </summary>
+        public void OnMediaCaptureFailed()
+        {
+            _isCapturing = false;
+            System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Photo capture failed");
+        }
+
+        #endregion
+
+        #region Video Recording
+
         private async Task ToggleRecordingAsync()
         {
             if (_cameraView == null || !IsPreviewRunning) return;
+            if (_isTogglingRecording) return;
+            _isTogglingRecording = true;
 
-            if (IsRecording)
+            try
             {
-                await StopRecordingAsync();
+                if (IsRecording)
+                    await StopRecordingAsync();
+                else
+                    await StartRecordingAsync();
             }
-            else
+            finally
             {
-                await StartRecordingAsync();
+                _isTogglingRecording = false;
             }
         }
 
         private async Task StartRecordingAsync()
         {
-            _currentVideoPath = FileHelper.CreateVideoPath(GetCityForFileName());
-
-            bool ok = await CameraHelper.StartVideoRecordingAsync(_cameraView!, _currentVideoPath);
+            bool ok = await CameraHelper.StartVideoRecordingAsync(_cameraView!);
             if (ok)
             {
                 IsRecording = true;
                 _recordingStart = DateTime.Now;
                 StartRecordingTimer();
-                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Recording started: {_currentVideoPath}");
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Recording started");
             }
         }
 
         private async Task StopRecordingAsync()
         {
             StopRecordingTimer();
-            bool ok = await CameraHelper.StopVideoRecordingAsync(_cameraView!);
+
+            var videoStream = await CameraHelper.StopVideoRecordingAsync(_cameraView!);
             IsRecording = false;
 
-            // Publish the recorded video to the gallery
-            if (ok && !string.IsNullOrEmpty(_currentVideoPath))
+            if (videoStream != null)
             {
-                var galleryPath = FileHelper.PublishVideoToGallery(_currentVideoPath);
-                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Video published to gallery: {galleryPath}");
-                _currentVideoPath = null;
-
+                var city = GetCityForFileName();
+                var galleryPath = await FileHelper.SaveVideoAsync(videoStream, city);
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] Video published: {galleryPath}");
+                // Camera preview automatically resumes after stop
                 IsPreviewRunning = true;
-                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Recording stopped, preview should be running");
             }
             else
             {
-                _currentVideoPath = null;
+                // If no stream returned, try restarting preview manually
                 if (_cameraView != null)
-                {
                     IsPreviewRunning = await CameraHelper.StartPreviewAsync(_cameraView);
-                }
             }
         }
 
@@ -701,83 +648,19 @@ namespace TravelCamApp.ViewModels
         private void OnRecordingTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
             var elapsed = DateTime.Now - _recordingStart;
-            RecordingTimeText = $"{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+            var text = $"{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+            MainThread.BeginInvokeOnMainThread(() => RecordingTimeText = text);
         }
 
         #endregion
 
         #region Flash & Zoom
 
-        private async Task ToggleFlashAsync()
+        private void ToggleFlash()
         {
             if (_cameraView == null) return;
             var mode = CameraHelper.CycleFlashMode(_cameraView);
-            FlashModeText = mode switch
-            {
-                FlashMode.Enabled => "On",
-                FlashMode.Auto => "Auto",
-                _ => "Off",
-            };
-        }
-
-        #endregion
-
-        #region Sensor Data Updates
-
-        /// <summary>
-        /// Called when SensorHelper publishes new data.
-        /// Updates all sensor item values from the SensorData.
-        /// </summary>
-        private void OnSensorDataUpdated(Models.SensorData data)
-        {
-            if (_isDestroyed) return;
-
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                if (_isDestroyed) return;
-
-                UpdateSensorItem("Temperature",
-                    data.Temperature.HasValue ? $"{data.Temperature.Value:F1}\u00b0C" : "N/A");
-                UpdateSensorItem("City", data.City ?? "Unknown");
-                UpdateSensorItem("Country", data.Country ?? "Unknown");
-                UpdateSensorItem("Altitude",
-                    data.Altitude.HasValue ? $"{data.Altitude.Value:F0}m" : "N/A");
-                UpdateSensorItem("Latitude", data.Latitude.ToString(CultureInfo.InvariantCulture));
-                UpdateSensorItem("Longitude", data.Longitude.ToString(CultureInfo.InvariantCulture));
-                UpdateSensorItem("Date", data.Timestamp.ToString("MM/dd/yyyy"));
-                UpdateSensorItem("Time", data.Timestamp.ToString("HH:mm:ss"));
-                UpdateSensorItem("Heading",
-                    data.Heading.HasValue ? $"{data.Heading.Value:F0}\u00b0" : "N/A");
-                UpdateSensorItem("Speed",
-                    data.Speed.HasValue ? $"{data.Speed.Value:F1} km/h" : "N/A");
-            });
-        }
-
-        private void UpdateSensorItem(string name, string? value = null, bool? isVisible = null)
-        {
-            var item = System.Linq.Enumerable.FirstOrDefault(_sensorItems, si => si.Name == name);
-            if (item != null)
-            {
-                if (value != null) item.Value = value;
-                if (isVisible.HasValue) item.IsVisible = isVisible.Value;
-            }
-        }
-
-        private void InitializeSensorItems()
-        {
-            _sensorItems = new ObservableCollection<SensorItem>
-            {
-                new SensorItem("City", "", isVisible: true),
-                new SensorItem("Country", "", isVisible: true),
-                new SensorItem("Temperature", "", isVisible: true),
-                new SensorItem("Altitude", "", isVisible: false),
-                new SensorItem("Latitude", "", isVisible: false),
-                new SensorItem("Longitude", "", isVisible: false),
-                new SensorItem("Date", DateTime.Now.ToString("MM/dd/yyyy"), isVisible: false),
-                new SensorItem("Time", DateTime.Now.ToString("HH:mm:ss"), isVisible: false),
-                new SensorItem("Heading", "", isVisible: false),
-                new SensorItem("Speed", "", isVisible: false),
-            };
+            FlashModeText = mode == CameraFlashMode.On ? "On" : "Off";
         }
 
         #endregion
@@ -794,11 +677,12 @@ namespace TravelCamApp.ViewModels
         {
             try
             {
-                await SettingsHelper.SaveSensorItemsConfigurationAsync(_sensorItems);
+                await SettingsHelper.SaveSensorItemsConfigurationAsync(_sensorValueViewModel.SensorItems);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Save settings error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] Save settings error: {ex.Message}");
             }
         }
 
@@ -815,35 +699,24 @@ namespace TravelCamApp.ViewModels
             {
                 var context = Android.App.Application.Context;
 
-                // If the path is a content:// URI from MediaStore, open the gallery
-                // at the CekliCam album so the user can swipe between all photos.
                 if (_lastCaptureImagePath.StartsWith("content://", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Try to open the default gallery app to the Pictures/CekliCam album
-                    // by querying for the bucket, allowing swiping between photos.
                     var uri = Android.Net.Uri.Parse(_lastCaptureImagePath);
                     var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
                     intent.SetDataAndType(uri, "image/*");
                     intent.AddFlags(Android.Content.ActivityFlags.GrantReadUriPermission);
                     intent.AddFlags(Android.Content.ActivityFlags.NewTask);
 
-                    // Try to resolve to the default gallery (not a chooser) so swiping works
-                    try
-                    {
-                        context.StartActivity(intent);
-                    }
+                    try { context.StartActivity(intent); }
                     catch (Android.Content.ActivityNotFoundException)
                     {
-                        // Fallback: open any app that can view images
                         var chooser = Android.Content.Intent.CreateChooser(intent, "Open with");
                         chooser!.AddFlags(Android.Content.ActivityFlags.NewTask);
                         context.StartActivity(chooser);
                     }
-
                     return;
                 }
 
-                // File path: use FileProvider
                 var file = new Java.IO.File(_lastCaptureImagePath);
                 if (file.Exists())
                 {
@@ -861,7 +734,8 @@ namespace TravelCamApp.ViewModels
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] OpenGallery error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] OpenGallery error: {ex.Message}");
             }
 #else
             await Launcher.Default.OpenAsync(new OpenFileRequest("Open Image",
@@ -875,7 +749,7 @@ namespace TravelCamApp.ViewModels
 
         private string GetCityForFileName()
         {
-            var cityItem = System.Linq.Enumerable.FirstOrDefault(_sensorItems, s => s.Name == "City");
+            var cityItem = SensorItems.FirstOrDefault(s => s.Name == "City");
             var city = cityItem?.Value;
             return string.IsNullOrWhiteSpace(city) || city == "Unknown" ? "CekliCam" : city;
         }

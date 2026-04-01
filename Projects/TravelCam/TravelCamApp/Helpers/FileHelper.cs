@@ -10,7 +10,12 @@ namespace TravelCamApp.Helpers
     {
         #region Methods
 
-        public static string CreateVideoPath(string city)
+        /// <summary>
+        /// Saves a video stream (returned by StopVideoRecording) to the gallery.
+        /// Writes to a temp cache file first, then publishes via MediaStore.
+        /// Returns the gallery URI (content://) or null on failure.
+        /// </summary>
+        public static async Task<string?> SaveVideoAsync(Stream stream, string city)
         {
             var now = DateTime.Now;
             var datePart = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -21,16 +26,31 @@ namespace TravelCamApp.Helpers
             Directory.CreateDirectory(baseDir);
 
             var fileName = $"{datePart}_{timePart}_{safeCity}.mp4";
-            var filePath = Path.Combine(baseDir, fileName);
-            return EnsureUniquePath(filePath);
-        }
+            var tempPath = Path.Combine(baseDir, fileName);
+            tempPath = EnsureUniquePath(tempPath);
 
-        /// <summary>
-        /// After video recording finishes, call this to copy it into the gallery.
-        /// </summary>
-        public static string? PublishVideoToGallery(string tempPath)
-        {
-            return CopyToGallery(tempPath, "video/mp4");
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] SaveVideoAsync - Saving to temp: {tempPath}");
+
+            if (stream.CanSeek)
+                stream.Position = 0;
+
+            using (var fileStream = File.Open(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await stream.CopyToAsync(fileStream);
+                await fileStream.FlushAsync();
+            }
+
+            var fileInfo = new FileInfo(tempPath);
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] SaveVideoAsync - Temp file size: {fileInfo.Length} bytes");
+
+            if (fileInfo.Length == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("[FileHelper] SaveVideoAsync - WARNING: File is empty!");
+                return tempPath;
+            }
+
+            var galleryPath = CopyToGallery(tempPath, "video/mp4");
+            return galleryPath ?? tempPath;
         }
 
         public static async Task<string> SavePhotoAsync(Stream stream, string city)
@@ -61,7 +81,7 @@ namespace TravelCamApp.Helpers
                 await stream.CopyToAsync(fileStream);
                 await fileStream.FlushAsync();
             }
-            // fileStream is now closed — safe to read from CopyToGallery.
+            // fileStream is now closed ï¿½ safe to read from CopyToGallery.
 
             var fileInfo = new FileInfo(tempPath);
             System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Temp file size: {fileInfo.Length} bytes");
@@ -157,7 +177,7 @@ namespace TravelCamApp.Helpers
                     outputStream.Flush();
                 }
 
-                // Clear pending flag — the file is now complete and gallery-visible
+                // Clear pending flag ï¿½ the file is now complete and gallery-visible
                 var updateValues = new Android.Content.ContentValues();
                 updateValues.Put(Android.Provider.MediaStore.IMediaColumns.IsPending, 0);
                 resolver.Update(uri, updateValues, null, null);

@@ -14,12 +14,16 @@
 ---
 
 ## CameraHelper.cs
-Camera.MAUI 1.5.1 wrapper. **API verified from library source.**
-- Returns `bool` (internal), library returns `CameraResult` (we unwrap it)
-- Null-check `cameraView.Camera` before operations
-- Use `CameraInfo` type, `CameraPosition.Back`, `FlashMode.Disabled/Enabled/Auto`
-- Video recording: set `cameraView.Microphone` before `StartRecordingAsync`
-- Zoom: scale 0.0-1.0 range to `MinZoomFactor..MaxZoomFactor`
+CommunityToolkit.Maui.Camera 6.0.0 wrapper. **API verified from library docs.**
+- `using CommunityToolkit.Maui.Views;` for `CameraView`
+- `using CommunityToolkit.Maui.Core;` for `CameraInfo`, `CameraPosition`, `CameraFlashMode`
+- `CameraPosition.Rear` (NOT `Back`) for rear camera
+- `CameraFlashMode` (NOT `FlashMode`)
+- `SelectedCamera` (NOT `Camera`) to set the active device
+- `StartCameraPreview(CancellationToken)` / `StopCameraPreview()` for preview
+- `CaptureImage(CancellationToken)` triggers capture → `MediaCaptured` event fires
+- `StartVideoRecording(CancellationToken)` / `StopVideoRecording(CancellationToken) → Task<Stream>`
+- Zoom: scale 0.0-1.0 range to `MinZoomFactor..MaxZoomFactor` via `SelectedCamera`
 
 ## FileHelper.cs
 File capture to MediaStore gallery publishing.

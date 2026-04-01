@@ -16,11 +16,12 @@
                             SelectionMode="None">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:SensorItem">
-                        <Label IsVisible="{Binding IsVisible}"
-                               Text="{Binding NameAndValue}"
-                               FontSize="12"
-                               TextColor="White"
-                               LineBreakMode="NoWrap" />
+                        <VerticalStackLayout IsVisible="{Binding IsVisible}" HeightRequest="-1">
+                            <Label Text="{Binding NameAndValue}"
+                                   FontSize="12"
+                                   TextColor="White"
+                                   LineBreakMode="NoWrap" />
+                        </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>

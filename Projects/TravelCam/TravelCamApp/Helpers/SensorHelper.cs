@@ -19,9 +19,10 @@ using TravelCamApp.Models;
 
 namespace TravelCamApp.Helpers
 {
-    public class SensorHelper
+    public class SensorHelper : IDisposable
     {
         private readonly HttpClient _httpClient = new();
+        private bool _disposed;
         private System.Timers.Timer? _updateTimer;
         private CancellationTokenSource? _cts;
         private bool _isUpdating;
@@ -39,8 +40,10 @@ namespace TravelCamApp.Helpers
             Speed = null,
         };
 
-        public event EventHandler<SensorData>? SensorDataUpdated;
-        public event Action<SensorData>? SensorDataUpdatedCallback;
+        /// <summary>
+        /// Raised when new sensor data is available. Subscribe to receive updates.
+        /// </summary>
+        public event Action<SensorData>? SensorDataUpdated;
 
         public async Task StartAsync()
         {
@@ -72,6 +75,14 @@ namespace TravelCamApp.Helpers
             _updateTimer?.Stop();
             _updateTimer?.Dispose();
             _updateTimer = null;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            Stop();
+            _httpClient.Dispose();
         }
 
         private async void OnTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
@@ -192,8 +203,7 @@ namespace TravelCamApp.Helpers
                 ct.ThrowIfCancellationRequested();
 
                 CurrentData = data;
-                SensorDataUpdated?.Invoke(this, data);
-                SensorDataUpdatedCallback?.Invoke(data);
+                SensorDataUpdated?.Invoke(data);
             }
             catch (OperationCanceledException)
             {
