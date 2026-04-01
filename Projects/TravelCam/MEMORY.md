@@ -177,8 +177,30 @@ TravelCamApp/
 | Priority | Item | Status |
 |---|---|---|
 | HIGH | Test camera on physical Android device | Not tested yet |
+| HIGH | Upgrade to Target SDK 36 before Aug 2026 | Planned |
 | MEDIUM | Flash control (FlashMode + UI) | Helper done, no UI |
 | MEDIUM | Zoom control (slider) | Helper done, no UI |
+| MEDIUM | Evaluate Camera.MAUI 1.5.1 vs CommunityToolkit.Maui.Camera | Planned |
 | LOW | Weather API verification | Open-Meteo integrated, untested |
 | LOW | Map overlay | Planned, not started |
 | LOW | Video recording on device | Code complete, untested |
+| LOW | Remove legacy SensorValueViewModel.cs | Dead code, not wired |
+| LOW | Remove unused converters (NullToBool, PositionToOptions) | Dead code |
+
+## Code Review — April 2026
+
+### Bugs Fixed
+1. **Missing MD3 color resources** — SensorValueSettingsView.xaml referenced 15 undefined StaticResource keys (MD3Surface, MD3Primary, etc.). Added all to Colors.xaml. Would crash at runtime.
+2. **Settings save only saved visible items** — Lost available items on reload. Now saves all items with visibility state.
+3. **Thread-safety on recording timer** — Timer callback updated UI property from thread pool. Now dispatches via MainThread.
+4. **Null-safety in ToggleCamera** — Used `_cameraView!` without null check. Added guard clause.
+5. **Async warnings** — ToggleFlashAsync and ToggleCameraAsync were marked async but had no awaits. Fixed signatures.
+6. **Duplicate #region Commands** in SensorValueSettingsViewModel — Renamed to avoid confusion.
+7. **Mode selector labels not tappable** — Added TapGestureRecognizer to Photo/Video labels.
+8. **Settings close used brittle navigation chain** — Replaced with CloseRequested event pattern.
+9. **SensorItem.OnPropertyChanged recursive call** — Separated dependent property notification.
+
+### Architecture Improvements
+1. **Consolidated duplicate sensor events** — Removed redundant `SensorDataUpdatedCallback` Action, kept single `SensorDataUpdated` event.
+2. **Added IDisposable to SensorHelper** — Proper cleanup of HttpClient and timer resources.
+3. **Removed unused DI registrations** — SensorValueViewModel and SensorValueView removed from MauiProgram.

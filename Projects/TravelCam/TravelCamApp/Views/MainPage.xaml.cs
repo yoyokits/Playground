@@ -1,16 +1,17 @@
-﻿// ========================================== //
+// ========================================== //
 // Developer: Yohanes Wahyu Nurcahyo          //
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 //
 // MainPage code-behind:
-// - Receives the CameraView and passes it to the ViewModel
-// - Shows/hides the settings overlay as a modal
+// - Passes the CameraView reference to the ViewModel on OnAppearing.
+// - Shows/hides the settings overlay as a modal.
 // - Does NOT dispose the camera when overlays appear or
 //   OnDisappearing fires. Camera lifecycle is managed by the
-//   ViewModel via Application.Activated/Deactivated events.
+//   ViewModel via Window.Resumed/Stopped events.
 
-using Camera.MAUI;
+using CommunityToolkit.Maui.Core;
+using CommunityToolkit.Maui.Views;
 using TravelCamApp.ViewModels;
 
 namespace TravelCamApp.Views
@@ -27,8 +28,8 @@ namespace TravelCamApp.Views
             _settingsViewModel = settingsViewModel;
             SettingsOverlay.BindingContext = _settingsViewModel;
 
-            // React to settings overlay visibility changes
-            viewModel.PropertyChanged += async (s, e) =>
+            // When settings overlay opens, populate the lists from SensorItems
+            viewModel.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(MainPageViewModel.IsSettingsVisible)
                     && viewModel.IsSettingsVisible)
@@ -36,22 +37,47 @@ namespace TravelCamApp.Views
                     _settingsViewModel.LoadFromSensorItems(viewModel.SensorItems);
                 }
             };
+
+            // When settings overlay requests close, save and hide
+            SettingsOverlay.CloseRequested += async (s, e) => await HideSettingsAsync();
+
+            // Subscribe to media capture events from the CameraView
+            CameraView.MediaCaptured += OnMediaCaptured;
+            CameraView.MediaCaptureFailed += OnMediaCaptureFailed;
         }
 
         /// <summary>
-        /// Called by Camera.MAUI when available cameras are loaded.
-        /// This is the earliest reliable signal that the camera control is ready.
+        /// Called each time this page becomes visible.
+        /// Triggers camera initialization / preview restart via the ViewModel.
         /// </summary>
-        private async void OnCameraViewCamerasLoaded(object? sender, EventArgs e)
+        protected override async void OnAppearing()
         {
-            System.Diagnostics.Debug.WriteLine("[MainPage] Cameras loaded, notifying ViewModel");
+            base.OnAppearing();
+            System.Diagnostics.Debug.WriteLine("[MainPage] OnAppearing — notifying ViewModel");
             await ViewModel.OnViewReady(CameraView);
         }
 
         /// <summary>
-        /// Hide the settings overlay. Saves settings and applies back to the main list.
+        /// Routes the MediaCaptured event from CameraView to the ViewModel.
         /// </summary>
-        internal async Task HideSettingsAsync()
+        private async void OnMediaCaptured(object? sender, MediaCapturedEventArgs e)
+        {
+            await ViewModel.OnMediaCaptured(e.Media);
+        }
+
+        /// <summary>
+        /// Routes the MediaCaptureFailed event from CameraView to the ViewModel.
+        /// </summary>
+        private void OnMediaCaptureFailed(object? sender, MediaCaptureFailedEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine($"[MainPage] Media capture failed: {e.FailureReason}");
+            ViewModel.OnMediaCaptureFailed();
+        }
+
+        /// <summary>
+        /// Saves settings and hides the settings overlay.
+        /// </summary>
+        private async Task HideSettingsAsync()
         {
             await _settingsViewModel.SaveSettingsAsync();
             _settingsViewModel.ApplyToSensorItems(ViewModel.SensorItems);

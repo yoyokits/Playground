@@ -15,6 +15,7 @@
             <!-- Capture Mode Converters -->
             <converters:CaptureModeToStringConverter x:Key="ModeToTextConverter" />
             <converters:CaptureModeToColorConverter x:Key="ModeToColorConverter" />
+            <converters:CaptureModeToButtonTextColorConverter x:Key="ModeToButtonTextColorConverter" />
             <converters:CaptureModeToTextColorConverter x:Key="ModeToTextColorConverter" />
             <converters:CaptureModeToFontAttributesConverter x:Key="ModeToFontConverter" />
 

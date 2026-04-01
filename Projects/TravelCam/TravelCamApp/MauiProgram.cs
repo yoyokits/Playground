@@ -1,4 +1,3 @@
-﻿using Camera.MAUI;
 using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using TravelCamApp.Helpers;
@@ -15,7 +14,7 @@ namespace TravelCamApp
             builder
                 .UseMauiApp<App>()
                 .UseMauiCommunityToolkit()
-                .UseMauiCameraView()
+                .UseMauiCommunityToolkitCamera()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -26,14 +25,12 @@ namespace TravelCamApp
             builder.Services.AddSingleton<SensorHelper>();
 
             // Register view models
+            builder.Services.AddTransient<SensorValueViewModel>();
             builder.Services.AddTransient<MainPageViewModel>();
             builder.Services.AddTransient<SensorValueSettingsViewModel>();
-            builder.Services.AddTransient<SensorValueViewModel>();
 
             // Register pages
             builder.Services.AddTransient<MainPage>();
-            builder.Services.AddTransient<SensorValueSettingsView>();
-            builder.Services.AddTransient<SensorValueView>();
 
 #if DEBUG
             builder.Logging.AddDebug();

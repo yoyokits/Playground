@@ -39,6 +39,23 @@ namespace TravelCamApp.Converters
     }
 
     /// <summary>
+    /// Converts CaptureMode to the shutter button text color.
+    /// Photo (white button) -> Black, Video (red button) -> White.
+    /// </summary>
+    public sealed class CaptureModeToButtonTextColorConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return value is CaptureMode.Video ? Colors.White : Colors.Black;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
     /// Converts CaptureMode to label text color for mode selector.
     /// Active mode -> White, Inactive -> Gray.
     /// Parameter is the mode name to check against: "Photo" or "Video".

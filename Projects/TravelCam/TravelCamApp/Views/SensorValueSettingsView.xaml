@@ -2,8 +2,8 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:models="clr-namespace:TravelCamApp.Models"
-             xmlns:viewModels="clr-namespace:TravelCamApp.ViewModels"
-             x:Class="TravelCamApp.Views.SensorValueSettingsView">
+             x:Class="TravelCamApp.Views.SensorValueSettingsView"
+             x:Name="SettingsRoot" >
 
     <ContentView.Content>
         <!-- Semi-transparent backdrop -->
@@ -56,7 +56,7 @@
                                                     VerticalOptions="Fill">
                                                 <Border.GestureRecognizers>
                                                     <TapGestureRecognizer
-                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewModels:SensorValueSettingsViewModel}}, Path=MoveToAvailableCommand}"
+                                                        Command="{Binding Source={x:Reference SettingsRoot}, Path=BindingContext.MoveToAvailableCommand}"
                                                         CommandParameter="{Binding .}" />
                                                 </Border.GestureRecognizers>
                                                 <Label Text="✕" FontSize="12" TextColor="White"
@@ -115,7 +115,7 @@
                                                     VerticalOptions="Fill">
                                                 <Border.GestureRecognizers>
                                                     <TapGestureRecognizer
-                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewModels:SensorValueSettingsViewModel}}, Path=MoveToVisibleCommand}"
+                                                        Command="{Binding Source={x:Reference SettingsRoot}, Path=BindingContext.MoveToVisibleCommand}"
                                                         CommandParameter="{Binding .}" />
                                                 </Border.GestureRecognizers>
                                                 <Label Text="＋" FontSize="12" TextColor="White"

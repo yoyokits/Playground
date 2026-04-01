@@ -17,99 +17,104 @@ TravelCam is a .NET MAUI camera application for Android (API 29+) that captures 
 | Target Framework | `net10.0-android` (also `net10.0-windows10.0.19041.0`) |
 | Android Min SDK | API 29 (Android 10) |
 | Android Target SDK | API 35 (Android 15) |
-| Camera.MAUI | 1.5.1 |
 | CommunityToolkit.Maui | 14.0.0 |
+| CommunityToolkit.Maui.Camera | 6.0.0 |
 
 ### Source
 
-- Camera.MAUI API: https://github.com/hjam40/Camera.MAUI (master branch)
+- CommunityToolkit.Maui.Camera API: https://learn.microsoft.com/en-us/dotnet/communitytoolkit/maui/views/camera-view
 
 ---
 
-## CRITICAL API REFERENCE — Camera.MAUI 1.5.1
+## CRITICAL API REFERENCE — CommunityToolkit.Maui.Camera 6.0.0
 
 **DO NOT** use hypothetical API names. Only use what is documented below or verified from the library source.
 
-### Types in `Camera.MAUI` namespace
+### Namespaces
 
 ```csharp
-// Camera info type (NOT CameraDevice, NOT CameraDeviceInfo)
-public class CameraInfo {
-    string Name { get; }
-    string DeviceId { get; }
-    CameraPosition Position { get; }  // Back, Front, Unknow
-    bool HasFlashUnit { get; }
-    float MinZoomFactor { get; }
-    float MaxZoomFactor { get; }
-    List<Size> AvailableResolutions { get; }
-}
-
-// Result enum (NOT bool)
-public enum CameraResult {
-    Success, AccessDenied, NoCameraSelected, AccessError,
-    NoVideoFormatsAvailable, NotInitiated, NoMicrophoneSelected, ResolutionNotAvailable
-}
-
-// Flash modes (NOT Off/On)
-public enum FlashMode { Auto, Enabled, Disabled }
-
-// Image format
-public enum ImageFormat { JPEG, PNG, ... }
-
-// Microphone info
-public class MicrophoneInfo {
-    string Name { get; }
-    string DeviceId { get; }
-}
+using CommunityToolkit.Maui.Views;   // CameraView
+using CommunityToolkit.Maui.Core;    // CameraInfo, CameraPosition, CameraFlashMode
 ```
 
-### CameraView API (the MAUI control)
+### XAML namespace
+
+```xml
+xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+<!-- CameraView element: <toolkit:CameraView ... /> -->
+```
+
+### MauiProgram setup
 
 ```csharp
-// COLLECTIONS — use "Cameras" NOT "Devices"
-ObservableCollection<CameraInfo> Cameras { get; set; }
-ObservableCollection<MicrophoneInfo> Microphones { get; set; }
-int NumCamerasDetected { get; set; }
-int NumMicrophonesDetected { get; set; }
+builder.UseMauiCommunityToolkit()
+       .UseMauiCommunityToolkitCamera()
+```
 
-// ACTIVE SELECTIONS — must be set before operations
-CameraInfo Camera { get; set; }           // REQUIRED before StartCameraAsync
-MicrophoneInfo Microphone { get; set; }   // REQUIRED before StartRecordingAsync
+### Key types
 
-// METHODS — all return CameraResult, NOT bool
-Task<CameraResult> StartCameraAsync(Size Resolution = default);
-Task<CameraResult> StopCameraAsync();
-Task<CameraResult> StartRecordingAsync(string file, Size Resolution = default);
-Task<CameraResult> StopRecordingAsync();
-Task<Stream>       TakePhotoAsync(ImageFormat imageFormat = ImageFormat.JPEG);
-ImageSource        GetSnapShot(ImageFormat imageFormat = ImageFormat.PNG);
-Task<bool>         SaveSnapShot(ImageFormat imageFormat, string SnapFilePath);
+```csharp
+// Camera device info
+public class CameraInfo {
+    string Name { get; }
+    CameraPosition Position { get; }   // Front, Rear  (NOT Back)
+    float MinZoomFactor { get; }
+    float MaxZoomFactor { get; }
+}
 
-// BINDABLE PROPERTIES
-CameraView.Self                (CameraView)   // OneWayToSource, MVVM binding
-FlashMode FlashMode            (default: Disabled)
-float ZoomFactor               (default: 1.0f)
-bool TorchEnabled              (default: false)
-bool MirroredImage             (default: false)
-ImageSource SnapShot           (OneWayToSource)
-Stream SnapShotStream          (OneWayToSource)
-float AutoSnapShotSeconds      (0 = disabled)
+// Camera position enum
+public enum CameraPosition { Front, Rear }
+
+// Flash mode enum (NOT FlashMode)
+public enum CameraFlashMode { Off, On }
+```
+
+### CameraView API
+
+```csharp
+// SELECTED CAMERA
+CameraInfo? SelectedCamera { get; set; }   // set before StartCameraPreview
+
+// PROPERTIES
+float ZoomFactor { get; set; }
+CameraFlashMode CameraFlashMode { get; set; }
+bool IsAvailable { get; }
+bool IsBusy { get; }
+
+// METHODS — note: no "Async" suffix on these methods
+ValueTask<IReadOnlyList<CameraInfo>> GetAvailableCameras(CancellationToken);
+Task StartCameraPreview(CancellationToken);   // starts preview
+void StopCameraPreview();                      // stops preview (sync)
+Task CaptureImage(CancellationToken);          // triggers capture → MediaCaptured event
+Task StartVideoRecording(CancellationToken);   // starts recording
+Task<Stream> StopVideoRecording(CancellationToken);  // stops and returns video stream
 
 // EVENTS
-event EventHandler CamerasLoaded;       // fires when cameras are detected
-event EventHandler MicrophonesLoaded;   // fires when microphones are detected
-event BarcodeResultHandler BarcodeDetected;
+event EventHandler<MediaCapturedEventArgs> MediaCaptured;
+event EventHandler<MediaCaptureFailedEventArgs> MediaCaptureFailed;
+
+// MediaCapturedEventArgs
+Stream Media { get; }   // captured image data
+
+// MediaCaptureFailedEventArgs
+string FailureReason { get; }
 ```
 
 ### CRITICAL BEHAVIORS
 
-1. **Camera auto-restart on property change**: Camera.MAUI has a `CameraChanged` bindable property callback that automatically restarts the camera when `CameraView.Camera` is changed. After toggling cameras, do NOT call `StartCameraAsync` again — the library handles it.
+1. **No `CamerasLoaded` event**: Unlike Camera.MAUI, there is no camera-loaded event.
+   Camera is initialized in `OnAppearing()` via `await ViewModel.OnViewReady(CameraView)`.
 
-2. **Microphone required for recording**: `Microphone` property MUST be set before calling `StartRecordingAsync()`, otherwise it fails.
+2. **Photo capture is event-based**: Call `CaptureImage(token)` to trigger, then
+   handle the result in the `MediaCaptured` event handler. The event fires with a `Stream`.
 
-3. **No `IsPreviewing` or `IsRecording` property**: These do NOT exist on `CameraView`. Track state manually in the ViewModel if needed.
+3. **Video returns a Stream**: `StopVideoRecording(token)` returns `Task<Stream>`.
+   Save the stream to a temp file, then publish to MediaStore.
 
-4. **`CamerasLoaded` fires once**: This is the reliable signal that the control is ready to use cameras. Listen to this event, not `OnAppearing`.
+4. **No `IsPreviewing` or `IsRecording` property**: Track state manually in the ViewModel.
+
+5. **Toggle camera**: `StopCameraPreview()`, set `SelectedCamera`, then `StartCameraPreview()`.
+   Unlike Camera.MAUI, there is no auto-restart on property change.
 
 ---
 
@@ -185,33 +190,32 @@ See `CodeStyle.txt` for full standards. Key rules:
 
 ---
 
-## FILES CHANGED IN REFACTOR
+## GOOGLE PLAY COMPLIANCE
 
-### Rewritten Files
+| Requirement | Status | Notes |
+|---|---|---|
+| Target SDK 35 (API 35) | OK | Current requirement until Aug 2026 |
+| Target SDK 36 (API 36) | PLANNED | Required by Aug 31, 2026 for new uploads |
+| Scoped Storage (API 29+) | OK | MediaStore with IsPending flag |
+| Runtime Permissions | OK | Camera, Mic, Location, Storage handled |
+| Camera.MAUI 1.5.1 | RISK | Last release; consider CommunityToolkit.Maui.Camera for long-term |
+
+## KEY FILES
+
 | File | Description |
 |---|---|
-| `MauiProgram.cs` | DI registration (SensorHelper, ViewModels, Pages) |
-| `MainPageViewModel.cs` | Complete rewrite — permission-first, event-driven sensors, lifecycle management |
-| `MainPage.xaml` | Clean camera UI with permission overlay |
-| `MainPage.xaml.cs` | Minimal — just CamerasLoaded handler and settings overlay toggle |
-| `CameraHelper.cs` | Verified against Camera.MAUI 1.5.1 source |
-| `SensorHelper.cs` | CancellationToken support, timer lifecycle |
-| `AndroidManifest.xml` | Clean permissions |
-| `TravelCamApp.csproj` | Android-first targets |
-| `Views/SensorValueView.xaml` | Simplified overlay |
-| `Views/SensorValueSettingsView.xaml` | Clean settings panel |
-
-### Unchanged (Working Correctly)
-| File | Description |
-|---|---|
-| `Helpers/Settings.cs` | Output path with fallback strategy |
-| `Helpers/FileHelper.cs` | MediaStore-based gallery integration |
-| `Helpers/SettingsHelper.cs` | JSON persistence for sensor settings |
-| `Models/SensorData.cs` | Sensor data structure |
-| `Models/SensorItem.cs` | Display item for sensor overlay |
-| `Converters/CaptureModeConverters.cs` | Value converters for mode display |
-| `App.xaml / App.xaml.cs` | App shell |
-| `AppShell.xaml` | Single-page navigation |
+| `MauiProgram.cs` | DI registration (SensorHelper singleton, ViewModels, Pages) |
+| `MainPageViewModel.cs` | Main coordinator — permissions, camera, sensors, lifecycle |
+| `MainPage.xaml` | Camera UI with permission overlay, sensor overlay, mode selector |
+| `MainPage.xaml.cs` | OnAppearing camera init, MediaCaptured routing, settings overlay |
+| `CameraHelper.cs` | Static CommunityToolkit.Maui.Camera 6.0.0 wrapper |
+| `SensorHelper.cs` | GPS+Compass+Weather polling (10s), IDisposable |
+| `FileHelper.cs` | MediaStore gallery integration |
+| `SettingsHelper.cs` | JSON persistence for sensor settings |
+| `SensorData.cs` | Sensor data model |
+| `SensorItem.cs` | Observable display item (Name, Value, IsVisible) |
+| `SensorValueSettingsViewModel.cs` | Manages visible/available sensor lists |
+| `SensorValueViewModel.cs` | Owns SensorItems, subscribes to SensorHelper, wired into main flow |
 
 ---
 
@@ -224,19 +228,26 @@ dotnet build -f net10.0-android
 ```
 
 Key compile checks:
-1. All `Camera.MAUI` type names match library (`CameraInfo`, not `CameraDevice`)
-2. `Cameras` property used (not `Devices`)
-3. `CameraResult` enum used (not `bool`)
-4. All namespaces use `using Camera.MAUI;`
-5. Android-specific code wrapped in `#if ANDROID`
+1. `using CommunityToolkit.Maui.Views;` for `CameraView`
+2. `using CommunityToolkit.Maui.Core;` for `CameraInfo`, `CameraPosition`, `CameraFlashMode`
+3. `CameraPosition.Rear` (NOT `Back`) for rear camera selection
+4. `CameraFlashMode` (NOT `FlashMode`) for flash control
+5. `SelectedCamera` (NOT `Camera`) for setting active device
+6. Android-specific code wrapped in `#if ANDROID`
+7. `MediaCapturedEventArgs.Media` is the captured photo Stream
+8. `StopVideoRecording(CancellationToken)` returns `Task<Stream>`
 
 ---
 
 ## TODO / INCOMPLETE FEATURES
 
-- [ ] Weather API for temperature — Open-Meteo integrated but untested on device
-- [ ] Flash control — method exists, no UI button yet
-- [ ] Zoom control — method exists, no UI slider yet
+- [ ] Test camera + video recording on physical Android device
+- [ ] Flash control — helper complete, needs UI button in control panel
+- [ ] Zoom control — helper complete, needs UI slider
 - [ ] Map overlay — not implemented yet
-- [ ] Video recording — code complete, untested on device
+- [ ] Weather API verification — Open-Meteo integrated, untested on device
+- [ ] Upgrade Target SDK to API 36 before Aug 2026 Google Play deadline
+- [x] Migrated from Camera.MAUI 1.5.1 to CommunityToolkit.Maui.Camera 6.0.0
+- [x] SensorValueViewModel rewired — subscribes to SensorHelper, owns SensorItems
+- [ ] Verify CommunityToolkit.Maui.Camera 6.0.0 net10.0 compatibility; upgrade if needed
 - [ ] iOS support — scaffold only, not targeted

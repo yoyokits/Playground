@@ -1,68 +1,90 @@
-﻿// ========================================== //
+// ========================================== //
 // Developer: Yohanes Wahyu Nurcahyo          //
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 //
-// CameraHelper provides static camera operations for Camera.MAUI.
-// Each method handles its own permission/state checks and returns
-// a clean result. The caller (MainPageViewModel) manages camera
-// lifecycle.
+// CameraHelper provides static camera operations for CommunityToolkit.Maui.Camera.
+// Each method handles its own state checks and returns a clean result.
+// The caller (MainPageViewModel) manages camera lifecycle.
 //
-// API reference: https://github.com/hjam40/Camera.MAUI (master branch)
+// API reference: https://learn.microsoft.com/en-us/dotnet/communitytoolkit/maui/views/camera-view
 
 using System;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using Camera.MAUI;
+using CommunityToolkit.Maui.Core;
+using CommunityToolkit.Maui.Views;
 
 namespace TravelCamApp.Helpers
 {
     public static class CameraHelper
     {
-        private const int CameraStabilizationMs = 1500;
-
         #region Device Selection
 
         /// <summary>
-        /// Selects the first available camera (prefers back camera).
-        /// Returns the camera name, or null if none found.
+        /// Selects the first available camera (prefers rear camera).
+        /// Returns the selected CameraInfo, or null if none found.
         /// </summary>
-        public static string? SelectFirstAvailableCamera(CameraView cameraView)
+        public static async Task<CameraInfo?> SelectFirstAvailableCameraAsync(CameraView cameraView)
         {
-            ObservableCollection<CameraInfo> cameras = cameraView.Cameras;
-            if (cameras == null || cameras.Count == 0)
+            try
             {
-                LogDebug("[CameraHelper] No camera devices available");
+                var cameras = await cameraView.GetAvailableCameras(CancellationToken.None);
+                if (cameras == null || cameras.Count == 0)
+                {
+                    LogDebug("[CameraHelper] No camera devices available");
+                    return null;
+                }
+
+                // Prefer rear camera by position
+                CameraInfo? rearCamera = cameras.FirstOrDefault(c => c.Position == CameraPosition.Rear);
+                CameraInfo selected = rearCamera ?? cameras[0];
+
+                cameraView.SelectedCamera = selected;
+                LogDebug("[CameraHelper] Selected camera: {0}", selected.Name);
+                return selected;
+            }
+            catch (Exception ex)
+            {
+                LogDebug("[CameraHelper] Exception selecting camera: {0}", ex.Message);
                 return null;
             }
-
-            // Prefer back camera by position
-            CameraInfo? backCamera = cameras.FirstOrDefault(c => c.Position == CameraPosition.Back);
-
-            CameraInfo selected = backCamera ?? cameras[0];
-            cameraView.Camera = selected;
-            LogDebug("[CameraHelper] Selected camera: {0}", selected.Name);
-            return selected.Name;
         }
 
         /// <summary>
-        /// Switches to the next available camera device (front/back toggle).
+        /// Switches to the next available camera device (front/rear toggle).
         /// </summary>
-        public static string? ToggleCameraDevice(CameraView cameraView)
+        public static async Task<CameraInfo?> ToggleCameraDeviceAsync(CameraView cameraView)
         {
-            var cameras = cameraView.Cameras;
-            if (cameras == null || cameras.Count <= 1)
-                return cameraView.Camera?.Name;
+            try
+            {
+                var cameras = await cameraView.GetAvailableCameras(CancellationToken.None);
+                if (cameras == null || cameras.Count <= 1)
+                    return cameraView.SelectedCamera;
 
-            var current = cameraView.Camera;
-            var currentIndex = cameras.IndexOf(current!);
-            var nextIndex = (currentIndex + 1) % cameras.Count;
+                var cameraList = cameras.ToList();
+                int currentIndex = -1;
+                for (int i = 0; i < cameraList.Count; i++)
+                {
+                    if (cameraList[i].Position == (cameraView.SelectedCamera?.Position ?? CameraPosition.Rear))
+                    {
+                        currentIndex = i;
+                        break;
+                    }
+                }
 
-            cameraView.Camera = cameras[nextIndex];
-            LogDebug("[CameraHelper] Toggled to camera: {0}", cameras[nextIndex].Name);
-            return cameras[nextIndex].Name;
+                int nextIndex = (currentIndex + 1) % cameraList.Count;
+                cameraView.SelectedCamera = cameraList[nextIndex];
+                LogDebug("[CameraHelper] Toggled to camera: {0}", cameraList[nextIndex].Name);
+                return cameraList[nextIndex];
+            }
+            catch (Exception ex)
+            {
+                LogDebug("[CameraHelper] Exception toggling camera: {0}", ex.Message);
+                return cameraView.SelectedCamera;
+            }
         }
 
         #endregion
@@ -70,27 +92,25 @@ namespace TravelCamApp.Helpers
         #region Preview
 
         /// <summary>
-        /// Starts the camera preview. Idempotent -- safe to call multiple times.
+        /// Starts the camera preview. Selects a camera first if none is selected.
         /// Returns true if preview started successfully.
         /// </summary>
         public static async Task<bool> StartPreviewAsync(CameraView cameraView)
         {
             try
             {
-                if (cameraView.Camera == null)
-                {
-                    SelectFirstAvailableCamera(cameraView);
-                }
+                if (cameraView.SelectedCamera == null)
+                    await SelectFirstAvailableCameraAsync(cameraView);
 
-                if (cameraView.Camera == null)
+                if (cameraView.SelectedCamera == null)
                 {
                     LogDebug("[CameraHelper] No camera device to start preview");
                     return false;
                 }
 
-                CameraResult result = await cameraView.StartCameraAsync();
-                LogDebug("[CameraHelper] StartCameraAsync result: {0}", result);
-                return result == CameraResult.Success;
+                await cameraView.StartCameraPreview(CancellationToken.None);
+                LogDebug("[CameraHelper] StartCameraPreview completed");
+                return true;
             }
             catch (Exception ex)
             {
@@ -102,17 +122,16 @@ namespace TravelCamApp.Helpers
         /// <summary>
         /// Stops the camera preview gracefully.
         /// </summary>
-        public static async Task<bool> StopPreviewAsync(CameraView cameraView)
+        public static void StopPreview(CameraView cameraView)
         {
             try
             {
-                CameraResult result = await cameraView.StopCameraAsync();
-                return result == CameraResult.Success || result == CameraResult.AccessError;
+                cameraView.StopCameraPreview();
+                LogDebug("[CameraHelper] Camera preview stopped");
             }
             catch (Exception ex)
             {
                 LogDebug("[CameraHelper] Exception stopping preview: {0}", ex.Message);
-                return false;
             }
         }
 
@@ -121,33 +140,25 @@ namespace TravelCamApp.Helpers
         #region Photo Capture
 
         /// <summary>
-        /// Takes a photo and returns the image stream.
-        /// Returns null on failure.
+        /// Triggers a photo capture. The result is returned via the CameraView.MediaCaptured event.
+        /// Subscribe to MediaCaptured on the CameraView before calling this.
         /// </summary>
-        public static async Task<Stream?> TakePhotoAsync(CameraView cameraView)
+        public static async Task TriggerCaptureAsync(CameraView cameraView)
         {
             try
             {
-                if (cameraView.Camera == null)
+                if (cameraView.SelectedCamera == null)
                 {
-                    LogDebug("[CameraHelper] Cannot take photo -- no camera selected");
-                    return null;
+                    LogDebug("[CameraHelper] Cannot capture — no camera selected");
+                    return;
                 }
 
-                Stream stream = await cameraView.TakePhotoAsync(Camera.MAUI.ImageFormat.JPEG);
-                if (stream == null || stream.Length == 0)
-                {
-                    LogDebug("[CameraHelper] Photo stream is null or empty");
-                    return null;
-                }
-
-                LogDebug("[CameraHelper] Photo captured: {0} bytes", stream.Length);
-                return stream;
+                await cameraView.CaptureImage(CancellationToken.None);
+                LogDebug("[CameraHelper] CaptureImage triggered");
             }
             catch (Exception ex)
             {
-                LogDebug("[CameraHelper] Exception taking photo: {0}", ex.Message);
-                return null;
+                LogDebug("[CameraHelper] Exception triggering capture: {0}", ex.Message);
             }
         }
 
@@ -156,34 +167,22 @@ namespace TravelCamApp.Helpers
         #region Video Recording
 
         /// <summary>
-        /// Starts video recording to the specified file path.
+        /// Starts video recording.
         /// Returns true if recording started successfully.
         /// </summary>
-        public static async Task<bool> StartVideoRecordingAsync(CameraView cameraView, string filePath)
+        public static async Task<bool> StartVideoRecordingAsync(CameraView cameraView)
         {
             try
             {
-                if (cameraView.Camera == null)
+                if (cameraView.SelectedCamera == null)
                 {
                     LogDebug("[CameraHelper] No camera selected for recording");
                     return false;
                 }
 
-                if (!cameraView.Cameras.Any())
-                {
-                    LogDebug("[CameraHelper] No cameras available for recording");
-                    return false;
-                }
-
-                // Camera.MAUI needs a running preview + microphone set before recording
-                if (cameraView.Microphone == null && cameraView.Microphones.Count > 0)
-                {
-                    cameraView.Microphone = cameraView.Microphones[0];
-                }
-
-                CameraResult result = await cameraView.StartRecordingAsync(filePath);
-                LogDebug("[CameraHelper] StartRecordingAsync result: {0}", result);
-                return result == CameraResult.Success;
+                await cameraView.StartVideoRecording(CancellationToken.None);
+                LogDebug("[CameraHelper] Video recording started");
+                return true;
             }
             catch (Exception ex)
             {
@@ -193,48 +192,40 @@ namespace TravelCamApp.Helpers
         }
 
         /// <summary>
-        /// Stops video recording. Camera.MAUI handles preview restoration internally.
-        /// Returns true if recording was stopped successfully.
+        /// Stops video recording and returns the recorded video as a Stream.
+        /// Returns null on failure.
         /// </summary>
-        public static async Task<bool> StopVideoRecordingAsync(CameraView cameraView)
+        public static async Task<Stream?> StopVideoRecordingAsync(CameraView cameraView)
         {
             try
             {
-                CameraResult result = await cameraView.StopRecordingAsync();
-                // Give the library time to restore preview state internally
-                if (result == CameraResult.Success)
-                {
-                    await Task.Delay(CameraStabilizationMs);
-                }
-
-                LogDebug("[CameraHelper] StopRecordingAsync result: {0}", result);
-                return result == CameraResult.Success;
+                var videoStream = await cameraView.StopVideoRecording(CancellationToken.None);
+                LogDebug("[CameraHelper] Video recording stopped, stream: {0} bytes",
+                    videoStream?.Length.ToString() ?? "null");
+                return videoStream;
             }
             catch (Exception ex)
             {
                 LogDebug("[CameraHelper] Exception stopping recording: {0}", ex.Message);
-                return false;
+                return null;
             }
         }
 
         #endregion
 
-        #region Flash / Torch
+        #region Flash
 
         /// <summary>
-        /// Toggles the camera flash mode: Disabled -> Enabled -> Auto -> Disabled.
+        /// Toggles the camera flash mode: Off → On → Off.
+        /// Returns the new flash mode.
         /// </summary>
-        public static FlashMode CycleFlashMode(CameraView cameraView)
+        public static CameraFlashMode CycleFlashMode(CameraView cameraView)
         {
-            var next = cameraView.FlashMode switch
-            {
-                FlashMode.Disabled => FlashMode.Enabled,
-                FlashMode.Enabled => FlashMode.Auto,
-                FlashMode.Auto => FlashMode.Disabled,
-                _ => FlashMode.Disabled,
-            };
+            var next = cameraView.CameraFlashMode == CameraFlashMode.Off
+                ? CameraFlashMode.On
+                : CameraFlashMode.Off;
 
-            cameraView.FlashMode = next;
+            cameraView.CameraFlashMode = next;
             LogDebug("[CameraHelper] Flash mode set to: {0}", next);
             return next;
         }
@@ -244,24 +235,17 @@ namespace TravelCamApp.Helpers
         #region Zoom
 
         /// <summary>
-        /// Applies zoom to the camera. zoomFactor is 0.0 - 1.0 (relative of max).
+        /// Applies zoom to the camera. zoomFactor is 0.0–1.0 (relative of max).
         /// </summary>
         public static void SetZoom(CameraView cameraView, double zoomFactor)
         {
             zoomFactor = Math.Clamp(zoomFactor, 0.0, 1.0);
 
-            if (cameraView.Camera != null)
-            {
-                float minZoom = cameraView.Camera.MinZoomFactor;
-                float maxZoom = cameraView.Camera.MaxZoomFactor;
-                float actualZoom = (float)(minZoom + (maxZoom - minZoom) * zoomFactor);
-                actualZoom = Math.Max(minZoom, Math.Min(maxZoom, actualZoom));
-                cameraView.ZoomFactor = actualZoom;
-            }
-            else
-            {
-                cameraView.ZoomFactor = (float)zoomFactor;
-            }
+            // Camera.MAUI's ZoomFactor is normalized 0.0–1.0 directly.
+            // No need to convert using min/max bounds.
+            cameraView.ZoomFactor = (float)zoomFactor;
+
+            LogDebug("[CameraHelper] ZoomFactor set to: {0}", cameraView.ZoomFactor);
         }
 
         #endregion
