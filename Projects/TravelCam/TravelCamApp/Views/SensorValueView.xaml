@@ -1,71 +1,29 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:viewModels="clr-namespace:TravelCamApp.ViewModels"
-             xmlns:views="clr-namespace:TravelCamApp.Views"
-             x:Class="TravelCamApp.Views.SensorValueView"
-             x:DataType="viewModels:SensorValueViewModel">
-    <Grid HorizontalOptions="Start" VerticalOptions="Start">
-        <!-- Background Border with content -->
-        <Border x:Name="SensorOverlayBorder"
-                Margin="8"
-                Padding="8,6"
-                BackgroundColor="#AA000000"
-                StrokeThickness="0"
-                StrokeShape="RoundRectangle 12"
-                HorizontalOptions="Start"
-                VerticalOptions="Start">
-            <VerticalStackLayout BindableLayout.ItemsSource="{Binding VisibleSensorDisplayItems}"
-                                 Spacing="8"
-                                 HorizontalOptions="Fill"
-                                 VerticalOptions="Start">
-                <BindableLayout.ItemTemplate>
-                    <DataTemplate x:DataType="viewModels:SensorDisplayItem">
-                        <Grid HorizontalOptions="Center" VerticalOptions="Center">
-                            <!-- Regular sensor label (not compass) -->
-                            <Label Text="{Binding FormattedValue}"
-                                   TextColor="White"
-                                   FontFamily="RobotoRegular"
-                                   FontSize="{Binding Source={RelativeSource AncestorType={x:Type viewModels:SensorValueViewModel}}, Path=FontSize}"
-                                   HorizontalOptions="Center"
-                                   VerticalOptions="Center">
-                                <Label.Triggers>
-                                    <DataTrigger TargetType="Label"
-                                                 Binding="{Binding Name}"
-                                                 Value="Compass">
-                                        <Setter Property="IsVisible" Value="False" />
-                                    </DataTrigger>
-                                </Label.Triggers>
-                            </Label>
+             xmlns:models="clr-namespace:TravelCamApp.Models"
+             x:Class="TravelCamApp.Views.SensorValueView">
 
-                            <!-- Compass control (only for Compass sensor) -->
-                            <views:CompassControl Degree="{Binding Source={RelativeSource AncestorType={x:Type viewModels:SensorValueViewModel}}, Path=CompassDegree, Mode=OneWay}"
-                                                  IsVisible="False"
-                                                  HorizontalOptions="Center"
-                                                  VerticalOptions="Center"
-                                                  HeightRequest="180"
-                                                  WidthRequest="180">
-                                <views:CompassControl.Triggers>
-                                    <DataTrigger TargetType="views:CompassControl"
-                                                 Binding="{Binding Name}"
-                                                 Value="Compass">
-                                        <Setter Property="IsVisible" Value="True" />
-                                    </DataTrigger>
-                                </views:CompassControl.Triggers>
-                            </views:CompassControl>
-                        </Grid>
+    <Border BackgroundColor="#AA000000"
+            StrokeShape="RoundRectangle 8"
+            Padding="12,10"
+            MaximumWidthRequest="160">
+        <VerticalStackLayout Spacing="4">
+            <VerticalStackLayout.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
+            </VerticalStackLayout.GestureRecognizers>
+            <CollectionView ItemsSource="{Binding SensorItems}"
+                            SelectionMode="None">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:SensorItem">
+                        <Label IsVisible="{Binding IsVisible}"
+                               Text="{Binding NameAndValue}"
+                               FontSize="12"
+                               TextColor="White"
+                               LineBreakMode="NoWrap" />
                     </DataTemplate>
-                </BindableLayout.ItemTemplate>
-            </VerticalStackLayout>
-        </Border>
-
-        <!-- Invisible button overlay to capture taps reliably on all devices -->
-        <Button x:Name="TapOverlay"
-                Margin="8"
-                BackgroundColor="Transparent"
-                BorderWidth="0"
-                Clicked="OnSensorOverlayClicked"
-                HorizontalOptions="Start"
-                VerticalOptions="Start" />
-    </Grid>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </VerticalStackLayout>
+    </Border>
 </ContentView>

@@ -1,8 +1,8 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
-using TravelCamApp.Helpers;
 
 namespace TravelCamApp.Helpers
 {
@@ -13,103 +13,200 @@ namespace TravelCamApp.Helpers
         public static string CreateVideoPath(string city)
         {
             var now = DateTime.Now;
-            var year = now.Year.ToString(CultureInfo.InvariantCulture);
-            var month = now.Month.ToString("00", CultureInfo.InvariantCulture);
-            var day = now.Day.ToString("00", CultureInfo.InvariantCulture);
+            var datePart = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var timePart = now.ToString("HHmmss", CultureInfo.InvariantCulture);
+            var safeCity = SanitizeFileName(city);
 
-            var baseDir = Settings.OutputPath;
+            var baseDir = GetAppCacheDir();
             Directory.CreateDirectory(baseDir);
 
-            var prefix = $"{year}-{month}-{day}-{city}-";
-            var index = GetNextIndex(baseDir, prefix, ".mp4");
-            var fileName = $"{prefix}{index:000}.mp4";
-            return Path.Combine(baseDir, fileName);
+            var fileName = $"{datePart}_{timePart}_{safeCity}.mp4";
+            var filePath = Path.Combine(baseDir, fileName);
+            return EnsureUniquePath(filePath);
         }
 
-        private static int GetNextIndex(string baseDir, string prefix, string extension)
+        /// <summary>
+        /// After video recording finishes, call this to copy it into the gallery.
+        /// </summary>
+        public static string? PublishVideoToGallery(string tempPath)
         {
-            var existing = Directory.GetFiles(baseDir, $"{prefix}*{extension}");
-            var max = 0;
-
-            foreach (var file in existing)
-            {
-                var name = Path.GetFileNameWithoutExtension(file);
-                var tail = name.Replace(prefix, string.Empty, StringComparison.OrdinalIgnoreCase);
-                if (int.TryParse(tail, NumberStyles.None, CultureInfo.InvariantCulture, out var value))
-                {
-                    max = Math.Max(max, value);
-                }
-            }
-
-            return max + 1;
+            return CopyToGallery(tempPath, "video/mp4");
         }
 
         public static async Task<string> SavePhotoAsync(Stream stream, string city)
         {
             var now = DateTime.Now;
-            var year = now.Year.ToString(CultureInfo.InvariantCulture);
-            var month = now.Month.ToString("00", CultureInfo.InvariantCulture);
-            var day = now.Day.ToString("00", CultureInfo.InvariantCulture);
+            var datePart = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var timePart = now.ToString("HHmmss", CultureInfo.InvariantCulture);
+            var safeCity = SanitizeFileName(city);
 
-            var baseDir = Settings.OutputPath;
+            // Save to app-private cache first
+            var baseDir = GetAppCacheDir();
             Directory.CreateDirectory(baseDir);
 
-            var prefix = $"{year}-{month}-{day}-{city}-";
-            var index = GetNextIndex(baseDir, prefix, ".jpg");
-            var fileName = $"{prefix}{index:000}.jpg";
-            var filePath = Path.Combine(baseDir, fileName);
+            var fileName = $"{datePart}_{timePart}_{safeCity}.jpg";
+            var tempPath = Path.Combine(baseDir, fileName);
+            tempPath = EnsureUniquePath(tempPath);
 
-            System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Starting to save photo");
-            System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Stream position: {stream.Position}, Length: {stream.Length}, CanSeek: {stream.CanSeek}");
-            System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Target path: {filePath}");
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Saving to temp: {tempPath}");
 
-            // Reset stream position to beginning if possible
             if (stream.CanSeek)
-            {
                 stream.Position = 0;
-                System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Stream position reset to 0");
+
+            // Write to temp file and CLOSE it before CopyToGallery reads it.
+            // File.Open with FileMode.Create defaults to FileShare.None, so the
+            // file must be fully closed before another handle can open it.
+            using (var fileStream = File.Open(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await stream.CopyToAsync(fileStream);
+                await fileStream.FlushAsync();
             }
+            // fileStream is now closed — safe to read from CopyToGallery.
 
-            await using var fileStream = File.Open(filePath, FileMode.Create, FileAccess.Write);
-            await stream.CopyToAsync(fileStream);
-            await fileStream.FlushAsync();
-
-            var fileInfo = new FileInfo(filePath);
-            System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Photo saved successfully. File size: {fileInfo.Length} bytes");
+            var fileInfo = new FileInfo(tempPath);
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Temp file size: {fileInfo.Length} bytes");
 
             if (fileInfo.Length == 0)
             {
-                System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - WARNING: File is empty!");
+                System.Diagnostics.Debug.WriteLine("[FileHelper] SavePhotoAsync - WARNING: File is empty!");
+                return tempPath;
             }
 
-            // Notify the media scanner on Android so the image appears in gallery
-            NotifyMediaScanner(filePath);
-
-            return filePath;
+            // Copy into the gallery via MediaStore (Android 10+) or direct path (older)
+            var galleryPath = CopyToGallery(tempPath, "image/jpeg");
+            return galleryPath ?? tempPath;
         }
 
         /// <summary>
-        /// Notifies the media scanner to index the new file so it appears in the gallery.
+        /// Gets a temporary app-private directory for staging captures.
         /// </summary>
-        /// <param name="filePath">The file path to scan.</param>
-        private static void NotifyMediaScanner(string filePath)
+        private static string GetAppCacheDir()
+        {
+#if ANDROID
+            var context = Android.App.Application.Context;
+            var cacheDir = context.ExternalCacheDir?.AbsolutePath
+                ?? context.CacheDir?.AbsolutePath
+                ?? FileSystem.CacheDirectory;
+            return Path.Combine(cacheDir, "captures");
+#else
+            return Path.Combine(FileSystem.CacheDirectory, "captures");
+#endif
+        }
+
+        /// <summary>
+        /// Copies a file into shared gallery storage using MediaStore (Android 10+)
+        /// or direct file copy + media scan (older Android / other platforms).
+        /// Returns the gallery-visible path, or null on failure.
+        /// </summary>
+        private static string? CopyToGallery(string sourcePath, string mimeType)
         {
 #if ANDROID
             try
             {
                 var context = Android.App.Application.Context;
-                Android.Media.MediaScannerConnection.ScanFile(
-                    context,
-                    new[] { filePath },
-                    new[] { "image/jpeg" },
-                    null);
-                System.Diagnostics.Debug.WriteLine($"[FileHelper] MediaScanner notified for: {filePath}");
+                var fileName = Path.GetFileName(sourcePath);
+                return CopyToMediaStore(context, sourcePath, fileName, mimeType);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[FileHelper] MediaScanner notification failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] CopyToGallery failed: {ex.Message}");
+                return null;
             }
+#else
+            return sourcePath;
 #endif
+        }
+
+#if ANDROID
+        private static string? CopyToMediaStore(
+            Android.Content.Context context, string sourcePath, string fileName, string mimeType)
+        {
+            var isVideo = mimeType.StartsWith("video", StringComparison.OrdinalIgnoreCase);
+            var collection = isVideo
+                ? Android.Provider.MediaStore.Video.Media.ExternalContentUri
+                : Android.Provider.MediaStore.Images.Media.ExternalContentUri;
+
+            var values = new Android.Content.ContentValues();
+            values.Put(Android.Provider.MediaStore.IMediaColumns.DisplayName, Path.GetFileNameWithoutExtension(fileName));
+            values.Put(Android.Provider.MediaStore.IMediaColumns.MimeType, mimeType);
+            values.Put(Android.Provider.MediaStore.IMediaColumns.RelativePath,
+                $"{Android.OS.Environment.DirectoryPictures}/{Settings.DefaultCameraName}");
+            // Mark as pending so gallery apps don't show a blank entry during the write
+            values.Put(Android.Provider.MediaStore.IMediaColumns.IsPending, 1);
+
+            var resolver = context.ContentResolver;
+            var uri = resolver?.Insert(collection!, values);
+            if (uri == null || resolver == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[FileHelper] MediaStore insert returned null URI");
+                return null;
+            }
+
+            try
+            {
+                using (var outputStream = resolver.OpenOutputStream(uri))
+                {
+                    if (outputStream == null)
+                    {
+                        resolver.Delete(uri, null, null);
+                        return null;
+                    }
+
+                    using var inputStream = File.OpenRead(sourcePath);
+                    inputStream.CopyTo(outputStream);
+                    outputStream.Flush();
+                }
+
+                // Clear pending flag — the file is now complete and gallery-visible
+                var updateValues = new Android.Content.ContentValues();
+                updateValues.Put(Android.Provider.MediaStore.IMediaColumns.IsPending, 0);
+                resolver.Update(uri, updateValues, null, null);
+
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] MediaStore: published {fileName} to gallery");
+
+                // Clean up the temp file
+                try { File.Delete(sourcePath); } catch { /* best effort */ }
+
+                return uri.ToString();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] MediaStore write failed: {ex.Message}");
+                // Remove the broken MediaStore entry
+                try { resolver.Delete(uri, null, null); } catch { }
+                return null;
+            }
+        }
+
+        #endif
+
+        private static string SanitizeFileName(string name)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            var sanitized = string.Concat(name.Select(c => Array.IndexOf(invalid, c) >= 0 || c == ' ' ? '_' : c));
+            return string.IsNullOrWhiteSpace(sanitized) ? "photo" : sanitized;
+        }
+
+        /// <summary>
+        /// If the file already exists (same-second capture), appends _2, _3, etc. to avoid overwriting.
+        /// </summary>
+        private static string EnsureUniquePath(string filePath)
+        {
+            if (!File.Exists(filePath))
+                return filePath;
+
+            var dir = Path.GetDirectoryName(filePath)!;
+            var name = Path.GetFileNameWithoutExtension(filePath);
+            var ext = Path.GetExtension(filePath);
+
+            for (int i = 2; i < 1000; i++)
+            {
+                var candidate = Path.Combine(dir, $"{name}_{i}{ext}");
+                if (!File.Exists(candidate))
+                    return candidate;
+            }
+
+            return filePath;
         }
 
         #endregion

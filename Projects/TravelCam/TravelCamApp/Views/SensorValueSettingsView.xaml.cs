@@ -7,119 +7,55 @@ namespace TravelCamApp.Views
     {
         private SensorValueSettingsViewModel? _viewModel;
 
+        private SensorValueSettingsViewModel ViewModel =>
+            _viewModel
+            ?? (BindingContext as SensorValueSettingsViewModel)
+            ?? throw new InvalidOperationException("SensorValueSettingsView ViewModel not set");
+
         public SensorValueSettingsView()
         {
             InitializeComponent();
-            _viewModel = new SensorValueSettingsViewModel();
-            BindingContext = _viewModel;
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Created with ViewModel");
         }
 
-        private SensorValueSettingsViewModel ViewModel
+        public SensorValueSettingsView(SensorValueSettingsViewModel viewModel) : this()
         {
-            get
-            {
-                if (_viewModel == null && BindingContext is SensorValueSettingsViewModel vm)
-                {
-                    _viewModel = vm;
-                }
-                return _viewModel ?? throw new InvalidOperationException("ViewModel is not set");
-            }
+            _viewModel = viewModel;
+            BindingContext = viewModel;
         }
 
-        protected override void OnBindingContextChanged()
-        {
-            base.OnBindingContextChanged();
-            if (BindingContext is SensorValueSettingsViewModel viewModel)
-            {
-                _viewModel = viewModel;
-                System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] BindingContext changed to SensorValueSettingsViewModel");
-            }
-        }
-
-        private void OnVisibleListSelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            var selectedItem = e.CurrentSelection.FirstOrDefault() as SensorItem;
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Visible list selection changed: {0}", selectedItem?.Name ?? "NULL");
-            
-            // Clear available selection when visible is selected
-            if (selectedItem != null)
-            {
-                AvailableSensorsList.SelectedItem = null;
-            }
-        }
-
-        private void OnAvailableListSelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            var selectedItem = e.CurrentSelection.FirstOrDefault() as SensorItem;
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Available list selection changed: {0}", selectedItem?.Name ?? "NULL");
-            
-            // Clear visible selection when available is selected
-            if (selectedItem != null)
-            {
-                VisibleSensorsList.SelectedItem = null;
-            }
-        }
-
-        private async void OnAddButtonClicked(object sender, EventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Add button clicked");
-            var selectedItem = AvailableSensorsList.SelectedItem as SensorItem;
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] SelectedAvailableItem from list: {0}", selectedItem?.Name ?? "NULL");
-            
-            if (selectedItem != null)
-            {
-                await ViewModel.MoveToVisibleAsync(selectedItem);
-                AvailableSensorsList.SelectedItem = null;
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] No item selected to add");
-            }
-        }
-
-        private async void OnRemoveButtonClicked(object sender, EventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Remove button clicked");
-            var selectedItem = VisibleSensorsList.SelectedItem as SensorItem;
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] SelectedVisibleItem from list: {0}", selectedItem?.Name ?? "NULL");
-            
-            if (selectedItem != null)
-            {
-                await ViewModel.MoveToAvailableAsync(selectedItem);
-                VisibleSensorsList.SelectedItem = null;
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] No item selected to remove");
-            }
-        }
-
-        private void OnVisibleListReorderCompleted(object sender, EventArgs e)
+        private void OnVisibleListReorderCompleted(object? sender, EventArgs e)
         {
             System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Reorder completed");
-            
-            // Log the new order
-            var items = ViewModel.VisibleSensorItems;
-            for (int i = 0; i < items.Count; i++)
+        }
+
+        private void OnAddButtonClicked(object? sender, EventArgs e)
+        {
+            if (AvailableSensorsList.SelectedItem is SensorItem item)
             {
-                System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Item {0}: {1}", i, items[i].Name);
+                ViewModel.MoveToVisible(item);
+                AvailableSensorsList.SelectedItem = null;
             }
-            
-            // Auto-save after reordering
-            _ = ViewModel.SaveSettingsAsync();
         }
 
-        private async void OnFontSizeChanged(object sender, EventArgs e)
+        private void OnRemoveButtonClicked(object? sender, EventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Font size changed");
-            await ViewModel.SaveSettingsAsync();
+            if (VisibleSensorsList.SelectedItem is SensorItem item)
+            {
+                ViewModel.MoveToAvailable(item);
+                VisibleSensorsList.SelectedItem = null;
+            }
         }
 
-        private async void OnMapOverlayToggled(object sender, ToggledEventArgs e)
+        private async void OnCloseClicked(object? sender, EventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Map overlay toggled");
             await ViewModel.SaveSettingsAsync();
+
+            // Notify parent page to hide settings via the ViewModel
+            if (Application.Current?.Windows[0].Page is AppShell shell &&
+                shell.CurrentPage is MainPage mainPage)
+            {
+                await mainPage.HideSettingsAsync();
+            }
         }
     }
 }

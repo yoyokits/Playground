@@ -1,82 +1,98 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using TravelCamApp.Models;
-using Microsoft.Maui.Devices.Sensors;
-using Microsoft.Maui.ApplicationModel;
+// ========================================== //
+// Developer: Yohanes Wahyu Nurcahyo          //
+// Website: https://github.com/yoyokits       //
+// ========================================== //
+//
+// SensorHelper: Single source of sensor truth for the app.
+// Collects location, compass, weather data on a 5-second timer.
+// Publishes SensorData via event to any subscriber.
+
+using System;
 using System.Globalization;
-using System.Net.Http.Json;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Maui.ApplicationModel;
+using Microsoft.Maui.Devices.Sensors;
+using TravelCamApp.Models;
 
 namespace TravelCamApp.Helpers
 {
-    /// <summary>
-    /// Helper class to manage sensor data collection, storage, and retrieval.
-    /// </summary>
     public class SensorHelper
     {
-        private const string SENSOR_DATA_FILE = "SensorData.json";
-        private static readonly HttpClient HttpClient = new();
-        private readonly string _sensorDataPath;
-        private SensorData _currentData;
-        private Timer? _updateTimer;
-        private bool _isUpdating = false;
+        private readonly HttpClient _httpClient = new();
+        private System.Timers.Timer? _updateTimer;
+        private CancellationTokenSource? _cts;
+        private bool _isUpdating;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SensorHelper"/> class.
-        /// </summary>
-        public SensorHelper()
+        public SensorData CurrentData { get; private set; } = new()
         {
-            _sensorDataPath = Path.Combine(FileSystem.AppDataDirectory, SENSOR_DATA_FILE);
-            _currentData = LoadSensorData() ?? CreateDefaultSensorData();
-        }
+            Timestamp = DateTime.UtcNow,
+            Temperature = null,
+            City = "",
+            Country = "",
+            Latitude = 0,
+            Longitude = 0,
+            Altitude = null,
+            Heading = null,
+            Speed = null,
+        };
 
-        /// <summary>
-        /// Occurs when sensor data is updated.
-        /// </summary>
         public event EventHandler<SensorData>? SensorDataUpdated;
-
-        /// <summary>
-        /// Occurs when sensor data is updated, providing a callback for UI updates.
-        /// </summary>
         public event Action<SensorData>? SensorDataUpdatedCallback;
 
-        // Track last update times for each sensor type
-        private DateTime _lastLocationUpdate = DateTime.MinValue;
-        private DateTime _lastWeatherUpdate = DateTime.MinValue;
-        private DateTime _lastGeneralUpdate = DateTime.MinValue;
-
-        // Compass-related fields for continuous monitoring
-        private double? _currentCompassHeading = null;
-        private bool _isCompassActive = false;
-        private DateTime _lastCompassUpdate = DateTime.MinValue;
-        private static readonly TimeSpan CompassUpdateInterval = TimeSpan.FromMilliseconds(500);
-
-        /// <summary>
-        /// Gets the current sensor data.
-        /// </summary>
-        public SensorData CurrentData => _currentData;
-
-        /// <summary>
-        /// Starts the sensor data collection and periodic updates.
-        /// </summary>
         public async Task StartAsync()
         {
-            // Ensure location permissions are granted
+            // Stop any existing timer before starting a new one
+            Stop();
+
+            _cts = new CancellationTokenSource();
+
             await RequestLocationPermissionAsync();
 
-            // Start compass monitoring
-            StartCompassMonitoring();
+            if (_cts.IsCancellationRequested) return;
+            await UpdateSensorDataAsync(_cts.Token);
 
-            // Start collecting data immediately
-            await UpdateSensorDataAsync();
+            if (_cts.IsCancellationRequested) return;
 
-            // Set up high-frequency timer for checking individual sensor updates
-            _updateTimer = new Timer(async _ => await CheckAndPerformUpdatesAsync(), null,
-                TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
+            _updateTimer = new System.Timers.Timer(TimeSpan.FromSeconds(10).TotalMilliseconds);
+            _updateTimer.Elapsed += OnTimerElapsed;
+            _updateTimer.AutoReset = true;
+            _updateTimer.Start();
         }
 
-        /// <summary>
-        /// Requests location permission from the user.
-        /// </summary>
+        public void Stop()
+        {
+            // Cancel all in-flight async work first
+            try { _cts?.Cancel(); } catch { /* already disposed */ }
+            _cts?.Dispose();
+            _cts = null;
+
+            _updateTimer?.Stop();
+            _updateTimer?.Dispose();
+            _updateTimer = null;
+        }
+
+        private async void OnTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
+        {
+            var token = _cts?.Token ?? default;
+            if (token.IsCancellationRequested) return;
+
+            try
+            {
+                await UpdateSensorDataAsync(token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected during shutdown
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SensorHelper] Timer callback error: {ex.Message}");
+            }
+        }
+
         private async Task RequestLocationPermissionAsync()
         {
             try
@@ -86,324 +102,107 @@ namespace TravelCamApp.Helpers
                 {
                     status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
                 }
-
-                if (status != PermissionStatus.Granted)
-                {
-                    System.Diagnostics.Debug.WriteLine("Location permission not granted");
-                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error requesting location permission: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[SensorHelper] Permission error: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Checks and performs updates for sensors based on their individual update intervals.
-        /// </summary>
-        private async Task CheckAndPerformUpdatesAsync()
+        private async Task UpdateSensorDataAsync(CancellationToken ct)
         {
-            if (_isUpdating) return; // Prevent overlapping updates
-
-            try
-            {
-                _isUpdating = true;
-
-                var now = DateTime.UtcNow;
-                var newData = new SensorData
-                {
-                    Timestamp = now,
-                    Latitude = _currentData.Latitude,
-                    Longitude = _currentData.Longitude,
-                    Altitude = _currentData.Altitude,
-                    Temperature = _currentData.Temperature,
-                    City = _currentData.City,
-                    Country = _currentData.Country,
-                    Heading = _currentData.Heading,
-                    Speed = _currentData.Speed
-                };
-
-                bool needsUpdate = false;
-
-                // Update location data (every 2 seconds for Lat/Lon, 10 seconds for others)
-                if ((now - _lastLocationUpdate).TotalSeconds >= 2)
-                {
-                    var location = await GetLocationAsync();
-                    if (location != null)
-                    {
-                        if (location.Latitude != 0 || location.Longitude != 0)
-                        {
-                            newData.Latitude = location.Latitude;
-                            newData.Longitude = location.Longitude;
-                        }
-
-                        // Only update altitude if it's a valid value (not NaN or unrealistic)
-                        if (location.Altitude.HasValue && !double.IsNaN(location.Altitude.Value) && location.Altitude.Value > -10000 && location.Altitude.Value < 9000)
-                        {
-                            newData.Altitude = location.Altitude;
-                        }
-                        else
-                        {
-                            // Keep the previous altitude value if current one is invalid
-                            newData.Altitude = _currentData.Altitude;
-                        }
-
-                        // Convert coordinates to city name (less frequent - every 10 seconds)
-                        if ((now - _lastLocationUpdate).TotalSeconds >= 10)
-                        {
-                            if (location.Latitude != 0 || location.Longitude != 0)
-                            {
-                                var placemark = await GetPlacemarkAsync(location.Latitude, location.Longitude);
-                                if (placemark != null)
-                                {
-                                    var city = placemark.Locality ?? placemark.SubAdminArea ?? placemark.AdminArea;
-                                    if (!string.IsNullOrWhiteSpace(city))
-                                    {
-                                        newData.City = city;
-                                    }
-
-                                    if (!string.IsNullOrWhiteSpace(placemark.CountryName))
-                                    {
-                                        newData.Country = placemark.CountryName;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (location.Speed.HasValue)
-                        {
-                            newData.Speed = location.Speed.Value;
-                        }
-                    }
-
-                    _lastLocationUpdate = now;
-                    needsUpdate = true;
-                }
-
-                // Update compass heading (very fast - every 500ms)
-                var currentCompassHeading = GetCompassReading();
-                if (currentCompassHeading.HasValue && currentCompassHeading != newData.Heading)
-                {
-                    newData.Heading = currentCompassHeading;
-                    needsUpdate = true;
-                }
-
-                // Update weather data (moderate frequency - every minute)
-                if ((now - _lastWeatherUpdate).TotalMinutes >= 1)
-                {
-                    if (newData.Latitude != 0 || newData.Longitude != 0)
-                    {
-                        newData.Temperature = await GetTemperatureAsync(newData.Latitude, newData.Longitude);
-                    }
-                    _lastWeatherUpdate = now;
-                    needsUpdate = true;
-                }
-
-                // Update time (every second)
-                if ((now - _lastGeneralUpdate).TotalSeconds >= 1)
-                {
-                    // Time is updated in the timestamp
-                    _lastGeneralUpdate = now;
-                    needsUpdate = true;
-                }
-
-                if (needsUpdate)
-                {
-                    _currentData = newData;
-
-                    // Trigger the event to notify listeners
-                    SensorDataUpdated?.Invoke(this, _currentData);
-
-                    // Call the callback for UI updates
-                    SensorDataUpdatedCallback?.Invoke(_currentData);
-
-                    // Save to file
-                    SaveSensorData(_currentData);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error in CheckAndPerformUpdatesAsync: {ex.Message}");
-            }
-            finally
-            {
-                _isUpdating = false;
-            }
-        }
-
-        /// <summary>
-        /// Starts continuous compass monitoring.
-        /// </summary>
-        private void StartCompassMonitoring()
-        {
-            if (Compass.Default.IsSupported && !_isCompassActive)
-            {
-                try
-                {
-                    Compass.Default.ReadingChanged += OnCompassReadingChanged;
-                    // Use fastest available speed for the most frequent updates
-                    Compass.Default.Start(SensorSpeed.Fastest);
-                    _isCompassActive = true;
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Error starting compass monitoring: {ex.Message}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Handles compass reading changes.
-        /// </summary>
-        /// <param name="sender">The sender of the event.</param>
-        /// <param name="e">The compass reading changed event args.</param>
-        private void OnCompassReadingChanged(object sender, CompassChangedEventArgs e)
-        {
-            _currentCompassHeading = e.Reading.HeadingMagneticNorth;
-
-            var now = DateTime.UtcNow;
-            if (now - _lastCompassUpdate < CompassUpdateInterval)
-            {
-                return;
-            }
-
-            _lastCompassUpdate = now;
-            _currentData.Heading = _currentCompassHeading;
-            _currentData.Timestamp = now;
-
-            SensorDataUpdated?.Invoke(this, _currentData);
-            SensorDataUpdatedCallback?.Invoke(_currentData);
-        }
-
-        /// <summary>
-        /// Stops the periodic updates.
-        /// </summary>
-        public void Stop()
-        {
-            _updateTimer?.Dispose();
-
-            // Stop compass monitoring
-            StopCompassMonitoring();
-
-            // Reset tracking times
-            _lastLocationUpdate = DateTime.MinValue;
-            _lastWeatherUpdate = DateTime.MinValue;
-            _lastGeneralUpdate = DateTime.MinValue;
-        }
-
-        /// <summary>
-        /// Stops compass monitoring.
-        /// </summary>
-        private void StopCompassMonitoring()
-        {
-            if (_isCompassActive)
-            {
-                try
-                {
-                    Compass.Default.Stop();
-                    Compass.Default.ReadingChanged -= OnCompassReadingChanged;
-                    _isCompassActive = false;
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Error stopping compass monitoring: {ex.Message}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Updates the sensor data with current values from sensors and external sources.
-        /// </summary>
-        public async Task UpdateSensorDataAsync()
-        {
-            if (_isUpdating) return; // Prevent overlapping updates
+            if (_isUpdating) return;
             _isUpdating = true;
 
             try
             {
-                var newData = new SensorData
-                {
-                    Timestamp = DateTime.UtcNow,
-                    Latitude = _currentData.Latitude,
-                    Longitude = _currentData.Longitude,
-                    Altitude = _currentData.Altitude,
-                    Temperature = _currentData.Temperature,
-                    City = _currentData.City,
-                    Country = _currentData.Country,
-                    Heading = _currentData.Heading,
-                    Speed = _currentData.Speed
-                };
+                ct.ThrowIfCancellationRequested();
 
-                // Collect fast data in parallel
-                var fastDataTask = Task.Run(async () =>
+                var data = new SensorData { Timestamp = DateTime.UtcNow };
+
+                // Location (primary data source)
+                var location = await GetLocationAsync(ct);
+                ct.ThrowIfCancellationRequested();
+
+                if (location != null)
                 {
-                    // Get location data
-                    var location = await GetLocationAsync();
-                    if (location != null)
+                    data.Latitude = location.Latitude;
+                    data.Longitude = location.Longitude;
+
+                    // Keep previous altitude if current is invalid
+                    if (location.Altitude.HasValue
+                        && !double.IsNaN(location.Altitude.Value)
+                        && location.Altitude.Value > -1000 && location.Altitude.Value < 9000)
                     {
-                        if (location.Latitude != 0 || location.Longitude != 0)
-                        {
-                            newData.Latitude = location.Latitude;
-                            newData.Longitude = location.Longitude;
-                        }
-
-                        // Only update altitude if it's a valid value (not NaN or unrealistic)
-                        if (location.Altitude.HasValue && !double.IsNaN(location.Altitude.Value) && location.Altitude.Value > -10000 && location.Altitude.Value < 9000)
-                        {
-                            newData.Altitude = location.Altitude;
-                        }
-                        else
-                        {
-                            // Keep the previous altitude value if current one is invalid
-                            newData.Altitude = _currentData.Altitude;
-                        }
-
-                        // Convert coordinates to city name
-                        if (location.Latitude != 0 || location.Longitude != 0)
-                        {
-                            var placemark = await GetPlacemarkAsync(location.Latitude, location.Longitude);
-                            if (placemark != null)
-                            {
-                                var city = placemark.Locality ?? placemark.SubAdminArea ?? placemark.AdminArea;
-                                if (!string.IsNullOrWhiteSpace(city))
-                                {
-                                    newData.City = city;
-                                }
-
-                                if (!string.IsNullOrWhiteSpace(placemark.CountryName))
-                                {
-                                    newData.Country = placemark.CountryName;
-                                }
-                            }
-                        }
+                        data.Altitude = location.Altitude;
+                    }
+                    else
+                    {
+                        data.Altitude = CurrentData.Altitude;
                     }
 
+                    data.Speed = location.Speed;
 
-                    if (location?.Speed.HasValue == true)
+                    // Reverse geocoding
+                    var placemark = await GetPlacemarkAsync(location.Latitude, location.Longitude);
+                    if (placemark != null)
                     {
-                        newData.Speed = location.Speed.Value;
+                        data.City = placemark.Locality
+                            ?? placemark.SubAdminArea
+                            ?? placemark.AdminArea
+                            ?? CurrentData.City;
+                        data.Country = placemark.CountryName ?? CurrentData.Country;
                     }
-                });
+                }
+                else
+                {
+                    data.Latitude = CurrentData.Latitude;
+                    data.Longitude = CurrentData.Longitude;
+                    data.Altitude = CurrentData.Altitude;
+                    data.Speed = CurrentData.Speed;
+                    data.City = CurrentData.City;
+                    data.Country = CurrentData.Country;
+                }
 
+                ct.ThrowIfCancellationRequested();
 
-                // Wait for fast data task to complete
-                await fastDataTask;
+                // Temperature (weather API)
+                if (data.Latitude != 0 || data.Longitude != 0)
+                {
+                    data.Temperature = await GetTemperatureAsync(
+                        data.Latitude, data.Longitude, ct);
+                }
+                else
+                {
+                    data.Temperature = CurrentData.Temperature;
+                }
 
-                // Update current data
-                _currentData = newData;
+                ct.ThrowIfCancellationRequested();
 
-                // Trigger the event to notify listeners
-                SensorDataUpdated?.Invoke(this, _currentData);
+                // Compass heading
+                if (Compass.Default.IsSupported)
+                {
+                    data.Heading = await GetCompassReadingAsync();
+                }
+                else
+                {
+                    data.Heading = CurrentData.Heading;
+                }
 
-                // Call the callback for UI updates
-                SensorDataUpdatedCallback?.Invoke(_currentData);
+                ct.ThrowIfCancellationRequested();
 
-                // Save to file
-                SaveSensorData(_currentData);
+                CurrentData = data;
+                SensorDataUpdated?.Invoke(this, data);
+                SensorDataUpdatedCallback?.Invoke(data);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected during shutdown, don't log
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error updating sensor data: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine(
+                    $"[SensorHelper] Update error: {ex.Message}");
             }
             finally
             {
@@ -411,86 +210,20 @@ namespace TravelCamApp.Helpers
             }
         }
 
-        /// <summary>
-        /// Loads sensor data from the JSON file.
-        /// </summary>
-        /// <returns>The loaded sensor data, or null if the file doesn't exist.</returns>
-        private SensorData? LoadSensorData()
+        private async Task<Location?> GetLocationAsync(CancellationToken ct)
         {
             try
             {
-                if (File.Exists(_sensorDataPath))
-                {
-                    var json = File.ReadAllText(_sensorDataPath);
-                    return JsonSerializer.Deserialize<SensorData>(json);
-                }
+                var request = new GeolocationRequest(
+                    GeolocationAccuracy.Best, TimeSpan.FromSeconds(10));
+                return await Geolocation.Default.GetLocationAsync(request, ct);
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
             {
-                System.Diagnostics.Debug.WriteLine($"Error loading sensor data: {ex.Message}");
+                return null;
             }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Saves sensor data to the JSON file.
-        /// </summary>
-        /// <param name="data">The sensor data to save.</param>
-        private void SaveSensorData(SensorData data)
-        {
-            try
+            catch
             {
-                var options = new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-
-                var json = JsonSerializer.Serialize(data, options);
-                File.WriteAllText(_sensorDataPath, json);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error saving sensor data: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Creates default sensor data for Jakarta, Indonesia.
-        /// </summary>
-        /// <returns>Default sensor data.</returns>
-        private SensorData CreateDefaultSensorData()
-        {
-            return new SensorData
-            {
-                Timestamp = DateTime.UtcNow
-            };
-        }
-
-        /// <summary>
-        /// Gets the current location.
-        /// </summary>
-        /// <returns>The location, or null if not available.</returns>
-        private async Task<Location?> GetLocationAsync()
-        {
-            try
-            {
-                // First try to get the last known location quickly
-                var lastKnownLocation = await Geolocation.Default.GetLastKnownLocationAsync();
-
-                // Then try to get a fresh location with high accuracy
-                var request = new GeolocationRequest(GeolocationAccuracy.Best, TimeSpan.FromSeconds(15));
-                var freshLocation = await Geolocation.Default.GetLocationAsync(request);
-
-                // Return the freshest location available
-                return freshLocation ?? lastKnownLocation;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Location error: {ex.Message}");
-
-                // Try to get last known location as fallback
                 try
                 {
                     return await Geolocation.Default.GetLastKnownLocationAsync();
@@ -502,99 +235,96 @@ namespace TravelCamApp.Helpers
             }
         }
 
-        /// <summary>
-        /// Gets the placemark (address) for the given coordinates.
-        /// </summary>
-        /// <param name="latitude">The latitude.</param>
-        /// <param name="longitude">The longitude.</param>
-        /// <returns>The placemark, or null if not available.</returns>
-        private async Task<Placemark?> GetPlacemarkAsync(double latitude, double longitude)
+        private async Task<Placemark?> GetPlacemarkAsync(double lat, double lon)
         {
             try
             {
-                var placemarks = await Geocoding.Default.GetPlacemarksAsync(latitude, longitude);
+                var placemarks = await Geocoding.Default.GetPlacemarksAsync(lat, lon);
                 return placemarks?.FirstOrDefault();
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine($"Geocoding error: {ex.Message}");
                 return null;
             }
         }
 
-        /// <summary>
-        /// Gets the current compass reading.
-        /// </summary>
-        /// <returns>The heading in degrees, or null if not available.</returns>
-        private double? GetCompassReading()
-        {
-            // Return the current cached compass heading
-            return _currentCompassHeading;
-        }
-
-        /// <summary>
-        /// Gets the temperature for the given location (simulated).
-        /// </summary>
-        /// <param name="latitude">The latitude.</param>
-        /// <param name="longitude">The longitude.</param>
-        /// <returns>The temperature in Celsius.</returns>
-        private async Task<double?> GetTemperatureAsync(double latitude, double longitude)
+        private async Task<double?> GetCompassReadingAsync()
         {
             try
             {
-                var url = string.Format(CultureInfo.InvariantCulture,
-                    "https://api.open-meteo.com/v1/forecast?latitude={0}&longitude={1}&current=temperature_2m",
-                    latitude,
-                    longitude);
+                if (!Compass.Default.IsSupported) return null;
 
-                using var response = await HttpClient.GetAsync(url);
+                var tcs = new TaskCompletionSource<CompassChangedEventArgs>();
+                EventHandler<CompassChangedEventArgs> handler = (_, e) =>
+                    tcs.TrySetResult(e);
+
+                Compass.Default.ReadingChanged += handler;
+                Compass.Default.Start(SensorSpeed.Fastest);
+
+                var result = await tcs.Task.TimeoutAfter(TimeSpan.FromSeconds(2));
+
+                Compass.Default.Stop();
+                Compass.Default.ReadingChanged -= handler;
+
+                return result.Reading.HeadingMagneticNorth;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private async Task<double?> GetTemperatureAsync(double lat, double lon, CancellationToken ct)
+        {
+            try
+            {
+                var url = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "https://api.open-meteo.com/v1/forecast?"
+                    + "latitude={0}&longitude={1}&current=temperature_2m",
+                    lat, lon);
+
+                using var response = await _httpClient.GetAsync(url, ct);
                 if (!response.IsSuccessStatusCode)
-                {
-                    return _currentData.Temperature;
-                }
+                    return CurrentData.Temperature;
 
-                await using var stream = await response.Content.ReadAsStreamAsync();
-                using var json = await JsonDocument.ParseAsync(stream);
-                if (json.RootElement.TryGetProperty("current", out var current) &&
-                    current.TryGetProperty("temperature_2m", out var temperatureElement) &&
-                    temperatureElement.TryGetDouble(out var temperature))
+                await using var stream = await response.Content.ReadAsStreamAsync(ct);
+                using var doc = await JsonDocument.ParseAsync(stream, default, ct);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("current", out var current)
+                    && current.TryGetProperty("temperature_2m", out var temp)
+                    && temp.TryGetDouble(out var temperature))
                 {
                     return temperature;
                 }
 
-                return _currentData.Temperature;
+                return CurrentData.Temperature;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Temperature API error: {ex.Message}");
-                return _currentData.Temperature;
+                System.Diagnostics.Debug.WriteLine(
+                    $"[SensorHelper] Temperature API error: {ex.Message}");
+                return CurrentData.Temperature;
             }
         }
     }
 
     /// <summary>
-    /// Extension method to add timeout functionality to tasks.
+    /// Extension: adds timeout to any task.
     /// </summary>
     public static class TaskExtensions
     {
-        /// <summary>
-        /// Adds a timeout to a task.
-        /// </summary>
-        /// <typeparam name="T">The return type of the task.</typeparam>
-        /// <param name="task">The task to add timeout to.</param>
-        /// <param name="timeout">The timeout duration.</param>
-        /// <returns>The task result, or throws TimeoutException if timeout is reached.</returns>
         public static async Task<T> TimeoutAfter<T>(this Task<T> task, TimeSpan timeout)
         {
             using var cts = new CancellationTokenSource(timeout);
-            var delayTask = Task.Delay(timeout, cts.Token);
-            var resultTask = await Task.WhenAny(task, delayTask);
-            
-            if (resultTask == delayTask)
-            {
-                throw new TimeoutException($"Task timed out after {timeout.TotalSeconds} seconds");
-            }
-            
+            var delay = Task.Delay(timeout, cts.Token);
+            var completed = await Task.WhenAny(task, delay);
+
+            if (completed == delay)
+                throw new TimeoutException(
+                    $"Task timed out after {timeout.TotalSeconds}s");
+
             cts.Cancel();
             return await task;
         }

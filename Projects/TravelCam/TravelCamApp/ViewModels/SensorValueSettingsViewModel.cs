@@ -1,15 +1,25 @@
-// ========================================== //
+﻿// ========================================== //
 // Developer: Yohanes Wahyu Nurcahyo          //
 // Website: https://github.com/yoyokits       //
 // ========================================== //
+//
+// SensorValueSettingsViewModel manages two lists:
+// - VisibleSensorItems: shown on the camera overlay
+// - AvailableSensorItems: hidden sensors the user can enable
+//
+// The ViewModel receives sensor items from MainPageViewModel,
+// lets the user reorder/enable/disable, then MainPageViewModel
+// pulls the result back.
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using TravelCamApp.Helpers;
 using TravelCamApp.Models;
 
 namespace TravelCamApp.ViewModels
@@ -18,303 +28,186 @@ namespace TravelCamApp.ViewModels
     {
         #region Fields
 
-        // Additional properties for font size and map overlay
-        private double _fontSize = 14.0;
+        private ObservableCollection<SensorItem> _visibleSensorItems = new();
+        private ObservableCollection<SensorItem> _availableSensorItems = new();
+        private SensorItem? _selectedVisibleItem;
+        private SensorItem? _selectedAvailableItem;
+        private float _fontSize = 12f;
+        private bool _isMapOverlayVisible;
 
-        private bool _isMapOverlayVisible = false;
+        // Reference to the source list in MainPageViewModel
+        private List<SensorItem>? _allSensorItems;
 
-        #endregion Fields
-
-        #region Constructors
-
-        public SensorValueSettingsViewModel()
-        {
-            AvailableSensorItems = new ObservableCollection<SensorItem>();
-            VisibleSensorItems = new ObservableCollection<SensorItem>();
-
-            // Initialize with default sensor items
-            InitializeDefaultSensorItems();
-
-            // Initialize commands
-            MoveToVisibleCommand = new Command<SensorItem>(async (item) => await MoveToVisibleAsync(item));
-            MoveToAvailableCommand = new Command<SensorItem>(async (item) => await MoveToAvailableAsync(item));
-            MoveUpCommand = new Command<SensorItem>(MoveUp);
-            MoveDownCommand = new Command<SensorItem>(MoveDown);
-        }
-
-        #endregion Constructors
-
-        #region Events
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        #endregion Events
+        #endregion
 
         #region Properties
 
-        public ObservableCollection<SensorItem> AvailableSensorItems { get; }
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        private SensorItem? _selectedAvailableItem;
-        private SensorItem? _selectedVisibleItem;
-
-        public SensorItem? SelectedAvailableItem
+        public ObservableCollection<SensorItem> VisibleSensorItems
         {
-            get => _selectedAvailableItem;
-            set
-            {
-                if (_selectedAvailableItem != value)
-                {
-                    _selectedAvailableItem = value;
-                    System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] SelectedAvailableItem changed to: {value?.Name ?? "NULL"}");
-                    OnPropertyChanged();
-                }
-            }
+            get => _visibleSensorItems;
+            set { _visibleSensorItems = value; OnPropertyChanged(); }
+        }
+
+        public ObservableCollection<SensorItem> AvailableSensorItems
+        {
+            get => _availableSensorItems;
+            set { _availableSensorItems = value; OnPropertyChanged(); }
         }
 
         public SensorItem? SelectedVisibleItem
         {
             get => _selectedVisibleItem;
-            set
-            {
-                if (_selectedVisibleItem != value)
-                {
-                    _selectedVisibleItem = value;
-                    System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] SelectedVisibleItem changed to: {value?.Name ?? "NULL"}");
-                    OnPropertyChanged();
-                }
-            }
+            set { _selectedVisibleItem = value; OnPropertyChanged(); }
         }
 
-        public double FontSize
+        public SensorItem? SelectedAvailableItem
+        {
+            get => _selectedAvailableItem;
+            set { _selectedAvailableItem = value; OnPropertyChanged(); }
+        }
+
+        public float FontSize
         {
             get => _fontSize;
-            set
-            {
-                if (_fontSize != value)
-                {
-                    _fontSize = value;
-                    OnPropertyChanged();
-                }
-            }
+            set { _fontSize = value; OnPropertyChanged(); }
         }
 
         public bool IsMapOverlayVisible
         {
             get => _isMapOverlayVisible;
-            set
-            {
-                if (_isMapOverlayVisible != value)
-                {
-                    _isMapOverlayVisible = value;
-                    OnPropertyChanged();
-                }
-            }
+            set { _isMapOverlayVisible = value; OnPropertyChanged(); }
         }
 
-        public ICommand MoveToAvailableCommand { get; }
+        #endregion
+
+        #region Commands
+
         public ICommand MoveToVisibleCommand { get; }
-        public ICommand MoveUpCommand { get; }
-        public ICommand MoveDownCommand { get; }
-        public ObservableCollection<SensorItem> VisibleSensorItems { get; }
+        public ICommand MoveToAvailableCommand { get; }
 
-        #endregion Properties
+        #endregion
 
-        #region Methods
+        #region Constructor
 
-        public async Task LoadSettingsAsync()
+        public SensorValueSettingsViewModel()
         {
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsVM] LoadSettingsAsync called");
-            
-            // Clear existing items first to prevent duplicates
-            AvailableSensorItems.Clear();
+            MoveToVisibleCommand = new Command<SensorItem>(MoveToVisible);
+            MoveToAvailableCommand = new Command<SensorItem>(MoveToAvailable);
+        }
+
+        #endregion
+
+        #region Public API
+
+        /// <summary>
+        /// Populates the visible/available lists from the source sensor items.
+        /// Called when the settings overlay opens.
+        /// </summary>
+        public void LoadFromSensorItems(ObservableCollection<SensorItem> source)
+        {
+            _allSensorItems = source.ToList(); // shallow copy of references
             VisibleSensorItems.Clear();
-            
-            var config = await Helpers.SettingsHelper.LoadSensorItemsConfigurationAsync();
-            var additionalSettings = await Helpers.SettingsHelper.LoadAdditionalSettingsAsync();
+            AvailableSensorItems.Clear();
 
-            if (config != null && config.Items != null && config.Items.Count > 0)
+            foreach (var item in _allSensorItems)
             {
-                System.Diagnostics.Debug.WriteLine("[SensorValueSettingsVM] Loaded config with {0} items", config.Items.Count);
-                // Apply loaded configuration to both collections
-                Helpers.SettingsHelper.ApplyConfigurationToSensorItemsCollections(AvailableSensorItems, VisibleSensorItems, config);
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("[SensorValueSettingsVM] No config found, using defaults");
-                // If no config exists, initialize with defaults
-                InitializeDefaultSensorItems();
-            }
-
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsVM] After load - Available: {0}, Visible: {1}", 
-                AvailableSensorItems.Count, VisibleSensorItems.Count);
-
-            // Apply additional settings if they exist
-            if (additionalSettings != null)
-            {
-                FontSize = additionalSettings.FontSize;
-                IsMapOverlayVisible = additionalSettings.IsMapOverlayVisible;
-            }
-            else
-            {
-                // Set defaults if no additional settings exist
-                FontSize = 14.0;
-                IsMapOverlayVisible = false;
+                if (item.IsVisible)
+                    VisibleSensorItems.Add(item);
+                else
+                    AvailableSensorItems.Add(item);
             }
         }
 
-        public async Task MoveToAvailableAsync(SensorItem item)
+        /// <summary>
+        /// Writes the visibility state back to the source list.
+        /// Called when the settings overlay closes.
+        /// </summary>
+        public void ApplyToSensorItems(ObservableCollection<SensorItem> source)
         {
-            System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] MoveToAvailable called. Item: {item?.Name ?? "NULL"}");
-            System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] SelectedVisibleItem: {SelectedVisibleItem?.Name ?? "NULL"}");
-            System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] VisibleSensorItems count before: {VisibleSensorItems.Count}");
-            
-            // If item is null, try to use SelectedVisibleItem
-            var itemToMove = item ?? SelectedVisibleItem;
-            
-            if (itemToMove == null)
+            var visibleNames = new HashSet<string>(VisibleSensorItems.Select(i => i.Name));
+
+            foreach (var item in source)
             {
-                System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] MoveToAvailable - No item to move");
-                return;
-            }
-            
-            // Check if item is in visible list
-            var existingInVisible = VisibleSensorItems.FirstOrDefault(x => x.Name == itemToMove.Name);
-            if (existingInVisible != null)
-            {
-                VisibleSensorItems.Remove(existingInVisible);
-                existingInVisible.IsVisible = false;
-                
-                // Check if already in available list (prevent duplicates)
-                if (!AvailableSensorItems.Any(x => x.Name == existingInVisible.Name))
-                {
-                    AvailableSensorItems.Add(existingInVisible);
-                }
-                
-                System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] Moved {existingInVisible.Name} to available list");
-                System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] VisibleSensorItems count after: {VisibleSensorItems.Count}");
-                
-                // Clear selection
-                SelectedVisibleItem = null;
-                
-                // Auto-save settings
-                await SaveSettingsAsync();
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] Item {itemToMove.Name} not found in VisibleSensorItems");
+                item.IsVisible = visibleNames.Contains(item.Name);
             }
         }
 
-        public void MoveUp(SensorItem item)
+        /// <summary>
+        /// Saves current settings to persistent storage.
+        /// </summary>
+        public async Task SaveSettingsAsync()
         {
-            var index = VisibleSensorItems.IndexOf(item);
-            if (index > 0)
+            try
             {
-                VisibleSensorItems.Move(index, index - 1);
+                await SettingsHelper.SaveSensorItemsConfigurationAsync(VisibleSensorItems);
+                System.Diagnostics.Debug.WriteLine("[SensorValueSettingsViewModel] Settings saved");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsViewModel] Save error: {ex.Message}");
             }
         }
 
-        public void MoveDown(SensorItem item)
-        {
-            var index = VisibleSensorItems.IndexOf(item);
-            if (index < VisibleSensorItems.Count - 1)
-            {
-                VisibleSensorItems.Move(index, index + 1);
-            }
-        }
+        #endregion
+
+        #region Commands
 
         public async Task MoveToVisibleAsync(SensorItem item)
         {
-            System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] MoveToVisible called. Item: {item?.Name ?? "NULL"}");
-            System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] SelectedAvailableItem: {SelectedAvailableItem?.Name ?? "NULL"}");
-            System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] AvailableSensorItems count before: {AvailableSensorItems.Count}");
-            
-            // If item is null, try to use SelectedAvailableItem
-            var itemToMove = item ?? SelectedAvailableItem;
-            
-            if (itemToMove == null)
+            if (item == null) return;
+
+            if (AvailableSensorItems.Contains(item))
             {
-                System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] MoveToVisible - No item to move");
-                return;
+                AvailableSensorItems.Remove(item);
             }
-            
-            // Check if item is in available list
-            var existingInAvailable = AvailableSensorItems.FirstOrDefault(x => x.Name == itemToMove.Name);
-            if (existingInAvailable != null)
+
+            if (!VisibleSensorItems.Contains(item))
             {
-                AvailableSensorItems.Remove(existingInAvailable);
-                existingInAvailable.IsVisible = true;
-                
-                // Check if already in visible list (prevent duplicates)
-                if (!VisibleSensorItems.Any(x => x.Name == existingInAvailable.Name))
-                {
-                    VisibleSensorItems.Add(existingInAvailable);
-                }
-                
-                System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] Moved {existingInAvailable.Name} to visible list");
-                System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] VisibleSensorItems count after: {VisibleSensorItems.Count}");
-                
-                // Clear selection
-                SelectedAvailableItem = null;
-                
-                // Auto-save settings
-                await SaveSettingsAsync();
+                VisibleSensorItems.Add(item);
             }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine($"[SensorValueSettingsVM] Item {itemToMove.Name} not found in AvailableSensorItems");
-            }
+
+            SelectedAvailableItem = null;
         }
 
-        public async Task SaveSettingsAsync()
+        public void MoveToAvailable(SensorItem item)
         {
-            // Save both sensor items configuration and additional settings
-            await Helpers.SettingsHelper.SaveSensorItemsConfigurationAsync(VisibleSensorItems);
-            await Helpers.SettingsHelper.SaveAdditionalSettingsAsync(FontSize, IsMapOverlayVisible);
-        }
+            if (item == null) return;
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-
-        private void InitializeDefaultSensorItems()
-        {
-            // Define all possible sensor items with their update intervals
-            var allSensorItems = new[]
+            if (VisibleSensorItems.Contains(item))
             {
-                new SensorItem("City", "Jakarta", false, TimeSpan.FromMinutes(10)),      // Standard update
-                new SensorItem("Country", "Indonesia", false, TimeSpan.FromMinutes(10)), // Standard update
-                new SensorItem("Temperature", "28°C", false, TimeSpan.FromMinutes(10)),  // Standard update
-                new SensorItem("Altitude", "12m", false, TimeSpan.FromSeconds(10)),     // Fast update
-                new SensorItem("Latitude", "-6.2088", false, TimeSpan.FromSeconds(2)),  // Fast update
-                new SensorItem("Longitude", "106.8456", false, TimeSpan.FromSeconds(2)), // Fast update
-                new SensorItem("Date", DateTime.Now.ToString("MM/dd/yyyy"), false, TimeSpan.FromMinutes(10)), // Standard update
-                new SensorItem("Time", DateTime.Now.ToString("HH:mm:ss"), false, TimeSpan.FromSeconds(1)),   // Fast update
-                new SensorItem("Heading", "0°", false, TimeSpan.FromMilliseconds(500)), // Very fast update
-                new SensorItem("Speed", "0 m/s", false, TimeSpan.FromSeconds(2)),       // Fast update
-                new SensorItem("Compass", "0°", false, TimeSpan.FromMilliseconds(500)), // Very fast update
-                new SensorItem("Map", "Map View", false, TimeSpan.FromMinutes(10))      // Standard update
-            };
-
-            // Set default visible items
-            var defaultVisibleNames = new[] { "City", "Country", "Temperature" };
-
-            foreach (var item in allSensorItems)
-            {
-                if (defaultVisibleNames.Contains(item.Name))
-                {
-                    item.IsVisible = true;
-                    VisibleSensorItems.Add(item);
-                }
-                else
-                {
-                    item.IsVisible = false;
-                    AvailableSensorItems.Add(item);
-                }
+                VisibleSensorItems.Remove(item);
             }
+
+            if (!AvailableSensorItems.Contains(item))
+            {
+                AvailableSensorItems.Add(item);
+            }
+
+            SelectedVisibleItem = null;
         }
 
-        #endregion Methods
+        #endregion
+
+        #region Event Handlers
+
+        private void OnVisibleListReorderCompleted(object? sender, EventArgs e)
+        {
+            // The order is already reflected in the collection.
+            // When settings are saved, the current order is persisted.
+            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsViewModel] Reorder completed");
+        }
+
+        #endregion
+
+        #region INotifyPropertyChanged
+
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+        #endregion
     }
 }
