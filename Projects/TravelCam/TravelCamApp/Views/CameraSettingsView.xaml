@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             x:Class="TravelCamApp.Views.CameraSettingsView"
+             x:Name="CamSettingsRoot">
+
+    <ContentView.Resources>
+        <toolkit:InvertedBoolConverter x:Key="InvBool" />
+    </ContentView.Resources>
+
+    <ContentView.Content>
+        <!-- Dimmed backdrop — tap outside the panel to close -->
+        <AbsoluteLayout BackgroundColor="#CC000000">
+            <AbsoluteLayout.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnBackdropTapped" />
+            </AbsoluteLayout.GestureRecognizers>
+
+            <!-- Settings Panel — dark card, right-aligned slide-in -->
+            <ScrollView AbsoluteLayout.LayoutBounds="1,0,300,1"
+                        AbsoluteLayout.LayoutFlags="PositionProportional,SizeProportional"
+                        BackgroundColor="#111111">
+                <VerticalStackLayout Padding="0" Spacing="0">
+
+                    <!-- ── Header ── -->
+                    <Grid Padding="20,52,16,16"
+                          ColumnDefinitions="*,Auto"
+                          BackgroundColor="#111111">
+                        <Label Grid.Column="0"
+                               Text="CAMERA"
+                               FontSize="13" CharacterSpacing="1.2"
+                               FontAttributes="Bold" TextColor="#8E8E93"
+                               VerticalOptions="Center" />
+                        <Border Grid.Column="1"
+                                StrokeShape="RoundRectangle 16"
+                                BackgroundColor="#2C2C2E" Stroke="Transparent"
+                                WidthRequest="32" HeightRequest="32"
+                                HorizontalOptions="End" VerticalOptions="Center">
+                            <Label Text="✕" FontSize="13" TextColor="#ABABAB"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnCloseClicked" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                    </Grid>
+
+                    <!-- Divider -->
+                    <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+
+                    <!-- ── Overlay section ── -->
+                    <VerticalStackLayout Padding="20,16,20,0" Spacing="0"
+                                         BackgroundColor="#111111">
+
+                        <Label Text="OVERLAYS"
+                               FontSize="11" CharacterSpacing="1.0"
+                               FontAttributes="Bold" TextColor="#8E8E93"
+                               Margin="0,0,0,10" />
+
+                        <Border StrokeShape="RoundRectangle 12" Stroke="Transparent"
+                                BackgroundColor="#1C1C1E" Padding="0">
+                            <VerticalStackLayout Spacing="0">
+
+                                <!-- Rule of thirds toggle -->
+                                <Grid ColumnDefinitions="*,Auto"
+                                      Padding="16,14" HeightRequest="52">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="2"
+                                                          VerticalOptions="Center">
+                                        <Label Text="Rule of Thirds" FontSize="14"
+                                               TextColor="#FFFFFF" />
+                                        <Label Text="Guide lines on camera view"
+                                               FontSize="11" TextColor="#636366" />
+                                    </VerticalStackLayout>
+                                    <Switch Grid.Column="1"
+                                            IsToggled="{Binding ShowRuleOfThirds}"
+                                            OnColor="#30D158"
+                                            ThumbColor="White"
+                                            VerticalOptions="Center" />
+                                </Grid>
+
+                                <!-- Divider -->
+                                <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E"
+                                         Margin="16,0" />
+
+                                <!-- Sensor overlay toggle -->
+                                <Grid ColumnDefinitions="*,Auto"
+                                      Padding="16,14" HeightRequest="52">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="2"
+                                                          VerticalOptions="Center">
+                                        <Label Text="Sensor Overlay" FontSize="14"
+                                               TextColor="#FFFFFF" />
+                                        <Label Text="Show location &amp; weather data"
+                                               FontSize="11" TextColor="#636366" />
+                                    </VerticalStackLayout>
+                                    <Switch Grid.Column="1"
+                                            IsToggled="{Binding ShowSensorOverlay}"
+                                            OnColor="#30D158"
+                                            ThumbColor="White"
+                                            VerticalOptions="Center" />
+                                </Grid>
+
+                            </VerticalStackLayout>
+                        </Border>
+
+                    </VerticalStackLayout>
+
+                    <!-- ── Grid line opacity ── -->
+                    <VerticalStackLayout Padding="20,16,20,0" Spacing="8"
+                                         BackgroundColor="#111111">
+                        <HorizontalStackLayout Spacing="0">
+                            <Label Text="GRID OPACITY"
+                                   FontSize="11" CharacterSpacing="1.0"
+                                   FontAttributes="Bold" TextColor="#8E8E93"
+                                   VerticalOptions="Center" />
+                            <Label Text="{Binding GridLineOpacity, StringFormat='  {0:P0}'}"
+                                   FontSize="11" TextColor="#FFFFFF" FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                        <Slider Minimum="0.05" Maximum="0.50"
+                                Value="{Binding GridLineOpacity}"
+                                MinimumTrackColor="#FFFFFF"
+                                MaximumTrackColor="#3C3C3E"
+                                ThumbColor="#FFFFFF"
+                                IsEnabled="{Binding ShowRuleOfThirds}" />
+                    </VerticalStackLayout>
+
+                    <!-- ── Future settings (placeholder) ── -->
+                    <VerticalStackLayout Padding="20,16,20,0" Spacing="10"
+                                         BackgroundColor="#111111">
+
+                        <Label Text="CAPTURE"
+                               FontSize="11" CharacterSpacing="1.0"
+                               FontAttributes="Bold" TextColor="#8E8E93" />
+
+                        <Border StrokeShape="RoundRectangle 12" Stroke="Transparent"
+                                BackgroundColor="#1C1C1E" Padding="0">
+                            <VerticalStackLayout Spacing="0">
+
+                                <!-- Resolution placeholder -->
+                                <Grid ColumnDefinitions="*,Auto"
+                                      Padding="16,14" HeightRequest="52">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="2"
+                                                          VerticalOptions="Center">
+                                        <Label Text="Resolution" FontSize="14"
+                                               TextColor="#636366" />
+                                        <Label Text="Coming soon"
+                                               FontSize="11" TextColor="#48484A" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1" Text="Auto"
+                                           FontSize="13" TextColor="#636366"
+                                           VerticalOptions="Center" />
+                                </Grid>
+
+                                <!-- Divider -->
+                                <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E"
+                                         Margin="16,0" />
+
+                                <!-- Aspect ratio placeholder -->
+                                <Grid ColumnDefinitions="*,Auto"
+                                      Padding="16,14" HeightRequest="52">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="2"
+                                                          VerticalOptions="Center">
+                                        <Label Text="Aspect Ratio" FontSize="14"
+                                               TextColor="#636366" />
+                                        <Label Text="Coming soon"
+                                               FontSize="11" TextColor="#48484A" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1" Text="4:3"
+                                           FontSize="13" TextColor="#636366"
+                                           VerticalOptions="Center" />
+                                </Grid>
+
+                            </VerticalStackLayout>
+                        </Border>
+
+                    </VerticalStackLayout>
+
+                    <!-- ── Done button ── -->
+                    <Border Margin="20,24,20,40"
+                            StrokeShape="RoundRectangle 22"
+                            BackgroundColor="#FFFFFF" Stroke="Transparent"
+                            HeightRequest="44">
+                        <Label Text="Done" FontSize="15" FontAttributes="Bold"
+                               TextColor="#000000"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnCloseClicked" />
+                        </Border.GestureRecognizers>
+                    </Border>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </AbsoluteLayout>
+    </ContentView.Content>
+</ContentView>

@@ -178,7 +178,7 @@
                            FontSize="11" TextColor="#636366"
                            LineBreakMode="WordWrap" />
 
-                    <!-- ── Bottom spacer + Save/Close button ── -->
+                    <!-- ── Done button ── -->
                     <Border Margin="20,20,20,24"
                             StrokeShape="RoundRectangle 22"
                             BackgroundColor="#FFFFFF" Stroke="Transparent"
@@ -193,6 +193,7 @@
 
                 </VerticalStackLayout>
             </ScrollView>
+
         </AbsoluteLayout>
     </ContentView.Content>
 </ContentView>

@@ -96,13 +96,16 @@ namespace TravelCamApp.Converters
 
     /// <summary>
     /// Converts IsFlashOn (bool) to icon color.
-    /// On -> Yellow, Off -> White.
+    /// On  -> Yellow (#FFD700) so the bolt stands out.
+    /// Off -> Gray (#707070) so the white slash line is clearly visible on top.
     /// </summary>
     public sealed class FlashIconColorConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return value is bool isOn && isOn ? Color.FromArgb("#FFD700") : Colors.White;
+            return value is bool isOn && isOn
+                ? Color.FromArgb("#FFD700")
+                : Color.FromArgb("#707070");
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

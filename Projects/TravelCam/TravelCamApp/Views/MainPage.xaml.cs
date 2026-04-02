@@ -7,7 +7,8 @@
 // - Passes the CameraView reference to the ViewModel on OnAppearing.
 // - Routes CameraView MediaCaptured / MediaCaptureFailed events.
 // - Plays the shutter press animation (scale bounce).
-// - Shows / hides the settings overlay.
+// - Shows / hides the sensor settings overlay.
+// - Shows / hides the camera settings overlay.
 
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Views;
@@ -18,29 +19,45 @@ namespace TravelCamApp.Views
     public partial class MainPage : ContentPage
     {
         private MainPageViewModel ViewModel => (MainPageViewModel)BindingContext;
-        private readonly SensorValueSettingsViewModel _settingsViewModel;
 
-        public MainPage(MainPageViewModel viewModel, SensorValueSettingsViewModel settingsViewModel)
+        private readonly SensorValueSettingsViewModel _sensorSettingsVm;
+        private readonly CameraSettingsViewModel _cameraSettingsVm;
+
+        public MainPage(
+            MainPageViewModel viewModel,
+            SensorValueSettingsViewModel sensorSettingsVm,
+            CameraSettingsViewModel cameraSettingsVm)
         {
             InitializeComponent();
             BindingContext = viewModel;
-            _settingsViewModel = settingsViewModel;
-            SettingsOverlay.BindingContext = _settingsViewModel;
 
-            // Populate settings list when the overlay opens
+            _sensorSettingsVm = sensorSettingsVm;
+            _cameraSettingsVm = cameraSettingsVm;
+
+            // ── Sensor settings overlay ──────────────────────────────────────
+            SensorSettingsOverlay.BindingContext = _sensorSettingsVm;
+
             viewModel.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(MainPageViewModel.IsSettingsVisible)
                     && viewModel.IsSettingsVisible)
                 {
-                    _settingsViewModel.LoadFromSensorItems(viewModel.SensorItems);
+                    // Load current items + sync font size into settings panel
+                    _sensorSettingsVm.LoadFromSensorItems(viewModel.SensorItems);
+                    _sensorSettingsVm.FontSize = viewModel.SensorValueViewModel.FontSize;
                 }
             };
 
-            // Save + close settings overlay
-            SettingsOverlay.CloseRequested += async (s, e) => await HideSettingsAsync();
+            SensorSettingsOverlay.CloseRequested +=
+                async (s, e) => await HideSensorSettingsAsync();
 
-            // Route camera media events to ViewModel
+            // ── Camera settings overlay ──────────────────────────────────────
+            CameraSettingsOverlay.BindingContext = _cameraSettingsVm;
+
+            CameraSettingsOverlay.CloseRequested +=
+                (s, e) => ViewModel.IsCameraSettingsVisible = false;
+
+            // ── Camera media events ──────────────────────────────────────────
             CameraView.MediaCaptured += OnMediaCaptured;
             CameraView.MediaCaptureFailed += OnMediaCaptureFailed;
         }
@@ -56,17 +73,11 @@ namespace TravelCamApp.Views
 
         // ── Shutter button ─────────────────────────────────────────────────────
 
-        /// <summary>
-        /// Tap handler for the shutter Grid.
-        /// Fires the command then plays a quick scale-bounce animation.
-        /// </summary>
         private async void OnShutterTapped(object? sender, TappedEventArgs e)
         {
-            // Execute capture immediately so latency is minimised
             if (ViewModel.CaptureCommand.CanExecute(null))
                 ViewModel.CaptureCommand.Execute(null);
 
-            // Scale-bounce: shrink → normal
             await ShutterButton.ScaleTo(0.86, 80, Easing.CubicOut);
             await ShutterButton.ScaleTo(1.00, 90, Easing.SpringOut);
         }
@@ -84,12 +95,15 @@ namespace TravelCamApp.Views
             ViewModel.OnMediaCaptureFailed();
         }
 
-        // ── Settings overlay ───────────────────────────────────────────────────
+        // ── Sensor settings overlay ────────────────────────────────────────────
 
-        private async Task HideSettingsAsync()
+        private async Task HideSensorSettingsAsync()
         {
-            await _settingsViewModel.SaveSettingsAsync();
-            _settingsViewModel.ApplyToSensorItems(ViewModel.SensorItems);
+            // Sync font size back to the live display VM before closing
+            ViewModel.SensorValueViewModel.FontSize = _sensorSettingsVm.FontSize;
+
+            await _sensorSettingsVm.SaveSettingsAsync();
+            _sensorSettingsVm.ApplyToSensorItems(ViewModel.SensorItems);
             ViewModel.IsSettingsVisible = false;
         }
     }

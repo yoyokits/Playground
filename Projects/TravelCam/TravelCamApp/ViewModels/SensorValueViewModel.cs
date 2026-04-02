@@ -46,11 +46,25 @@ namespace TravelCamApp.ViewModels
             private set { _sensorItems = value; OnPropertyChanged(); }
         }
 
+        /// <summary>Base font size from the Label Size slider (8–24 pt).</summary>
         public float FontSize
         {
             get => _fontSize;
-            set { _fontSize = value; OnPropertyChanged(); }
+            set
+            {
+                if (_fontSize == value) return;
+                _fontSize = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(LabelFontSize));
+                OnPropertyChanged(nameof(ValueFontSize));
+            }
         }
+
+        /// <summary>Font size for sensor name labels (≈70 % of base).</summary>
+        public float LabelFontSize => MathF.Round(_fontSize * 0.70f, 0);
+
+        /// <summary>Font size for sensor value labels (equals the base size).</summary>
+        public float ValueFontSize => _fontSize;
 
         public bool IsMapOverlayVisible
         {
@@ -185,3 +199,4 @@ namespace TravelCamApp.ViewModels
         #endregion
     }
 }
+       
