@@ -1,3 +1,8 @@
+// ========================================== //
+// Developer: Yohanes Wahyu Nurcahyo          //
+// Website: https://github.com/yoyokits       //
+// ========================================== //
+
 using System;
 using System.Globalization;
 using System.IO;
@@ -8,6 +13,16 @@ namespace TravelCamApp.Helpers
 {
     public static class FileHelper
     {
+        #region Fields / Constants
+
+        /// <summary>File name for the private thumbnail stored in AppDataDirectory.</summary>
+        public const string ThumbFileName = "last_thumb.jpg";
+
+        /// <summary>Full path to the private thumbnail file (always a plain file path, never content://).</summary>
+        public static string ThumbPath => Path.Combine(FileSystem.AppDataDirectory, ThumbFileName);
+
+        #endregion
+
         #region Methods
 
         /// <summary>
@@ -53,7 +68,13 @@ namespace TravelCamApp.Helpers
             return galleryPath ?? tempPath;
         }
 
-        public static async Task<string> SavePhotoAsync(Stream stream, string city)
+        /// <summary>
+        /// Saves a captured photo stream to the gallery and also keeps a private
+        /// thumbnail copy in AppDataDirectory for the in-app preview.
+        /// Returns (GalleryPath, ThumbPath). GalleryPath is the content:// URI on
+        /// Android; ThumbPath is always a plain file path suitable for ImageSource.FromFile.
+        /// </summary>
+        public static async Task<(string GalleryPath, string ThumbPath)> SavePhotoAsync(Stream stream, string city)
         {
             var now = DateTime.Now;
             var datePart = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -74,14 +95,12 @@ namespace TravelCamApp.Helpers
                 stream.Position = 0;
 
             // Write to temp file and CLOSE it before CopyToGallery reads it.
-            // File.Open with FileMode.Create defaults to FileShare.None, so the
-            // file must be fully closed before another handle can open it.
             using (var fileStream = File.Open(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
             {
                 await stream.CopyToAsync(fileStream);
                 await fileStream.FlushAsync();
             }
-            // fileStream is now closed � safe to read from CopyToGallery.
+            // fileStream is now closed - safe to read from CopyToGallery.
 
             var fileInfo = new FileInfo(tempPath);
             System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Temp file size: {fileInfo.Length} bytes");
@@ -89,12 +108,26 @@ namespace TravelCamApp.Helpers
             if (fileInfo.Length == 0)
             {
                 System.Diagnostics.Debug.WriteLine("[FileHelper] SavePhotoAsync - WARNING: File is empty!");
-                return tempPath;
+                return (tempPath, tempPath);
             }
 
-            // Copy into the gallery via MediaStore (Android 10+) or direct path (older)
+            // Save a private thumbnail copy BEFORE MediaStore deletes the temp file.
+            // Always use a plain file path (never content://) so ImageSource.FromFile works reliably.
+            var thumbPath = ThumbPath;
+            try
+            {
+                File.Copy(tempPath, thumbPath, overwrite: true);
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] Thumbnail saved to: {thumbPath}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] Thumbnail copy failed: {ex.Message}");
+                thumbPath = tempPath; // fallback: keep using temp path
+            }
+
+            // Copy into the gallery via MediaStore (Android 10+) or direct path (other platforms)
             var galleryPath = CopyToGallery(tempPath, "image/jpeg");
-            return galleryPath ?? tempPath;
+            return (galleryPath ?? tempPath, thumbPath);
         }
 
         /// <summary>
@@ -177,14 +210,14 @@ namespace TravelCamApp.Helpers
                     outputStream.Flush();
                 }
 
-                // Clear pending flag � the file is now complete and gallery-visible
+                // Clear pending flag - the file is now complete and gallery-visible
                 var updateValues = new Android.Content.ContentValues();
                 updateValues.Put(Android.Provider.MediaStore.IMediaColumns.IsPending, 0);
                 resolver.Update(uri, updateValues, null, null);
 
                 System.Diagnostics.Debug.WriteLine($"[FileHelper] MediaStore: published {fileName} to gallery");
 
-                // Clean up the temp file
+                // Clean up the temp file (thumbnail was already saved before this call)
                 try { File.Delete(sourcePath); } catch { /* best effort */ }
 
                 return uri.ToString();

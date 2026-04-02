@@ -3,156 +3,194 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:models="clr-namespace:TravelCamApp.Models"
              x:Class="TravelCamApp.Views.SensorValueSettingsView"
-             x:Name="SettingsRoot" >
+             x:Name="SettingsRoot">
 
     <ContentView.Content>
-        <!-- Semi-transparent backdrop -->
-        <AbsoluteLayout BackgroundColor="#B2000000">
-            <!-- Settings Panel -->
-            <ScrollView AbsoluteLayout.LayoutBounds="0.5,0.5,360,600"
-                        AbsoluteLayout.LayoutFlags="PositionProportional"
-                        BackgroundColor="{StaticResource MD3Surface}">
-                <VerticalStackLayout Padding="20" Spacing="16">
-                    <!-- Header -->
-                    <Label Text="Sensor Settings"
-                           FontSize="20"
-                           FontAttributes="Bold"
-                           TextColor="{StaticResource MD3OnSurface}" />
+        <!-- Dimmed backdrop -->
+        <AbsoluteLayout BackgroundColor="#CC000000">
 
-                    <!-- Visible Sensors -->
-                    <Border BackgroundColor="{StaticResource MD3Surface}"
-                            Stroke="{StaticResource MD3OutlineVariant}"
-                            StrokeThickness="1"
-                            StrokeShape="RoundRectangle 12"
-                            Padding="10">
-                        <VerticalStackLayout Spacing="6">
-                            <Label Text="Visible Sensors"
-                                   FontSize="14"
-                                   FontAttributes="Bold"
-                                   TextColor="{StaticResource MD3OnSurface}" />
+            <!-- Settings Panel — dark card centered -->
+            <ScrollView AbsoluteLayout.LayoutBounds="0.5,0.5,340,0.88"
+                        AbsoluteLayout.LayoutFlags="PositionProportional,HeightProportional"
+                        BackgroundColor="#111111">
+                <VerticalStackLayout Padding="0" Spacing="0">
+
+                    <!-- ── Header ── -->
+                    <Grid Padding="20,20,16,16"
+                          ColumnDefinitions="*,Auto"
+                          BackgroundColor="#111111">
+                        <Label Grid.Column="0"
+                               Text="SENSOR OVERLAY"
+                               FontSize="13"
+                               CharacterSpacing="1.2"
+                               FontAttributes="Bold"
+                               TextColor="#8E8E93"
+                               VerticalOptions="Center" />
+                        <!-- Close X button -->
+                        <Border Grid.Column="1"
+                                StrokeShape="RoundRectangle 16"
+                                BackgroundColor="#2C2C2E" Stroke="Transparent"
+                                WidthRequest="32" HeightRequest="32"
+                                HorizontalOptions="End" VerticalOptions="Center">
+                            <Label Text="✕" FontSize="13" TextColor="#ABABAB"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnCloseClicked" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                    </Grid>
+
+                    <!-- Divider -->
+                    <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" Margin="0" />
+
+                    <!-- ── Visible Sensors section ── -->
+                    <VerticalStackLayout Padding="20,16,20,0" Spacing="10"
+                                         BackgroundColor="#111111">
+
+                        <Label Text="VISIBLE"
+                               FontSize="11" CharacterSpacing="1.0"
+                               FontAttributes="Bold" TextColor="#8E8E93" />
+
+                        <!-- Visible items list -->
+                        <Border StrokeShape="RoundRectangle 12" Stroke="Transparent"
+                                BackgroundColor="#1C1C1E" Padding="0"
+                                MinimumHeightRequest="48">
                             <CollectionView x:Name="VisibleSensorsList"
                                             ItemsSource="{Binding VisibleSensorItems}"
                                             SelectionMode="Single"
-                                            HeightRequest="120"
+                                            HeightRequest="148"
                                             SelectedItem="{Binding SelectedVisibleItem, Mode=TwoWay}"
                                             CanReorderItems="True"
                                             ReorderCompleted="OnVisibleListReorderCompleted">
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate x:DataType="models:SensorItem">
-                                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2">
-                                            <Label Grid.Column="0" Text="☰" FontSize="14"
-                                                   VerticalOptions="Center" Margin="8,0"
-                                                   TextColor="{StaticResource MD3OnSurfaceVariant}" />
-                                            <Border Grid.Column="1" Padding="10,8"
-                                                    StrokeThickness="0"
-                                                    BackgroundColor="{StaticResource MD3PrimaryContainer}">
-                                                <Label Text="{Binding Name}" FontSize="13"
-                                                       TextColor="{StaticResource MD3OnPrimaryContainer}"
-                                                       VerticalOptions="Center" />
-                                            </Border>
+                                        <Grid ColumnDefinitions="Auto,*,Auto"
+                                              Padding="14,0" HeightRequest="46">
+                                            <!-- Drag handle -->
+                                            <Label Grid.Column="0"
+                                                   Text="≡" FontSize="16"
+                                                   TextColor="#3C3C3E"
+                                                   VerticalOptions="Center"
+                                                   Margin="0,0,10,0" />
+                                            <!-- Sensor name -->
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding Name}"
+                                                   FontSize="14" TextColor="#FFFFFF"
+                                                   VerticalOptions="Center" />
+                                            <!-- Remove (−) -->
                                             <Border Grid.Column="2"
-                                                    BackgroundColor="{StaticResource MD3Error}"
-                                                    StrokeThickness="0" Padding="10,8"
-                                                    VerticalOptions="Fill">
+                                                    StrokeShape="RoundRectangle 14"
+                                                    BackgroundColor="#3A1A1A" Stroke="Transparent"
+                                                    WidthRequest="28" HeightRequest="28"
+                                                    VerticalOptions="Center">
+                                                <Label Text="−" FontSize="16" TextColor="#FF453A"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center"
+                                                       Margin="0,0,0,2" />
                                                 <Border.GestureRecognizers>
                                                     <TapGestureRecognizer
                                                         Command="{Binding Source={x:Reference SettingsRoot}, Path=BindingContext.MoveToAvailableCommand}"
                                                         CommandParameter="{Binding .}" />
                                                 </Border.GestureRecognizers>
-                                                <Label Text="✕" FontSize="12" TextColor="White"
-                                                       VerticalOptions="Center" HorizontalOptions="Center" />
                                             </Border>
                                         </Grid>
                                     </DataTemplate>
                                 </CollectionView.ItemTemplate>
                             </CollectionView>
-                        </VerticalStackLayout>
-                    </Border>
+                        </Border>
 
-                    <!-- Action Buttons -->
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <Button Grid.Column="0" Text="＋ Add"
-                                Clicked="OnAddButtonClicked"
-                                BackgroundColor="{StaticResource MD3Primary}"
-                                TextColor="{StaticResource MD3OnPrimary}"
-                                FontSize="12" HeightRequest="32" CornerRadius="16" />
-                        <Button Grid.Column="1" Text="− Remove"
-                                Clicked="OnRemoveButtonClicked"
-                                BackgroundColor="{StaticResource MD3SecondaryContainer}"
-                                TextColor="{StaticResource MD3OnSurface}"
-                                FontSize="12" HeightRequest="32" CornerRadius="16" />
-                    </Grid>
+                    </VerticalStackLayout>
 
-                    <!-- Available Sensors -->
-                    <Border BackgroundColor="{StaticResource MD3Surface}"
-                            Stroke="{StaticResource MD3OutlineVariant}"
-                            StrokeThickness="1"
-                            StrokeShape="RoundRectangle 12"
-                            Padding="10">
-                        <VerticalStackLayout Spacing="6">
-                            <Label Text="Available Sensors"
-                                   FontSize="14"
-                                   FontAttributes="Bold"
-                                   TextColor="{StaticResource MD3OnSurface}" />
+                    <!-- ── Available Sensors section ── -->
+                    <VerticalStackLayout Padding="20,16,20,0" Spacing="10"
+                                         BackgroundColor="#111111">
+
+                        <Label Text="AVAILABLE"
+                               FontSize="11" CharacterSpacing="1.0"
+                               FontAttributes="Bold" TextColor="#8E8E93" />
+
+                        <!-- Available items list -->
+                        <Border StrokeShape="RoundRectangle 12" Stroke="Transparent"
+                                BackgroundColor="#1C1C1E" Padding="0"
+                                MinimumHeightRequest="48">
                             <CollectionView x:Name="AvailableSensorsList"
                                             ItemsSource="{Binding AvailableSensorItems}"
                                             SelectionMode="Single"
-                                            HeightRequest="120"
+                                            HeightRequest="148"
                                             SelectedItem="{Binding SelectedAvailableItem, Mode=TwoWay}">
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate x:DataType="models:SensorItem">
-                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2">
-                                            <Border Grid.Column="0" Padding="10,8"
-                                                    StrokeThickness="0"
-                                                    BackgroundColor="{StaticResource MD3SurfaceVariant}">
-                                                <Label Text="{Binding Name}" FontSize="13"
-                                                       TextColor="{StaticResource MD3OnSurfaceVariant}"
-                                                       VerticalOptions="Center" />
-                                            </Border>
+                                        <Grid ColumnDefinitions="*,Auto"
+                                              Padding="14,0" HeightRequest="46">
+                                            <!-- Sensor name -->
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding Name}"
+                                                   FontSize="14" TextColor="#ABABAB"
+                                                   VerticalOptions="Center" />
+                                            <!-- Add (+) -->
                                             <Border Grid.Column="1"
-                                                    BackgroundColor="{StaticResource MD3Success}"
-                                                    StrokeThickness="0" Padding="10,8"
-                                                    VerticalOptions="Fill">
+                                                    StrokeShape="RoundRectangle 14"
+                                                    BackgroundColor="#1A3A1A" Stroke="Transparent"
+                                                    WidthRequest="28" HeightRequest="28"
+                                                    VerticalOptions="Center">
+                                                <Label Text="+" FontSize="16" TextColor="#30D158"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center"
+                                                       Margin="0,0,0,1" />
                                                 <Border.GestureRecognizers>
                                                     <TapGestureRecognizer
                                                         Command="{Binding Source={x:Reference SettingsRoot}, Path=BindingContext.MoveToVisibleCommand}"
                                                         CommandParameter="{Binding .}" />
                                                 </Border.GestureRecognizers>
-                                                <Label Text="＋" FontSize="12" TextColor="White"
-                                                       VerticalOptions="Center" HorizontalOptions="Center" />
                                             </Border>
                                         </Grid>
                                     </DataTemplate>
                                 </CollectionView.ItemTemplate>
                             </CollectionView>
-                        </VerticalStackLayout>
-                    </Border>
+                        </Border>
 
-                    <!-- Font Size -->
-                    <Grid RowDefinitions="Auto,Auto" RowSpacing="4">
-                        <HorizontalStackLayout Grid.Row="0">
-                            <Label Text="Font Size" FontSize="13"
-                                   TextColor="{StaticResource MD3OnSurfaceVariant}" VerticalOptions="Center" />
-                            <Label Text="{Binding Source={x:Reference FontSizeSlider}, Path=Value, StringFormat=' ({0:F0})'}"
-                                   FontSize="13" TextColor="{StaticResource MD3Primary}"
-                                   FontAttributes="Bold" VerticalOptions="Center" />
+                    </VerticalStackLayout>
+
+                    <!-- ── Font Size slider ── -->
+                    <VerticalStackLayout Padding="20,16,20,0" Spacing="8"
+                                         BackgroundColor="#111111">
+                        <HorizontalStackLayout Spacing="0">
+                            <Label Text="LABEL SIZE"
+                                   FontSize="11" CharacterSpacing="1.0"
+                                   FontAttributes="Bold" TextColor="#8E8E93"
+                                   VerticalOptions="Center" />
+                            <Label Text="{Binding Source={x:Reference FontSizeSlider}, Path=Value, StringFormat='  {0:F0} pt'}"
+                                   FontSize="11" TextColor="#FFFFFF"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
                         </HorizontalStackLayout>
-                        <Slider Grid.Row="1" x:Name="FontSizeSlider"
+                        <Slider x:Name="FontSizeSlider"
                                 Minimum="8" Maximum="24"
                                 Value="{Binding FontSize}"
-                                DragCompleted="OnFontSizeChanged"
-                                MinimumTrackColor="{StaticResource MD3Primary}"
-                                MaximumTrackColor="{StaticResource MD3OutlineVariant}"
-                                ThumbColor="{StaticResource MD3Primary}" />
-                    </Grid>
+                                MinimumTrackColor="#FFFFFF"
+                                MaximumTrackColor="#3C3C3E"
+                                ThumbColor="#FFFFFF" />
+                    </VerticalStackLayout>
 
-                    <!-- Close Button -->
-                    <Button Text="Close"
-                            Clicked="OnCloseClicked"
-                            BackgroundColor="{StaticResource MD3Primary}"
-                            TextColor="{StaticResource MD3OnPrimary}"
-                            FontSize="14" FontAttributes="Bold"
-                            HeightRequest="44" CornerRadius="22" />
+                    <!-- ── Tip text ── -->
+                    <Label Margin="20,12,20,0"
+                           Text="Drag items in Visible list to reorder. Tap + or − to move sensors."
+                           FontSize="11" TextColor="#636366"
+                           LineBreakMode="WordWrap" />
+
+                    <!-- ── Bottom spacer + Save/Close button ── -->
+                    <Border Margin="20,20,20,24"
+                            StrokeShape="RoundRectangle 22"
+                            BackgroundColor="#FFFFFF" Stroke="Transparent"
+                            HeightRequest="44">
+                        <Label Text="Done" FontSize="15" FontAttributes="Bold"
+                               TextColor="#000000"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnCloseClicked" />
+                        </Border.GestureRecognizers>
+                    </Border>
+
                 </VerticalStackLayout>
             </ScrollView>
         </AbsoluteLayout>

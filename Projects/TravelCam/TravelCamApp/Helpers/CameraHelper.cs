@@ -235,17 +235,14 @@ namespace TravelCamApp.Helpers
         #region Zoom
 
         /// <summary>
-        /// Applies zoom to the camera. zoomFactor is 0.0–1.0 (relative of max).
+        /// Applies zoom to the camera.
+        /// <paramref name="zoomFactor"/> should be between 0.0 and 1.0 (normalized).
         /// </summary>
-        public static void SetZoom(CameraView cameraView, double zoomFactor)
+        public static void SetZoom(CameraView cameraView, float zoomFactor)
         {
-            zoomFactor = Math.Clamp(zoomFactor, 0.0, 1.0);
-
-            // Camera.MAUI's ZoomFactor is normalized 0.0–1.0 directly.
-            // No need to convert using min/max bounds.
-            cameraView.ZoomFactor = (float)zoomFactor;
-
-            LogDebug("[CameraHelper] ZoomFactor set to: {0}", cameraView.ZoomFactor);
+            zoomFactor = Math.Clamp(zoomFactor, 0f, 1f);
+            cameraView.ZoomFactor = zoomFactor;
+            LogDebug("[CameraHelper] ZoomFactor set to: {0}", zoomFactor);
         }
 
         #endregion

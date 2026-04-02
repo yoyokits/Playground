@@ -4,27 +4,47 @@
              xmlns:models="clr-namespace:TravelCamApp.Models"
              x:Class="TravelCamApp.Views.SensorValueView">
 
-    <Border BackgroundColor="#AA000000"
-            StrokeShape="RoundRectangle 8"
-            Padding="12,10"
-            MaximumWidthRequest="160">
-        <VerticalStackLayout Spacing="4">
+    <!--
+        Sensor overlay: compact dark pill in the bottom-right of the camera preview.
+        Each visible sensor shows as two lines — label (gray, small) above value (white, bold).
+        Tap the overlay to open sensor settings.
+    -->
+    <Border BackgroundColor="#B2000000"
+            StrokeShape="RoundRectangle 10"
+            Stroke="Transparent"
+            Padding="10,8"
+            MaximumWidthRequest="150">
+        <VerticalStackLayout Spacing="6">
             <VerticalStackLayout.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
             </VerticalStackLayout.GestureRecognizers>
+
             <CollectionView ItemsSource="{Binding SensorItems}"
                             SelectionMode="None">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:SensorItem">
-                        <VerticalStackLayout IsVisible="{Binding IsVisible}" HeightRequest="-1">
-                            <Label Text="{Binding NameAndValue}"
-                                   FontSize="12"
-                                   TextColor="White"
+                        <!-- Each sensor entry: label line + value line -->
+                        <VerticalStackLayout IsVisible="{Binding IsVisible}"
+                                            Spacing="1"
+                                            Margin="0,0,0,5">
+                            <!-- Sensor label (muted gray, very small) -->
+                            <Label Text="{Binding Name}"
+                                   FontSize="9"
+                                   CharacterSpacing="0.6"
+                                   TextColor="#9E9E9E"
+                                   LineBreakMode="NoWrap"
+                                   TextTransform="Uppercase" />
+                            <!-- Sensor value (white, bold, prominent) -->
+                            <Label Text="{Binding Value}"
+                                   FontSize="13"
+                                   FontAttributes="Bold"
+                                   TextColor="#FFFFFF"
                                    LineBreakMode="NoWrap" />
                         </VerticalStackLayout>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
+
         </VerticalStackLayout>
     </Border>
 </ContentView>

@@ -1,28 +1,13 @@
 using System;
 using System.Globalization;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
 using TravelCamApp.ViewModels;
 
 namespace TravelCamApp.Converters
 {
     /// <summary>
-    /// Converts CaptureMode to the text shown on the shutter button.
-    /// </summary>
-    public sealed class CaptureModeToStringConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            return value is CaptureMode mode ? mode.ToString() : "Photo";
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-    /// <summary>
-    /// Converts CaptureMode to button background color.
+    /// Converts CaptureMode to the inner shutter circle color.
     /// Photo -> White, Video -> Red.
     /// </summary>
     public sealed class CaptureModeToColorConverter : IValueConverter
@@ -39,26 +24,9 @@ namespace TravelCamApp.Converters
     }
 
     /// <summary>
-    /// Converts CaptureMode to the shutter button text color.
-    /// Photo (white button) -> Black, Video (red button) -> White.
-    /// </summary>
-    public sealed class CaptureModeToButtonTextColorConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            return value is CaptureMode.Video ? Colors.White : Colors.Black;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-    /// <summary>
     /// Converts CaptureMode to label text color for mode selector.
     /// Active mode -> White, Inactive -> Gray.
-    /// Parameter is the mode name to check against: "Photo" or "Video".
+    /// Parameter is the mode name: "Photo" or "Video".
     /// </summary>
     public sealed class CaptureModeToTextColorConverter : IValueConverter
     {
@@ -68,9 +36,9 @@ namespace TravelCamApp.Converters
             {
                 var target = targetMode.Equals("Photo", StringComparison.OrdinalIgnoreCase)
                     ? CaptureMode.Photo : CaptureMode.Video;
-                return mode == target ? Colors.White : Colors.Gray;
+                return mode == target ? Colors.White : Color.FromArgb("#88FFFFFF");
             }
-            return Colors.Gray;
+            return Color.FromArgb("#88FFFFFF");
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -95,6 +63,84 @@ namespace TravelCamApp.Converters
                 return mode == target ? FontAttributes.Bold : FontAttributes.None;
             }
             return FontAttributes.None;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converts CaptureMode match to bool for mode indicator dot visibility.
+    /// Returns true if the current mode matches the parameter.
+    /// </summary>
+    public sealed class CaptureModeToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is CaptureMode mode && parameter is string targetMode)
+            {
+                var target = targetMode.Equals("Photo", StringComparison.OrdinalIgnoreCase)
+                    ? CaptureMode.Photo : CaptureMode.Video;
+                return mode == target;
+            }
+            return false;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converts IsFlashOn (bool) to icon color.
+    /// On -> Yellow, Off -> White.
+    /// </summary>
+    public sealed class FlashIconColorConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return value is bool isOn && isOn ? Color.FromArgb("#FFD700") : Colors.White;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converts SelectedZoomPresetIndex (int) + parameter index to background color.
+    /// Selected -> semi-transparent white, Unselected -> transparent.
+    /// </summary>
+    public sealed class ZoomPresetBackgroundConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is int selected && parameter is string p && int.TryParse(p, out int index))
+                return selected == index ? Color.FromArgb("#55FFFFFF") : Colors.Transparent;
+            return Colors.Transparent;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converts SelectedZoomPresetIndex (int) + parameter index to text color.
+    /// Selected -> bright white, Unselected -> dimmed white.
+    /// </summary>
+    public sealed class ZoomPresetTextColorConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is int selected && parameter is string p && int.TryParse(p, out int index))
+                return selected == index ? Colors.White : Color.FromArgb("#AAFFFFFF");
+            return Color.FromArgb("#AAFFFFFF");
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
