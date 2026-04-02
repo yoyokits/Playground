@@ -54,7 +54,7 @@ public partial class PianoSheetView : ContentView
     }
 
     private void UpdateCanvasDimensions()
-    {
+        {
         var canvasWidth = (float)Canvas.CanvasSize.Width;
         var canvasHeight = (float)Canvas.CanvasSize.Height;
 

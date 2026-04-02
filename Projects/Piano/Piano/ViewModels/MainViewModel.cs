@@ -263,6 +263,11 @@ public partial class MainViewModel : ObservableObject
         var octaves = new[] { 3, 4, 5 };
         var whiteNotes = new[] { "C", "D", "E", "F", "G", "A", "B" };
         var blackNotes = new[] { "C#", "D#", null, "F#", "G#", "A#" };
+        var blackKeyPositions = new[] { 0, 1, 3, 4, 5 }; // Index in white key sequence
+
+        double whiteKeyWidth = 50;
+        double blackKeyWidth = 30;
+        double xPos = 0;
 
         foreach (var octave in octaves)
         {
@@ -274,6 +279,7 @@ public partial class MainViewModel : ObservableObject
                     IsPressed = false
                 };
                 PianoKeys.Add(key);
+                xPos += whiteKeyWidth;
             }
 
             // Black keys

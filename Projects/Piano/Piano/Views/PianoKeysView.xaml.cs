@@ -31,6 +31,8 @@ public partial class PianoKeysView : ContentView
     private const int StartOctave = 3; // C3
     private const int EndOctave = 5;   // B5
     private const float KeySpacing = 2f;
+    private const float WhiteKeyWidthBase = 60f;
+    private const float WhiteKeyHeightBase = 200f;
     private const float BlackKeyWidthRatio = 0.6f;
     private const float BlackKeyHeightRatio = 0.6f;
 
@@ -212,11 +214,11 @@ public partial class PianoKeysView : ContentView
         {
             var x = (float)key.XPosition;
             DrawKey(canvas, x, 0, _whiteKeyWidth, _whiteKeyHeight, _whiteKeyPaint!, _pressedWhiteKeyPaint!, key.IsPressed, cornerRadius: 6);
-        }
+            }
 
         // Draw black keys on top
         foreach (var key in _viewModel.PianoKeys.Where(k => k.IsBlackKey))
-        {
+            {
             var x = (float)key.XPosition;
             DrawKey(canvas, x, 0, _blackKeyWidth, _blackKeyHeight, _blackKeyPaint!, _pressedBlackKeyPaint!, key.IsPressed, cornerRadius: 4);
         }
