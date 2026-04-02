@@ -40,6 +40,7 @@ namespace TravelCamApp.ViewModels
 
         private readonly SensorHelper _sensorHelper;
         private readonly SensorValueViewModel _sensorValueViewModel;
+        private readonly CameraSettingsViewModel _cameraSettings;
 
         // Camera
         private CameraView? _cameraView;
@@ -58,6 +59,7 @@ namespace TravelCamApp.ViewModels
         // Overlay visibility
         private bool _isSensorOverlayVisible = true;
         private bool _isSettingsVisible;
+        private bool _isCameraSettingsVisible;
 
         // Flash
         private bool _isFlashOn;
@@ -139,6 +141,12 @@ namespace TravelCamApp.ViewModels
             set { _isSettingsVisible = value; OnPropertyChanged(); }
         }
 
+        public bool IsCameraSettingsVisible
+        {
+            get => _isCameraSettingsVisible;
+            set { _isCameraSettingsVisible = value; OnPropertyChanged(); }
+        }
+
         public bool IsFlashOn
         {
             get => _isFlashOn;
@@ -155,8 +163,11 @@ namespace TravelCamApp.ViewModels
         /// <summary>Passthrough to SensorValueViewModel.SensorItems.</summary>
         public ObservableCollection<SensorItem> SensorItems => _sensorValueViewModel.SensorItems;
 
-        /// <summary>Exposes the sensor sub-ViewModel for consumers that need it.</summary>
+        /// <summary>Exposes the sensor sub-ViewModel (font size, items).</summary>
         public SensorValueViewModel SensorValueViewModel => _sensorValueViewModel;
+
+        /// <summary>Exposes the camera display settings (grid, overlay toggles).</summary>
+        public CameraSettingsViewModel CameraSettings => _cameraSettings;
 
         #endregion
 
@@ -168,6 +179,7 @@ namespace TravelCamApp.ViewModels
         public ICommand SetVideoModeCommand { get; }
         public ICommand ToggleFlashCommand { get; }
         public ICommand OpenSettingsCommand { get; }
+        public ICommand OpenCameraSettingsCommand { get; }
         public ICommand CloseSettingsCommand { get; }
         public ICommand OpenGalleryCommand { get; }
 
@@ -175,10 +187,14 @@ namespace TravelCamApp.ViewModels
 
         #region Constructor
 
-        public MainPageViewModel(SensorHelper sensorHelper, SensorValueViewModel sensorValueViewModel)
+        public MainPageViewModel(
+            SensorHelper sensorHelper,
+            SensorValueViewModel sensorValueViewModel,
+            CameraSettingsViewModel cameraSettings)
         {
             _sensorHelper = sensorHelper;
             _sensorValueViewModel = sensorValueViewModel;
+            _cameraSettings = cameraSettings;
 
             ToggleCameraCommand = new Command(async () => await ToggleCameraAsync());
             CaptureCommand = new Command(async () => await CaptureAsync());
@@ -186,6 +202,7 @@ namespace TravelCamApp.ViewModels
             SetVideoModeCommand = new Command(() => SelectedMode = CaptureMode.Video);
             ToggleFlashCommand = new Command(ToggleFlash);
             OpenSettingsCommand = new Command(() => IsSettingsVisible = true);
+            OpenCameraSettingsCommand = new Command(() => IsCameraSettingsVisible = true);
             CloseSettingsCommand = new Command(async () => await CloseSettingsAsync());
             OpenGalleryCommand = new Command(async () => await OpenGalleryAsync());
 
@@ -907,10 +924,8 @@ namespace TravelCamApp.ViewModels
             return string.IsNullOrWhiteSpace(city) || city == "Unknown" ? "CekliCam" : city;
         }
 
-        protected void OnPropertyChanged([CallerMemberName] string? name = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-        }
+        protected void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? name = null)
+            => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
 
         #endregion
     }

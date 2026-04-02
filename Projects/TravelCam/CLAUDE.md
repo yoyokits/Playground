@@ -58,8 +58,9 @@ builder.UseMauiCommunityToolkit()
 public class CameraInfo {
     string Name { get; }
     CameraPosition Position { get; }   // Front, Rear  (NOT Back)
-    float MinZoomFactor { get; }
-    float MaxZoomFactor { get; }
+    // ⚠️ Zoom bounds are NOT reliably available on CameraInfo in v6.0.0.
+    // Do NOT attempt to read MinZoomFactor / MaxZoomFactor / MinimumZoomFactor / MaximumZoomFactor.
+    // Manage zoom preset values in the ViewModel directly.
 }
 
 // Camera position enum
@@ -252,6 +253,4 @@ Key compile checks:
 - [ ] Verify CommunityToolkit.Maui.Camera 6.0.0 net10.0 compatibility; upgrade if needed
 - [ ] iOS support — scaffold only, not targeted
 - [x] Premium Samsung-style camera UI — shutter ring+circle, flip path icon, grid lines, mode dots
-- [x] Shutter button — vector white ring + white circle (photo) / red circle (video) / stop square (recording), scale-bounce animation
-- [x] Gallery thumbnail shows last photo taken on startup (persisted via Preferences)
-- [x] Gallery crash fix — proper ActivityFlags, camera restart retry with delay on resume
+- [x] Shutter button — vector white ring + white circle (ph

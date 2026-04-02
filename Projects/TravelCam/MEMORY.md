@@ -1,107 +1,238 @@
-# MEMORY.md — Project State & Version Lock
+# MEMORY.md — TravelCam Project State & Library API Reference
 
-> Claude Code: Read this file at start of every session to understand the current project state, version constraints, and API compatibility requirements.
+> **READ THIS AT THE START OF EVERY SESSION.**
+> Pinned versions, verified API names, and architecture decisions are documented here.
+> Wrong library API assumptions have caused repeated bugs — always cross-check here first.
 
 ---
 
-## VERSION LOCK
+## Locked Library Versions
 
-| Component | Version | Constraint |
+| Component | Version | Notes |
 |---|---|---|
-| .NET MAUI | 10.0.30 | Pinned in .csproj (`<MauiVersion>`) |
-| Target Framework | `net10.0-android` | Primary; Windows secondary |
-| Android Min SDK | API 29 | Android 10 — MediaStore with `RelativePath` available |
-| Android Target SDK | API 35 | Android 15 |
-| Camera.MAUI | 1.5.1 | Pinned in .csproj |
-| CommunityToolkit.Maui | 14.0.0 | Pinned in .csproj |
-| System.Text.Json | 10.0.2 | Via .NET 10 |
-| HttpClient | Built-in | .NET 8+ default handler |
+| .NET MAUI | **10.0.30** | Pinned in .csproj |
+| Target Framework | **`net10.0-android`** | Primary; Windows is secondary |
+| Android Min SDK | **API 29** (Android 10) | Scoped storage with `IsPending` |
+| Android Target SDK | **API 35** (Android 15) | Required until Aug 2026 |
+| CommunityToolkit.Maui | **14.0.0** | Converters, behaviors, toolkit base |
+| CommunityToolkit.Maui.Camera | **6.0.0** | Camera capture — MIGRATED FROM Camera.MAUI 1.5.1 |
+| System.Text.Json | **10.0.2** | Via .NET 10 |
 
-**IMPORTANT**: All code must be compatible with these exact versions. Do NOT generate code for different versions unless explicitly asked.
+> ⚠️ Camera library was **migrated** from `Camera.MAUI 1.5.1` to `CommunityToolkit.Maui.Camera 6.0.0`.
+> Old Camera.MAUI API (CameraResult, FlashMode.Enabled, CamerasLoaded event) is **GONE**.
+> Use only the API documented below.
 
 ---
 
-## Camera.MAUI 1.5.1 — Authoritative API
+## CommunityToolkit.Maui.Camera 6.0.0 — VERIFIED API
 
-Source verified from https://github.com/hjam40/Camera.MAUI (master branch).
-
-### Types (namespace: `Camera.MAUI`)
-
-```
-CameraInfo
-  Properties: Name, DeviceId, Position, HasFlashUnit,
-              MinZoomFactor, MaxZoomFactor,
-              HorizontalViewAngle, VerticalViewAngle, AvailableResolutions
-  ToString() -> Name
-
-CameraPosition: Back | Front | Unknow  (note: "Unknow" not "Unknown" — library typo)
-
-CameraResult: Success | AccessDenied | NoCameraSelected | AccessError
-              | NoVideoFormatsAvailable | NotInitiated
-              | NoMicrophoneSelected | ResolutionNotAvailable
-
-FlashMode: Auto | Enabled | Disabled
-
-ImageFormat: JPEG | PNG | WEBP
-
-MicrophoneInfo
-  Properties: Name, DeviceId
-  ToString() -> Name
+### MauiProgram Setup
+```csharp
+builder.UseMauiCommunityToolkit()
+       .UseMauiCommunityToolkitCamera()
 ```
 
-### CameraView Bindable Properties
-
-```
-Cameras              -> ObservableCollection<CameraInfo>
-CamerasLoaded        -> event EventHandler
-NumCamerasDetected   -> int
-
-Microphones          -> ObservableCollection<MicrophoneInfo>
-MicrophonesLoaded    -> event EventHandler
-
-Camera               -> CameraInfo  (MUST be set before StartCameraAsync)
-Microphone           -> MicrophoneInfo  (MUST be set before StartRecordingAsync)
-
-FlashMode            -> FlashMode (default: Disabled)
-ZoomFactor           -> float (default: 1.0f)
-TorchEnabled         -> bool (default: false)
-MirroredImage        -> bool (default: false)
-
-SnapShot             -> ImageSource (OneWayToSource binding)
-SnapShotStream       -> Stream (OneWayToSource binding)
-AutoSnapShotSeconds  -> float (0 = disabled)
-AutoSnapShotFormat   -> ImageFormat
-Self                 -> CameraView (OneWayToSource, for MVVM)
-
-AutoStartPreview     -> bool (if true, starts preview automatically)
-AutoRecordingFile    -> string (file path for auto-record)
-AutoStartRecording   -> bool (if true, starts recording automatically)
+### Namespaces
+```csharp
+using CommunityToolkit.Maui.Views;   // CameraView
+using CommunityToolkit.Maui.Core;    // CameraInfo, CameraPosition, CameraFlashMode
 ```
 
-### Methods (Return Types Matter)
-
-```
-Task<CameraResult> StartCameraAsync(Size Resolution = default)
-Task<CameraResult> StopCameraAsync()
-Task<CameraResult> StartRecordingAsync(string file, Size Resolution = default)
-Task<CameraResult> StopRecordingAsync()
-Task<Stream>       TakePhotoAsync(ImageFormat = JPEG)
-ImageSource        GetSnapShot(ImageFormat = PNG)
-Task<bool>         SaveSnapShot(ImageFormat, string filePath)
+### XAML Namespace
+```xml
+xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+<!-- <toolkit:CameraView ... /> -->
 ```
 
-### CRITICAL RULES
+### Key Types — EXACT NAMES
 
-1. **`cameraView.Cameras`** — NOT `Devices`
-2. **`CameraInfo`** — NOT `CameraDevice` or `CameraDeviceInfo`
-3. **`CameraResult`** — NOT `bool`
-4. **`FlashMode.Enabled`** — NOT `FlashMode.On`
-5. **`FlashMode.Disabled`** — NOT `FlashMode.Off`
-6. **NO `IsPreviewing`** property on CameraView
-7. **NO `IsRecording`** property on CameraView
-8. Camera auto-restarts preview when `Camera` property changes — do NOT call `StartCameraAsync` after toggling
-9. **Microphone MUST be set** before `StartRecordingAsync` or it will fail
-10. `CamerasLoaded` event is the reliable signal — NOT `OnAppearing`
+```csharp
+// Camera device info
+public class CameraInfo {
+    string Name { get; }
+    CameraPosition Position { get; }   // Front or Rear — NOT "Back"
+    // NOTE: zoom bounds are NOT reliably exposed on CameraInfo in v6.0.0.
+    // Do NOT read MinimumZoomFactor/MaxZoomFactor from CameraInfo at runtime.
+    // Manage zoom preset ranges in the ViewModel using known safe values.
+}
+
+// Camera position enum — "Rear" NOT "Back"
+public enum CameraPosition { Front, Rear }
+
+// Flash enum — "CameraFlashMode" NOT "FlashMode"
+public enum CameraFlashMode { Off, On }
+// (NOT Enabled/Disabled — those were Camera.MAUI names)
+```
+
+### CameraView Properties
+```csharp
+CameraInfo?      SelectedCamera    { get; set; }   // NOT "Camera" — set BEFORE StartCameraPreview
+float            ZoomFactor        { get; set; }   // ABSOLUTE value (2.0 = 2×), NOT normalized 0–1
+CameraFlashMode  CameraFlashMode   { get; set; }   // NOT FlashMode
+bool             IsAvailable       { get; }
+bool             IsBusy            { get; }
+```
+
+### CameraView Methods — NO Async suffix on most
+```csharp
+ValueTask<IReadOnlyList<CameraInfo>> GetAvailableCameras(CancellationToken);
+Task StartCameraPreview(CancellationToken);          // starts live preview
+void StopCameraPreview();                             // SYNC — no Async suffix, no return value
+Task CaptureImage(CancellationToken);                // fires MediaCaptured event; doesn't return Stream
+Task StartVideoRecording(CancellationToken);
+Task<Stream> StopVideoRecording(CancellationToken);  // returns video stream
+```
+
+### CameraView Events
+```csharp
+event EventHandler<MediaCapturedEventArgs>      MediaCaptured;
+event EventHandler<MediaCaptureFailedEventArgs> MediaCaptureFailed;
+
+class MediaCapturedEventArgs {
+    Stream Media { get; }   // photo data — save BEFORE returning from handler
+}
+class MediaCaptureFailedEventArgs {
+    string FailureReason { get; }
+}
+```
+
+### CRITICAL RULES (each learned from a real bug)
+
+| Rule | Wrong | Correct |
+|---|---|---|
+| Camera position enum | `CameraPosition.Back` | `CameraPosition.Rear` |
+| Flash mode enum type | `FlashMode` | `CameraFlashMode` |
+| Flash mode values | `FlashMode.Enabled / Disabled` | `CameraFlashMode.On / Off` |
+| Active camera property | `Camera` | `SelectedCamera` |
+| ZoomFactor semantics | normalized 0–1 | set directly; caller controls valid range |
+| Camera init trigger | `CamerasLoaded` event | `OnAppearing` → `await ViewModel.OnViewReady(CameraView)` |
+| Stop preview | `StopCameraAsync()` (returns Task) | `StopCameraPreview()` (void, sync) |
+| Photo capture | returns Stream | fires `MediaCaptured` event with `Stream Media` |
+| Toggle camera | change property, auto-restarts | must call Stop, set SelectedCamera, call Start |
+| After StopVideoRecording | done | MUST call `StartCameraPreview` or screen stays black |
+| `IsPreviewing` property | exists | does NOT exist — track manually |
+| `IsRecording` property | exists | does NOT exist — track manually |
+
+---
+
+## XAML Patterns Used in This Project
+
+### RelativeSource binding inside DataTemplate (to reach parent ViewModel)
+```xml
+<!-- Inside CollectionView DataTemplate where DataContext is SensorItem,
+     but we need MainPageViewModel.SensorValueViewModel.LabelFontSize -->
+<Label FontSize="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}},
+                           Path=BindingContext.SensorValueViewModel.LabelFontSize}" />
+```
+
+### BindableLayout for dynamic item strip
+```xml
+<HorizontalStackLayout BindableLayout.ItemsSource="{Binding ZoomPresets}">
+    <BindableLayout.ItemTemplate>
+        <DataTemplate x:DataType="models:ZoomPreset">
+            <Border Background="{Binding PillBackground}">
+                <Label Text="{Binding Label}" />
+            </Border>
+        </DataTemplate>
+    </BindableLayout.ItemTemplate>
+</HorizontalStackLayout>
+```
+
+### Path element for vector icons (not BoxView + Rotation)
+```xml
+<!-- Diagonal slash line — use Path, not a rotated BoxView -->
+<Path Data="M8,8 L36,36"
+      Stroke="White" StrokeThickness="2"
+      WidthRequest="44" HeightRequest="44" />
+```
+
+### Rule-of-thirds grid (no margin — overlaid in same Grid cell as CameraView)
+```xml
+<!-- Place in same Grid cell as CameraView; no Margin; InputTransparent="True" -->
+<Grid ColumnDefinitions="*,*,*" RowDefinitions="*,*,*" InputTransparent="True"
+      IsVisible="{Binding CameraSettings.ShowRuleOfThirds}">
+    <BoxView Grid.Column="1" Grid.RowSpan="3" WidthRequest="0.5"
+             Color="{Binding CameraSettings.GridLineColor}"
+             HorizontalOptions="Start" />
+    <!-- ... more BoxViews ... -->
+</Grid>
+```
+
+### AbsoluteLayout overlay panel (right-anchored)
+```xml
+<AbsoluteLayout.LayoutBounds>1, 0, 300, 1</AbsoluteLayout.LayoutBounds>
+<AbsoluteLayout.LayoutFlags>PositionProportional, SizeProportional</AbsoluteLayout.LayoutFlags>
+```
+
+---
+
+## Android Storage (API 29+)
+
+- Write to `ExternalCacheDir/captures/` (app-private temp) first
+- Copy to MediaStore with `IsPending=1`, then set `IsPending=0`
+- **CRITICAL**: Save private thumbnail copy BEFORE calling MediaStore publish (which deletes the temp)
+- Thumbnail: `FileSystem.AppDataDirectory/last_thumb.jpg` — plain file, never `content://`
+- Load thumbnail: `ImageSource.FromFile(path)` — never `ImageSource.FromUri("content://...")`
+- Persist thumbnail path in `Preferences.Set("LastThumbPath", thumbPath)`
+
+---
+
+## FileHelper Return Type
+
+```csharp
+// SavePhotoAsync returns a TUPLE — not just a string
+Task<(string GalleryPath, string ThumbPath)> SavePhotoAsync(Stream, string city)
+// Usage:
+var (galleryPath, thumbPath) = await FileHelper.SavePhotoAsync(stream, city);
+```
+
+---
+
+## ZoomPreset Model
+
+```csharp
+// AbsoluteZoom — actual camera zoom factor (e.g., 2.0 = 2×)
+// Populated from CameraInfo.MinZoomFactor / MaxZoomFactor at runtime
+public class ZoomPreset : INotifyPropertyChanged {
+    string Label { get; }            // "1×", "2×", etc.
+    float AbsoluteZoom { get; }      // passed directly to CameraView.ZoomFactor
+    bool IsSelected { get; set; }    // drives PillBackground, LabelColor, LabelSize
+    ICommand SelectCommand { get; }  // closure: () => onSelect(this)
+    Color PillBackground { get; }    // white when selected, transparent when not
+    Color LabelColor { get; }        // black when selected, white when not
+    double LabelSize { get; }        // 13 when selected, 12 when not
+}
+```
+
+---
+
+## Dependency Injection (MauiProgram.cs)
+
+```csharp
+// Singletons — shared for entire app lifetime
+builder.Services.AddSingleton<SensorHelper>();
+builder.Services.AddSingleton<CameraSettingsViewModel>();
+
+// Transient — new instance per injection
+builder.Services.AddTransient<SensorValueViewModel>();
+builder.Services.AddTransient<SensorValueSettingsViewModel>();
+builder.Services.AddTransient<MainPageViewModel>();
+builder.Services.AddTransient<MainPage>();
+```
+
+---
+
+## Open-Meteo Weather API
+
+- **Free, no API key**
+- URL: `https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true`
+- Response: `current_weather.temperature` (°C), `current_weather.windspeed` (km/h)
+
+## Reverse Geocoding
+
+- `await Geocoding.Default.GetPlacemarksAsync(lat, lon)`
+- `Placemark.Locality` = city, `Placemark.CountryName` = country
+- No API key needed
 
 ---
 
@@ -109,66 +240,41 @@ Task<bool>         SaveSnapShot(ImageFormat, string filePath)
 
 ```
 TravelCamApp/
-├── App.xaml / App.xaml.cs                    # App shell + converters
-├── AppShell.xaml / AppShell.xaml.cs           # Single-page routing
-├── MauiProgram.cs                             # DI registration
-├── TravelCamApp.csproj                        # Version lock here
-├── Requirement.txt                            # Feature requirements
-├── CodeStyle.txt                              # Coding standards
-├── DebuggingGuide.txt                         # Debug methodology
-├── Log.txt                                    # Development log (v0.3.0 current)
-├── WeeklyReviewChecklist.txt                  # Weekly review template
+├── App.xaml / App.xaml.cs
+├── AppShell.xaml / AppShell.xaml.cs
+├── MauiProgram.cs                             # DI: SensorHelper+CameraSettingsViewModel singletons
+├── TravelCamApp.csproj
 │
 ├── Converters/
-│   ├── CaptureModeConverters.cs               # Mode->Text, Color, Font converters
-│   ├── NullToBoolConverter.cs                 # (unused, kept for future)
-│   └── PositionToOptionsConverter.cs          # (unused, kept for future)
+│   └── CaptureModeConverters.cs              # FlashIconColorConverter, CaptureModeToTextConverter, etc.
 │
 ├── Helpers/
-│   ├── CameraHelper.cs                        # Camera.MAUI static wrapper (API-verified)
-│   ├── FileHelper.cs                          # MediaStore gallery integration
-│   ├── SensorHelper.cs                        # GPS+Compass+Weather polling (10s)
-│   ├── Settings.cs                            # Output path with Android fallback
-│   └── SettingsHelper.cs                      # JSON sensor settings persistence
+│   ├── CameraHelper.cs                       # CommunityToolkit.Maui.Camera 6.0.0 wrapper
+│   ├── FileHelper.cs                         # MediaStore integration; returns (GalleryPath, ThumbPath)
+│   ├── SensorHelper.cs                       # GPS+Compass+Weather polling (10s), singleton
+│   └── SettingsHelper.cs                     # JSON sensor settings persistence
 │
 ├── Models/
-│   ├── SensorData.cs                          # Sensor data aggregate
-│   └── SensorItem.cs                          # Display item (Name, Value, IsVisible)
+│   ├── SensorData.cs
+│   ├── SensorItem.cs                         # Observable display item (Name, Value, IsVisible)
+│   └── ZoomPreset.cs                         # Dynamic zoom pill model with ICommand closure
 │
-├── Platforms/
-│   ├── Android/
-│   │   ├── AndroidManifest.xml                # Permissions (API 29-35)
-│   │   ├── MainActivity.cs                    # SingleTop launch
-│   │   ├── MainApplication.cs                 # Entry point
-│   │   └── Resources/xml/file_paths.xml       # FileProvider config
-│   ├── iOS/                                   # Scaffold only
-│   ├── MacCatalyst/                           # Scaffold only
-│   └── Windows/                               # Scaffold + FileProvider
+├── Platforms/Android/
+│   ├── AndroidManifest.xml                   # Camera, Mic, Location, Storage permissions
+│   └── MainActivity.cs
 │
 ├── ViewModels/
-│   ├── MainPageViewModel.cs                   # Main coordinator (camera + sensors + UI state)
-│   ├── SensorValueViewModel.cs                # Sensor data bridge (legacy, kept)
-│   └── SensorValueSettingsViewModel.cs         # Settings list management
+│   ├── CameraSettingsViewModel.cs            # ShowRuleOfThirds, ShowSensorOverlay, GridLineOpacity
+│   ├── MainPageViewModel.cs                  # Main coordinator (camera, sensors, commands, lifecycle)
+│   ├── SensorValueSettingsViewModel.cs       # Visible/Available sensor lists + FontSize slider
+│   └── SensorValueViewModel.cs              # SensorItems, FontSize, LabelFontSize, ValueFontSize
 │
-├── Views/
-│   ├── MainPage.xaml / MainPage.xaml.cs       # Camera UI + permission overlay
-│   ├── SensorValueView.xaml / .xaml.cs        # Sensor data overlay (bottom-right)
-│   └── SensorValueSettingsView.xaml / .xaml.cs # Settings modal (two lists)
-│
-└── Resources/
-    ├── AppIcon/, Fonts/, Images/, Splash/     # Standard MAUI resources
-    └── Styles/Colors.xaml, Styles.xaml        # MD3 color tokens
+└── Views/
+    ├── CameraSettingsView.xaml/cs            # Right-side camera settings overlay panel
+    ├── MainPage.xaml/cs                      # Main camera UI
+    ├── SensorValueSettingsView.xaml/cs       # Dark sensor settings slide-in panel
+    └── SensorValueView.xaml/cs              # Sensor data overlay (FontSize bound to SensorValueViewModel)
 ```
-
----
-
-## Architecture Decisions
-
-1. **DI via `IServiceCollection`** — registered in `MauiProgram.cs`. No manual `new ViewModel()` except for helper classes.
-2. **SensorHelper is a singleton** — single source of truth for all sensor data. No ViewModel should call Geolocation/GPS directly.
-3. **Window lifecycle events** — `Window.Resumed` and `Window.Stopped` are used for camera/sensor lifecycle, NOT `Page.OnAppearing/Disappearing`.
-4. **MediaStore first** — Files saved to gallery via `MediaStore.Images/Video.Media.ExternalContentUri` with `IsPending` flag (Android 10+). Direct file copies only as fallback.
-5. **Fire-and-forget initialization** — Constructor `InitializeAsync()` is wrapped in `SafeInitializeAsync()` to prevent constructor-async crashes.
 
 ---
 
@@ -177,30 +283,19 @@ TravelCamApp/
 | Priority | Item | Status |
 |---|---|---|
 | HIGH | Test camera on physical Android device | Not tested yet |
-| HIGH | Upgrade to Target SDK 36 before Aug 2026 | Planned |
-| MEDIUM | Flash control (FlashMode + UI) | Helper done, no UI |
-| MEDIUM | Zoom control (slider) | Helper done, no UI |
-| MEDIUM | Evaluate Camera.MAUI 1.5.1 vs CommunityToolkit.Maui.Camera | Planned |
-| LOW | Weather API verification | Open-Meteo integrated, untested |
-| LOW | Map overlay | Planned, not started |
-| LOW | Video recording on device | Code complete, untested |
-| LOW | Remove legacy SensorValueViewModel.cs | Dead code, not wired |
-| LOW | Remove unused converters (NullToBool, PositionToOptions) | Dead code |
+| HIGH | Upgrade Target SDK to API 36 before Aug 2026 | Planned |
+| MEDIUM | Weather API — Open-Meteo integrated, untested on device | Untested |
+| MEDIUM | Map overlay | Not started |
+| LOW | iOS support | Scaffold only |
+| LOW | Video recording on physical device | Code complete, untested |
 
-## Code Review — April 2026
+## Changelog
 
-### Bugs Fixed
-1. **Missing MD3 color resources** — SensorValueSettingsView.xaml referenced 15 undefined StaticResource keys (MD3Surface, MD3Primary, etc.). Added all to Colors.xaml. Would crash at runtime.
-2. **Settings save only saved visible items** — Lost available items on reload. Now saves all items with visibility state.
-3. **Thread-safety on recording timer** — Timer callback updated UI property from thread pool. Now dispatches via MainThread.
-4. **Null-safety in ToggleCamera** — Used `_cameraView!` without null check. Added guard clause.
-5. **Async warnings** — ToggleFlashAsync and ToggleCameraAsync were marked async but had no awaits. Fixed signatures.
-6. **Duplicate #region Commands** in SensorValueSettingsViewModel — Renamed to avoid confusion.
-7. **Mode selector labels not tappable** — Added TapGestureRecognizer to Photo/Video labels.
-8. **Settings close used brittle navigation chain** — Replaced with CloseRequested event pattern.
-9. **SensorItem.OnPropertyChanged recursive call** — Separated dependent property notification.
-
-### Architecture Improvements
-1. **Consolidated duplicate sensor events** — Removed redundant `SensorDataUpdatedCallback` Action, kept single `SensorDataUpdated` event.
-2. **Added IDisposable to SensorHelper** — Proper cleanup of HttpClient and timer resources.
-3. **Removed unused DI registrations** — SensorValueViewModel and SensorValueView removed from MauiProgram.
+| Date | Change |
+|---|---|
+| 2026-04-01 | Migrated camera library: Camera.MAUI 1.5.1 → CommunityToolkit.Maui.Camera 6.0.0 |
+| 2026-04-01 | Added dynamic zoom presets (ZoomPreset model, ObservableCollection, BindableLayout) |
+| 2026-04-01 | Added CameraSettingsViewModel + CameraSettingsView (rule of thirds, sensor overlay toggle) |
+| 2026-04-01 | FileHelper.SavePhotoAsync now returns (GalleryPath, ThumbPath) tuple |
+| 2026-04-02 | SensorValueView font sizes bound to SensorValueViewModel.LabelFontSize / ValueFontSize |
+| 2026-04-02 | MEMORY.md rewritten with CommunityToolkit.Maui.Camera 6.0.0 verified API |

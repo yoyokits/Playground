@@ -21,15 +21,18 @@ namespace TravelCamApp
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
 
-            // Register application services as singletons
+            // Singletons — one instance shared across the entire app lifetime
             builder.Services.AddSingleton<SensorHelper>();
+            // CameraSettingsViewModel persists Preferences-backed settings;
+            // a single instance avoids reloading prefs on every navigation.
+            builder.Services.AddSingleton<CameraSettingsViewModel>();
 
-            // Register view models
+            // Transient — fresh instance per injection (each page/navigation)
             builder.Services.AddTransient<SensorValueViewModel>();
-            builder.Services.AddTransient<MainPageViewModel>();
             builder.Services.AddTransient<SensorValueSettingsViewModel>();
+            builder.Services.AddTransient<MainPageViewModel>();
 
-            // Register pages
+            // Pages / views
             builder.Services.AddTransient<MainPage>();
 
 #if DEBUG

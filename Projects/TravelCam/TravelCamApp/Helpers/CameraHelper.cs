@@ -236,11 +236,11 @@ namespace TravelCamApp.Helpers
 
         /// <summary>
         /// Applies zoom to the camera.
-        /// <paramref name="zoomFactor"/> should be between 0.0 and 1.0 (normalized).
+        /// <paramref name="zoomFactor"/> is passed directly to <see cref="CameraView.ZoomFactor"/>.
+        /// The ViewModel is responsible for ensuring the value is within the camera's supported range.
         /// </summary>
         public static void SetZoom(CameraView cameraView, float zoomFactor)
         {
-            zoomFactor = Math.Clamp(zoomFactor, 0f, 1f);
             cameraView.ZoomFactor = zoomFactor;
             LogDebug("[CameraHelper] ZoomFactor set to: {0}", zoomFactor);
         }

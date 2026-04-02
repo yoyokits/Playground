@@ -258,8 +258,7 @@ namespace TravelCamApp.Helpers
                 if (!File.Exists(candidate))
                     return candidate;
             }
-
-            return filePath;
+            return filePath; // fallback (shouldn't reach here)
         }
 
         #endregion

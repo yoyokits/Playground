@@ -8,44 +8,51 @@
              BackgroundColor="Black"
              Shell.NavBarIsVisible="False">
 
-    <!-- Two rows: camera preview (fills available) + fixed bottom panel -->
+    <!-- Root: two rows — camera preview (fills) + fixed black bottom panel -->
     <Grid RowDefinitions="*,Auto">
 
-        <!-- ═══ ROW 0 — Camera + all overlays ═══ -->
+        <!-- ═══════════════════════════════════════════════════════════════
+             ROW 0 — Camera preview with all overlays stacked inside
+        ═══════════════════════════════════════════════════════════════════ -->
         <Grid Grid.Row="0" BackgroundColor="Black">
 
-            <!-- Camera View -->
+            <!-- ── Camera feed ── -->
             <toolkit:CameraView x:Name="CameraView"
                                 HorizontalOptions="Fill"
                                 VerticalOptions="Fill" />
 
-            <!-- Rule-of-thirds grid lines
-                 Margin pushes it away from the top toolbar (~90 dp) and
-                 zoom pills at the bottom (~54 dp) so lines only cross the image area. -->
+            <!-- ── Rule-of-thirds grid lines
+                 Placed in the exact same cell as CameraView so it always
+                 aligns with the preview edges. InputTransparent so taps pass through. -->
             <Grid ColumnDefinitions="*,*,*" RowDefinitions="*,*,*"
                   InputTransparent="True"
-                  Margin="0,90,0,54"
-                  IsVisible="{Binding HasCameraPermission}">
+                  IsVisible="{Binding CameraSettings.ShowRuleOfThirds}">
+                <!-- Vertical line 1 -->
                 <BoxView Grid.Column="1" Grid.RowSpan="3"
                          WidthRequest="0.5" HorizontalOptions="Start"
-                         BackgroundColor="#22FFFFFF" />
+                         Color="{Binding CameraSettings.GridLineColor}" />
+                <!-- Vertical line 2 -->
                 <BoxView Grid.Column="2" Grid.RowSpan="3"
                          WidthRequest="0.5" HorizontalOptions="Start"
-                         BackgroundColor="#22FFFFFF" />
+                         Color="{Binding CameraSettings.GridLineColor}" />
+                <!-- Horizontal line 1 -->
                 <BoxView Grid.Row="1" Grid.ColumnSpan="3"
                          HeightRequest="0.5" VerticalOptions="Start"
-                         BackgroundColor="#22FFFFFF" />
+                         Color="{Binding CameraSettings.GridLineColor}" />
+                <!-- Horizontal line 2 -->
                 <BoxView Grid.Row="2" Grid.ColumnSpan="3"
                          HeightRequest="0.5" VerticalOptions="Start"
-                         BackgroundColor="#22FFFFFF" />
+                         Color="{Binding CameraSettings.GridLineColor}" />
             </Grid>
 
-            <!-- Permission / loading overlay -->
-            <AbsoluteLayout IsVisible="{Binding HasCameraPermission, Converter={StaticResource InvertedBoolConverter}}">
-                <VerticalStackLayout AbsoluteLayout.LayoutBounds="0.5,0.5,-1,-1"
-                                     AbsoluteLayout.LayoutFlags="PositionProportional"
-                                     HorizontalOptions="Center" VerticalOptions="Center"
-                                     Spacing="16">
+            <!-- ── Permission / loading overlay ── -->
+            <AbsoluteLayout IsVisible="{Binding HasCameraPermission,
+                                Converter={StaticResource InvertedBoolConverter}}">
+                <VerticalStackLayout
+                    AbsoluteLayout.LayoutBounds="0.5,0.5,-1,-1"
+                    AbsoluteLayout.LayoutFlags="PositionProportional"
+                    HorizontalOptions="Center" VerticalOptions="Center"
+                    Spacing="16">
                     <ActivityIndicator IsRunning="True" Color="White"
                                        WidthRequest="48" HeightRequest="48" />
                     <Label Text="{Binding PermissionStatus}"
@@ -54,46 +61,52 @@
                 </VerticalStackLayout>
             </AbsoluteLayout>
 
-            <!-- ── Top toolbar ── -->
-            <Grid VerticalOptions="Start" Padding="20,44,20,0"
-                  ColumnDefinitions="Auto,*,Auto,Auto"
+            <!-- ══════════════════════════════════════════════════════════
+                 TOP TOOLBAR — flash  |  (spacer + recording)  |  settings
+                 Matches Samsung: icons at top, semi-transparent pill buttons
+            ══════════════════════════════════════════════════════════════ -->
+            <Grid VerticalOptions="Start"
+                  Padding="16,44,16,0"
+                  ColumnDefinitions="Auto,*,Auto"
                   IsVisible="{Binding HasCameraPermission}">
 
-                <!-- Flash toggle button -->
+                <!-- Flash toggle — bolt + diagonal slash -->
                 <Grid Grid.Column="0" WidthRequest="44" HeightRequest="44">
                     <Border StrokeShape="RoundRectangle 22"
                             BackgroundColor="#55000000" Stroke="Transparent"
                             WidthRequest="44" HeightRequest="44" />
-                    <!-- Lightning bolt -->
+                    <!-- Lightning bolt; gray when off so white slash reads clearly -->
                     <Path Data="M11 1L5 13H10L8 23L19 9H14Z"
-                          Fill="{Binding IsFlashOn, Converter={StaticResource FlashIconColorConverter}}"
+                          Fill="{Binding IsFlashOn,
+                                 Converter={StaticResource FlashIconColorConverter}}"
                           Aspect="Uniform"
-                          WidthRequest="18" HeightRequest="18"
+                          WidthRequest="22" HeightRequest="22"
                           HorizontalOptions="Center" VerticalOptions="Center" />
-                    <!-- Centered diagonal slash (Path line) — visible when flash is OFF -->
+                    <!-- Slash line — visible only when flash is OFF -->
                     <Path Data="M8,8 L36,36"
-                          Stroke="#DDFFFFFF" StrokeThickness="2.5"
+                          Stroke="White" StrokeThickness="2"
                           HorizontalOptions="Fill" VerticalOptions="Fill"
-                          IsVisible="{Binding IsFlashOn, Converter={StaticResource InvertedBoolConverter}}" />
+                          IsVisible="{Binding IsFlashOn,
+                                      Converter={StaticResource InvertedBoolConverter}}" />
                     <Grid.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding ToggleFlashCommand}" />
                     </Grid.GestureRecognizers>
                 </Grid>
 
-                <!-- Recording timer (center, only when recording) -->
+                <!-- Recording timer (center col) -->
                 <HorizontalStackLayout Grid.Column="1"
                                        HorizontalOptions="Center" VerticalOptions="Center"
                                        Spacing="6"
                                        IsVisible="{Binding IsRecording}">
                     <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
-                             BackgroundColor="Red" VerticalOptions="Center" />
+                             BackgroundColor="#FF3B30" VerticalOptions="Center" />
                     <Label Text="{Binding RecordingTimeText}"
-                           FontSize="15" TextColor="Red" FontAttributes="Bold"
+                           FontSize="15" TextColor="#FF3B30" FontAttributes="Bold"
                            VerticalOptions="Center" />
                 </HorizontalStackLayout>
 
-                <!-- Settings gear -->
-                <Border Grid.Column="3"
+                <!-- Camera settings gear -->
+                <Border Grid.Column="2"
                         StrokeShape="RoundRectangle 22"
                         BackgroundColor="#55000000" Stroke="Transparent"
                         WidthRequest="44" HeightRequest="44">
@@ -102,21 +115,22 @@
                           WidthRequest="22" HeightRequest="22"
                           HorizontalOptions="Center" VerticalOptions="Center" />
                     <Border.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
+                        <TapGestureRecognizer Command="{Binding OpenCameraSettingsCommand}" />
                     </Border.GestureRecognizers>
                 </Border>
             </Grid>
 
-            <!-- Sensor value overlay (bottom-right) -->
-            <views:SensorValueView HorizontalOptions="End" VerticalOptions="End"
-                                   Margin="0,0,12,80"
-                                   IsVisible="{Binding IsSensorOverlayVisible}" />
+            <!-- ── Sensor overlay (bottom-right corner) ── -->
+            <views:SensorValueView
+                HorizontalOptions="End" VerticalOptions="End"
+                Margin="0,0,12,72"
+                IsVisible="{Binding CameraSettings.ShowSensorOverlay}" />
 
-            <!-- ── Zoom pills strip (dynamic, from ZoomPresets collection) ── -->
+            <!-- ── Zoom pills strip (BindableLayout, dynamic presets) ── -->
             <Border VerticalOptions="End" HorizontalOptions="Center"
-                    Margin="0,0,0,10"
+                    Margin="0,0,0,12"
                     StrokeShape="RoundRectangle 16" Stroke="Transparent"
-                    BackgroundColor="#55000000" Padding="6,4"
+                    BackgroundColor="#66000000" Padding="6,4"
                     IsVisible="{Binding HasCameraPermission}">
                 <HorizontalStackLayout Spacing="2"
                     BindableLayout.ItemsSource="{Binding ZoomPresets}">
@@ -145,53 +159,72 @@
         <!-- ═══ END ROW 0 ═══ -->
 
 
-        <!-- ═══ ROW 1 — Bottom controls panel (solid black) ═══ -->
+        <!-- ═══════════════════════════════════════════════════════════════
+             ROW 1 — Bottom control panel (solid black)
+        ═══════════════════════════════════════════════════════════════════ -->
         <VerticalStackLayout Grid.Row="1" BackgroundColor="Black"
-                             Padding="0,14,0,10" Spacing="10">
+                             Padding="0,16,0,14" Spacing="12">
 
-            <!-- Main controls: thumbnail | shutter | flip -->
-            <Grid ColumnDefinitions="*,Auto,*" Padding="28,0" ColumnSpacing="0">
+            <!-- Sensor-settings icon row (above main controls) -->
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="0">
+                <Border StrokeShape="RoundRectangle 16"
+                        BackgroundColor="Transparent" Stroke="Transparent"
+                        Padding="12,4">
+                    <Label Text="SENSORS ⚙"
+                           FontSize="11" CharacterSpacing="0.8"
+                           TextColor="#8E8E93"
+                           HorizontalOptions="Center" />
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
+                    </Border.GestureRecognizers>
+                </Border>
+            </HorizontalStackLayout>
 
-                <!-- Gallery thumbnail (left) -->
+            <!-- ── Main controls: thumbnail | shutter | flip ── -->
+            <Grid ColumnDefinitions="*,Auto,*" Padding="24,0" ColumnSpacing="0">
+
+                <!-- Gallery thumbnail — circular like Samsung reference -->
                 <Border Grid.Column="0"
-                        StrokeShape="RoundRectangle 10"
+                        StrokeShape="RoundRectangle 28"
                         Stroke="White" StrokeThickness="1.5"
-                        WidthRequest="52" HeightRequest="52"
+                        WidthRequest="56" HeightRequest="56"
                         BackgroundColor="#1AFFFFFF"
                         HorizontalOptions="Start" VerticalOptions="Center">
                     <Image Source="{Binding LastCaptureImage}"
                            Aspect="AspectFill"
-                           WidthRequest="49" HeightRequest="49" />
+                           WidthRequest="53" HeightRequest="53" />
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenGalleryCommand}" />
                     </Border.GestureRecognizers>
                 </Border>
 
-                <!-- ── Shutter button (center) ── -->
+                <!-- ── Shutter button (center) ── Samsung style: big ring + fill ── -->
                 <Grid x:Name="ShutterButton"
                       Grid.Column="1"
-                      WidthRequest="78" HeightRequest="78"
+                      WidthRequest="82" HeightRequest="82"
                       HorizontalOptions="Center" VerticalOptions="Center">
 
-                    <!-- Outer white ring -->
-                    <Border StrokeShape="RoundRectangle 39"
-                            Stroke="White" StrokeThickness="3.5"
+                    <!-- Outer ring -->
+                    <Border StrokeShape="RoundRectangle 41"
+                            Stroke="White" StrokeThickness="3"
                             BackgroundColor="Transparent"
-                            WidthRequest="78" HeightRequest="78" />
+                            WidthRequest="82" HeightRequest="82" />
 
-                    <!-- Inner filled circle: white (Photo) or red (Video, not recording) -->
-                    <Border StrokeShape="RoundRectangle 30"
+                    <!-- Inner circle: white (Photo) or red (Video, not recording) -->
+                    <Border StrokeShape="RoundRectangle 31"
                             Stroke="Transparent"
-                            BackgroundColor="{Binding SelectedMode, Converter={StaticResource ModeToColorConverter}}"
-                            WidthRequest="62" HeightRequest="62"
+                            BackgroundColor="{Binding SelectedMode,
+                                Converter={StaticResource ModeToColorConverter}}"
+                            WidthRequest="66" HeightRequest="66"
                             HorizontalOptions="Center" VerticalOptions="Center"
-                            IsVisible="{Binding IsRecording, Converter={StaticResource InvertedBoolConverter}}" />
+                            IsVisible="{Binding IsRecording,
+                                Converter={StaticResource InvertedBoolConverter}}" />
 
-                    <!-- Stop square (visible only while recording) -->
+                    <!-- Stop square — shown while recording -->
                     <Border StrokeShape="RoundRectangle 7"
                             Stroke="Transparent"
-                            BackgroundColor="Red"
-                            WidthRequest="30" HeightRequest="30"
+                            BackgroundColor="#FF3B30"
+                            WidthRequest="32" HeightRequest="32"
                             HorizontalOptions="Center" VerticalOptions="Center"
                             IsVisible="{Binding IsRecording}" />
 
@@ -200,16 +233,16 @@
                     </Grid.GestureRecognizers>
                 </Grid>
 
-                <!-- Camera flip (right) -->
+                <!-- Camera flip — circular Samsung-style -->
                 <Grid Grid.Column="2"
-                      WidthRequest="52" HeightRequest="52"
+                      WidthRequest="56" HeightRequest="56"
                       HorizontalOptions="End" VerticalOptions="Center">
-                    <Border StrokeShape="RoundRectangle 26"
+                    <Border StrokeShape="RoundRectangle 28"
                             BackgroundColor="#33FFFFFF" Stroke="Transparent"
-                            WidthRequest="52" HeightRequest="52" />
+                            WidthRequest="56" HeightRequest="56" />
                     <Path Data="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 16c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 9.74C4.46 10.97 4 12.43 4 14c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"
                           Fill="White" Aspect="Uniform"
-                          WidthRequest="26" HeightRequest="26"
+                          WidthRequest="28" HeightRequest="28"
                           HorizontalOptions="Center" VerticalOptions="Center" />
                     <Grid.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding ToggleCameraCommand}" />
@@ -218,14 +251,17 @@
 
             </Grid>
 
-            <!-- Mode selector row -->
-            <HorizontalStackLayout HorizontalOptions="Center" Spacing="36">
+            <!-- ── Mode selector ── -->
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="32">
 
-                <!-- PHOTO mode -->
                 <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
                     <Label Text="PHOTO" FontSize="12" CharacterSpacing="1.5"
-                           FontAttributes="{Binding SelectedMode, Converter={StaticResource ModeToFontConverter}, ConverterParameter=Photo}"
-                           TextColor="{Binding SelectedMode, Converter={StaticResource ModeToTextColorConverter}, ConverterParameter=Photo}"
+                           FontAttributes="{Binding SelectedMode,
+                               Converter={StaticResource ModeToFontConverter},
+                               ConverterParameter=Photo}"
+                           TextColor="{Binding SelectedMode,
+                               Converter={StaticResource ModeToTextColorConverter},
+                               ConverterParameter=Photo}"
                            HorizontalOptions="Center">
                         <Label.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding SetPhotoModeCommand}" />
@@ -233,14 +269,19 @@
                     </Label>
                     <BoxView WidthRequest="5" HeightRequest="5" CornerRadius="2.5"
                              BackgroundColor="White" HorizontalOptions="Center"
-                             IsVisible="{Binding SelectedMode, Converter={StaticResource ModeToVisibilityConverter}, ConverterParameter=Photo}" />
+                             IsVisible="{Binding SelectedMode,
+                                 Converter={StaticResource ModeToVisibilityConverter},
+                                 ConverterParameter=Photo}" />
                 </VerticalStackLayout>
 
-                <!-- VIDEO mode -->
                 <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
                     <Label Text="VIDEO" FontSize="12" CharacterSpacing="1.5"
-                           FontAttributes="{Binding SelectedMode, Converter={StaticResource ModeToFontConverter}, ConverterParameter=Video}"
-                           TextColor="{Binding SelectedMode, Converter={StaticResource ModeToTextColorConverter}, ConverterParameter=Video}"
+                           FontAttributes="{Binding SelectedMode,
+                               Converter={StaticResource ModeToFontConverter},
+                               ConverterParameter=Video}"
+                           TextColor="{Binding SelectedMode,
+                               Converter={StaticResource ModeToTextColorConverter},
+                               ConverterParameter=Video}"
                            HorizontalOptions="Center">
                         <Label.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding SetVideoModeCommand}" />
@@ -248,7 +289,9 @@
                     </Label>
                     <BoxView WidthRequest="5" HeightRequest="5" CornerRadius="2.5"
                              BackgroundColor="White" HorizontalOptions="Center"
-                             IsVisible="{Binding SelectedMode, Converter={StaticResource ModeToVisibilityConverter}, ConverterParameter=Video}" />
+                             IsVisible="{Binding SelectedMode,
+                                 Converter={StaticResource ModeToVisibilityConverter},
+                                 ConverterParameter=Video}" />
                 </VerticalStackLayout>
 
             </HorizontalStackLayout>
@@ -257,11 +300,25 @@
         <!-- ═══ END ROW 1 ═══ -->
 
 
-        <!-- ═══ Settings overlay — full-screen, above both rows ═══ -->
+        <!-- ═══════════════════════════════════════════════════════════════
+             OVERLAYS — full-screen, above both rows
+        ═══════════════════════════════════════════════════════════════════ -->
+
+        <!-- Sensor settings panel -->
         <views:SensorValueSettingsView
-            x:Name="SettingsOverlay"
+            x:Name="SensorSettingsOverlay"
             Grid.RowSpan="2"
-            IsVisible="{Binding Source={x:Reference ThisPage}, Path=BindingContext.IsSettingsVisible}"
+            IsVisible="{Binding Source={x:Reference ThisPage},
+                Path=BindingContext.IsSettingsVisible}"
+            HorizontalOptions="Fill" VerticalOptions="Fill"
+            InputTransparent="False" />
+
+        <!-- Camera settings panel -->
+        <views:CameraSettingsView
+            x:Name="CameraSettingsOverlay"
+            Grid.RowSpan="2"
+            IsVisible="{Binding Source={x:Reference ThisPage},
+                Path=BindingContext.IsCameraSettingsVisible}"
             HorizontalOptions="Fill" VerticalOptions="Fill"
             InputTransparent="False" />
 
