@@ -5,10 +5,9 @@
 //
 // MainPage code-behind:
 // - Passes the CameraView reference to the ViewModel on OnAppearing.
-// - Shows/hides the settings overlay as a modal.
-// - Does NOT dispose the camera when overlays appear or
-//   OnDisappearing fires. Camera lifecycle is managed by the
-//   ViewModel via Window.Resumed/Stopped events.
+// - Routes CameraView MediaCaptured / MediaCaptureFailed events.
+// - Plays the shutter press animation (scale bounce).
+// - Shows / hides the settings overlay.
 
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Views;
@@ -28,7 +27,7 @@ namespace TravelCamApp.Views
             _settingsViewModel = settingsViewModel;
             SettingsOverlay.BindingContext = _settingsViewModel;
 
-            // When settings overlay opens, populate the lists from SensorItems
+            // Populate settings list when the overlay opens
             viewModel.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(MainPageViewModel.IsSettingsVisible)
@@ -38,45 +37,55 @@ namespace TravelCamApp.Views
                 }
             };
 
-            // When settings overlay requests close, save and hide
+            // Save + close settings overlay
             SettingsOverlay.CloseRequested += async (s, e) => await HideSettingsAsync();
 
-            // Subscribe to media capture events from the CameraView
+            // Route camera media events to ViewModel
             CameraView.MediaCaptured += OnMediaCaptured;
             CameraView.MediaCaptureFailed += OnMediaCaptureFailed;
         }
 
-        /// <summary>
-        /// Called each time this page becomes visible.
-        /// Triggers camera initialization / preview restart via the ViewModel.
-        /// </summary>
+        // ── Lifecycle ──────────────────────────────────────────────────────────
+
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            System.Diagnostics.Debug.WriteLine("[MainPage] OnAppearing — notifying ViewModel");
+            System.Diagnostics.Debug.WriteLine("[MainPage] OnAppearing");
             await ViewModel.OnViewReady(CameraView);
         }
 
+        // ── Shutter button ─────────────────────────────────────────────────────
+
         /// <summary>
-        /// Routes the MediaCaptured event from CameraView to the ViewModel.
+        /// Tap handler for the shutter Grid.
+        /// Fires the command then plays a quick scale-bounce animation.
         /// </summary>
+        private async void OnShutterTapped(object? sender, TappedEventArgs e)
+        {
+            // Execute capture immediately so latency is minimised
+            if (ViewModel.CaptureCommand.CanExecute(null))
+                ViewModel.CaptureCommand.Execute(null);
+
+            // Scale-bounce: shrink → normal
+            await ShutterButton.ScaleTo(0.86, 80, Easing.CubicOut);
+            await ShutterButton.ScaleTo(1.00, 90, Easing.SpringOut);
+        }
+
+        // ── Camera media events ────────────────────────────────────────────────
+
         private async void OnMediaCaptured(object? sender, MediaCapturedEventArgs e)
         {
             await ViewModel.OnMediaCaptured(e.Media);
         }
 
-        /// <summary>
-        /// Routes the MediaCaptureFailed event from CameraView to the ViewModel.
-        /// </summary>
         private void OnMediaCaptureFailed(object? sender, MediaCaptureFailedEventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine($"[MainPage] Media capture failed: {e.FailureReason}");
+            System.Diagnostics.Debug.WriteLine($"[MainPage] Capture failed: {e.FailureReason}");
             ViewModel.OnMediaCaptureFailed();
         }
 
-        /// <summary>
-        /// Saves settings and hides the settings overlay.
-        /// </summary>
+        // ── Settings overlay ───────────────────────────────────────────────────
+
         private async Task HideSettingsAsync()
         {
             await _settingsViewModel.SaveSettingsAsync();

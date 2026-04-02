@@ -13,11 +13,15 @@
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Capture Mode Converters -->
-            <converters:CaptureModeToStringConverter x:Key="ModeToTextConverter" />
             <converters:CaptureModeToColorConverter x:Key="ModeToColorConverter" />
-            <converters:CaptureModeToButtonTextColorConverter x:Key="ModeToButtonTextColorConverter" />
             <converters:CaptureModeToTextColorConverter x:Key="ModeToTextColorConverter" />
             <converters:CaptureModeToFontAttributesConverter x:Key="ModeToFontConverter" />
+            <converters:CaptureModeToVisibilityConverter x:Key="ModeToVisibilityConverter" />
+
+            <!-- Camera UI Converters -->
+            <converters:FlashIconColorConverter x:Key="FlashIconColorConverter" />
+            <converters:ZoomPresetBackgroundConverter x:Key="ZoomBgConverter" />
+            <converters:ZoomPresetTextColorConverter x:Key="ZoomTextConverter" />
 
             <!-- CommunityToolkit InvertedBool -->
             <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter" />

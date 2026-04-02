@@ -242,8 +242,8 @@ Key compile checks:
 ## TODO / INCOMPLETE FEATURES
 
 - [ ] Test camera + video recording on physical Android device
-- [ ] Flash control — helper complete, needs UI button in control panel
-- [ ] Zoom control — helper complete, needs UI slider
+- [x] Flash control — UI toggle in top toolbar, icon path, yellow when on / slash when off
+- [x] Zoom control — 5 preset pills (.6×, 1×, 2, 3, 10) overlaying bottom of preview
 - [ ] Map overlay — not implemented yet
 - [ ] Weather API verification — Open-Meteo integrated, untested on device
 - [ ] Upgrade Target SDK to API 36 before Aug 2026 Google Play deadline
@@ -251,3 +251,7 @@ Key compile checks:
 - [x] SensorValueViewModel rewired — subscribes to SensorHelper, owns SensorItems
 - [ ] Verify CommunityToolkit.Maui.Camera 6.0.0 net10.0 compatibility; upgrade if needed
 - [ ] iOS support — scaffold only, not targeted
+- [x] Premium Samsung-style camera UI — shutter ring+circle, flip path icon, grid lines, mode dots
+- [x] Shutter button — vector white ring + white circle (photo) / red circle (video) / stop square (recording), scale-bounce animation
+- [x] Gallery thumbnail shows last photo taken on startup (persisted via Preferences)
+- [x] Gallery crash fix — proper ActivityFlags, camera restart retry with delay on resume
