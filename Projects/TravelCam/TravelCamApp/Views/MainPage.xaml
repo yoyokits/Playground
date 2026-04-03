@@ -3,10 +3,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:views="clr-namespace:TravelCamApp.Views"
+             xmlns:vm="clr-namespace:TravelCamApp.ViewModels"
+             xmlns:models="clr-namespace:TravelCamApp.Models"
              x:Class="TravelCamApp.Views.MainPage"
+             x:DataType="vm:MainPageViewModel"
              x:Name="ThisPage"
              BackgroundColor="Black"
-             Shell.NavBarIsVisible="False">
+             Shell.NavBarIsVisible="False"
+             SafeAreaEdges="None">
 
     <!-- Root: two rows — camera preview (fills) + fixed black bottom panel -->
     <Grid RowDefinitions="*,Auto">
@@ -66,7 +70,8 @@
                  Matches Samsung: icons at top, semi-transparent pill buttons
             ══════════════════════════════════════════════════════════════ -->
             <Grid VerticalOptions="Start"
-                  Padding="16,44,16,0"
+                  Padding="16,8,16,0"
+                  SafeAreaEdges="Top"
                   ColumnDefinitions="Auto,*,Auto"
                   IsVisible="{Binding HasCameraPermission}">
 
@@ -120,7 +125,7 @@
             </Grid>
 
             <!-- ── Sensor overlay (bottom-right corner) ── -->
-            <views:SensorValueView
+            <views:DataOverlayView
                 HorizontalOptions="End" VerticalOptions="End"
                 Margin="0,0,12,72"
                 IsVisible="{Binding CameraSettings.ShowSensorOverlay}" />
@@ -162,7 +167,8 @@
              ROW 1 — Bottom control panel (solid black)
         ═══════════════════════════════════════════════════════════════════ -->
         <VerticalStackLayout Grid.Row="1" BackgroundColor="Black"
-                             Padding="0,16,0,14" Spacing="12">
+                             Padding="0,16,0,8" Spacing="12"
+                             SafeAreaEdges="Bottom">
 
             <!-- Sensor-settings icon row (above main controls) -->
             <HorizontalStackLayout HorizontalOptions="Center" Spacing="0">

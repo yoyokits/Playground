@@ -334,24 +334,48 @@ namespace TravelCamApp.ViewModels
             }
         }
 
+        /// <summary>
+        /// Check-before-request helper with Android ShouldShowRationale support and
+        /// iOS one-shot denial guard. Follows the MAUI permissions best-practice pattern.
+        /// </summary>
+        private static async Task<Microsoft.Maui.ApplicationModel.PermissionStatus> CheckAndRequestAsync<T>(string rationale)
+            where T : Permissions.BasePermission, new()
+        {
+            var status = await Permissions.CheckStatusAsync<T>();
+            if (status == Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
+                return status;
+
+            // iOS shows the system dialog only once — re-requesting after denial is a no-op.
+            if (status == Microsoft.Maui.ApplicationModel.PermissionStatus.Denied && DeviceInfo.Platform == DevicePlatform.iOS)
+                return status;
+
+            // Android: show rationale if the user previously denied without "Don't ask again".
+            if (Permissions.ShouldShowRationale<T>())
+            {
+                var page = Shell.Current ?? Application.Current?.Windows.FirstOrDefault()?.Page;
+                if (page != null)
+                    await page.DisplayAlertAsync("Permission needed", rationale, "OK");
+            }
+
+            return await Permissions.RequestAsync<T>();
+        }
+
         private async Task<bool> RequestCameraPermissionAsync()
         {
-            var status = await Permissions.CheckStatusAsync<Permissions.Camera>();
-            if (status != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
-                status = await Permissions.RequestAsync<Permissions.Camera>();
+            var status = await CheckAndRequestAsync<Permissions.Camera>(
+                "Camera access is required to capture photos and video.");
 
-            var micStatus = await Permissions.CheckStatusAsync<Permissions.Microphone>();
-            if (micStatus != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
-                micStatus = await Permissions.RequestAsync<Permissions.Microphone>();
+            // Request microphone independently (needed for video recording).
+            await CheckAndRequestAsync<Permissions.Microphone>(
+                "Microphone access is required to record video with audio.");
 
             return status == Microsoft.Maui.ApplicationModel.PermissionStatus.Granted;
         }
 
         private async Task<bool> RequestLocationPermissionAsync()
         {
-            var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
-            if (status != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
-                status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+            var status = await CheckAndRequestAsync<Permissions.LocationWhenInUse>(
+                "Location access is used to tag your photos with GPS coordinates.");
             return status == Microsoft.Maui.ApplicationModel.PermissionStatus.Granted;
         }
 
@@ -360,17 +384,17 @@ namespace TravelCamApp.ViewModels
         {
             try
             {
+                // API 33+ (Android 13): granular media permissions replace the broad StorageRead.
+                // StorageRead always returns Granted on API 33+ — use Photos/Media instead.
                 if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.Tiramisu)
                 {
-                    var imgStatus = await Permissions.CheckStatusAsync<Permissions.Photos>();
-                    if (imgStatus != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
-                        await Permissions.RequestAsync<Permissions.Photos>();
+                    await CheckAndRequestAsync<Permissions.Photos>(
+                        "Photo library access is required to save captured images to the gallery.");
                 }
                 else
                 {
-                    var readStatus = await Permissions.CheckStatusAsync<Permissions.StorageRead>();
-                    if (readStatus != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
-                        await Permissions.RequestAsync<Permissions.StorageRead>();
+                    await CheckAndRequestAsync<Permissions.StorageRead>(
+                        "Storage access is required to save photos to the gallery.");
                 }
             }
             catch (Exception ex)
@@ -472,6 +496,27 @@ namespace TravelCamApp.ViewModels
         private void OnWindowDestroying(object? sender, EventArgs e)
         {
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window Destroying");
+
+            // Android back-button calls Destroying without Stopped — stop recording and camera here too.
+            if (_isRecording && _cameraView != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try { await StopRecordingAsync(); }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[MainPageViewModel] Destroy stop-recording error: {ex.Message}");
+                    }
+                });
+            }
+
+            if (_cameraView != null)
+            {
+                try { CameraHelper.StopPreview(_cameraView); }
+                catch { /* best effort */ }
+            }
+
             _isDestroyed = true;
 
             if (sender is Window window)
