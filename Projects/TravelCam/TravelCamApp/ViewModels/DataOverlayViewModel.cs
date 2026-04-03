@@ -143,7 +143,7 @@ namespace TravelCamApp.ViewModels
                 UpdateItem("Heading",
                     data.Heading.HasValue ? $"{data.Heading.Value:F0}\u00b0" : "N/A");
                 UpdateItem("Speed",
-                    data.Speed.HasValue ? $"{data.Speed.Value:F1} km/h" : "N/A");
+                    data.Speed.HasValue ? $"{data.Speed.Value * 3.6:F1} km/h" : "N/A");
             });
         }
 

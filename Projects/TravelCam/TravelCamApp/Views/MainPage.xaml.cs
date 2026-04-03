@@ -78,8 +78,8 @@ namespace TravelCamApp.Views
             if (ViewModel.CaptureCommand.CanExecute(null))
                 ViewModel.CaptureCommand.Execute(null);
 
-            await ShutterButton.ScaleTo(0.86, 80, Easing.CubicOut);
-            await ShutterButton.ScaleTo(1.00, 90, Easing.SpringOut);
+            await ShutterButton.ScaleToAsync(0.86, 80, Easing.CubicOut);
+            await ShutterButton.ScaleToAsync(1.00, 90, Easing.SpringOut);
         }
 
         // ── Camera media events ────────────────────────────────────────────────
