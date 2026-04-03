@@ -16,14 +16,18 @@
                 <TapGestureRecognizer Tapped="OnBackdropTapped" />
             </AbsoluteLayout.GestureRecognizers>
 
-            <!-- Settings Panel — dark card, right-aligned slide-in -->
-            <ScrollView AbsoluteLayout.LayoutBounds="1,0,300,1"
-                        AbsoluteLayout.LayoutFlags="PositionProportional,HeightProportional"
-                        BackgroundColor="#111111">
+            <!-- Settings Panel — dark card, centered -->
+            <Border AbsoluteLayout.LayoutBounds="0.5,0.5,-1,-1"
+                    AbsoluteLayout.LayoutFlags="PositionProportional"
+                    StrokeShape="RoundRectangle 16"
+                    BackgroundColor="#111111"
+                    Stroke="Transparent"
+                    WidthRequest="320">
+            <ScrollView BackgroundColor="#111111">
                 <VerticalStackLayout Padding="0" Spacing="0">
 
                     <!-- ── Header ── -->
-                    <Grid Padding="20,52,16,16"
+                    <Grid Padding="20,20,16,16"
                           ColumnDefinitions="*,Auto"
                           BackgroundColor="#111111">
                         <Label Grid.Column="0"
@@ -124,7 +128,7 @@
                     </VerticalStackLayout>
 
                     <!-- ── Future settings (placeholder) ── -->
-                    <VerticalStackLayout Padding="20,16,20,0" Spacing="10"
+                    <VerticalStackLayout Padding="20,16,20,24" Spacing="10"
                                          BackgroundColor="#111111">
 
                         <Label Text="CAPTURE"
@@ -174,21 +178,9 @@
 
                     </VerticalStackLayout>
 
-                    <!-- ── Done button ── -->
-                    <Border Margin="20,24,20,40"
-                            StrokeShape="RoundRectangle 22"
-                            BackgroundColor="#FFFFFF" Stroke="Transparent"
-                            HeightRequest="44">
-                        <Label Text="Done" FontSize="15" FontAttributes="Bold"
-                               TextColor="#000000"
-                               HorizontalOptions="Center" VerticalOptions="Center" />
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Tapped="OnCloseClicked" />
-                        </Border.GestureRecognizers>
-                    </Border>
-
                 </VerticalStackLayout>
             </ScrollView>
+            </Border>
         </AbsoluteLayout>
     </ContentView.Content>
 </ContentView>
