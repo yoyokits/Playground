@@ -72,8 +72,9 @@ namespace TravelCamApp.ViewModels
         private bool _lifecycleSubscribed;
         private bool _isDestroyed;
 
-        // Preference key for last thumbnail (plain file path — never content://)
+        // Preference keys
         private const string PrefLastThumbPath = "LastThumbPath";
+        private const string PrefLastGalleryPath = "LastGalleryPath";
 
         #endregion
 
@@ -295,6 +296,11 @@ namespace TravelCamApp.ViewModels
         {
             try
             {
+                // Restore gallery URI (content://) for gallery-open with swipe support
+                var galleryPath = Preferences.Get(PrefLastGalleryPath, string.Empty);
+                if (!string.IsNullOrEmpty(galleryPath))
+                    _lastGalleryPath = galleryPath;
+
                 // Prefer the thumb path key; fall back to legacy key for existing installs
                 var path = Preferences.Get(PrefLastThumbPath, string.Empty);
                 if (string.IsNullOrEmpty(path))
@@ -669,14 +675,24 @@ namespace TravelCamApp.ViewModels
                 _lastGalleryPath = galleryPath;
                 _lastThumbPath = thumbPath;
 
-                // Persist thumb path (always a plain file — never content://)
+                // Persist paths across restarts
                 if (!string.IsNullOrEmpty(thumbPath))
                 {
                     try { Preferences.Set(PrefLastThumbPath, thumbPath); }
                     catch (Exception pex)
                     {
                         System.Diagnostics.Debug.WriteLine(
-                            $"[MainPageViewModel] Preferences.Set error: {pex.Message}");
+                            $"[MainPageViewModel] Preferences.Set thumb error: {pex.Message}");
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(galleryPath))
+                {
+                    try { Preferences.Set(PrefLastGalleryPath, galleryPath); }
+                    catch (Exception pex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[MainPageViewModel] Preferences.Set gallery error: {pex.Message}");
                     }
                 }
 
@@ -877,11 +893,24 @@ namespace TravelCamApp.ViewModels
         {
             try
             {
+#if ANDROID
+                // Open via the MediaStore content:// URI so gallery apps (Google Photos,
+                // Samsung Gallery) show the full album and allow swiping between images.
+                var galleryUri = _lastGalleryPath;
+                if (!string.IsNullOrEmpty(galleryUri))
+                {
+                    var uri = Android.Net.Uri.Parse(galleryUri);
+                    var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
+                    intent.SetDataAndType(uri, "image/*");
+                    intent.AddFlags(Android.Content.ActivityFlags.NewTask);
+                    Android.App.Application.Context.StartActivity(intent);
+                    return;
+                }
+#endif
+                // Fallback: open the local thumbnail file
                 var path = _lastThumbPath;
                 if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
 
-                // Use MAUI's Launcher which creates a proper FileProvider content URI
-                // and opens ACTION_VIEW without messing with the activity stack.
                 await Launcher.Default.OpenAsync(
                     new OpenFileRequest("Photo",
                         new ReadOnlyFile(path, "image/jpeg")));
