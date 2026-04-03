@@ -75,10 +75,9 @@
                     <Border StrokeShape="RoundRectangle 22"
                             BackgroundColor="#55000000" Stroke="Transparent"
                             WidthRequest="44" HeightRequest="44" />
-                    <!-- Lightning bolt; gray when off so white slash reads clearly -->
+                    <!-- Lightning bolt; always white. State shown by slash line visibility. -->
                     <Path Data="M11 1L5 13H10L8 23L19 9H14Z"
-                          Fill="{Binding IsFlashOn,
-                                 Converter={StaticResource FlashIconColorConverter}}"
+                          Fill="White"
                           Aspect="Uniform"
                           WidthRequest="22" HeightRequest="22"
                           HorizontalOptions="Center" VerticalOptions="Center" />

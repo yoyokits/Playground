@@ -232,6 +232,10 @@ namespace TravelCamApp.ViewModels
 
         private async Task InitializeAsync()
         {
+            // Yield main thread immediately — prevents ANR. Allows UI to render
+            // before permission dialogs and sensor initialization block.
+            await Task.Yield();
+
             if (_isDestroyed) return;
 
             // Restore last thumbnail immediately so it's never blank at startup
@@ -250,6 +254,11 @@ namespace TravelCamApp.ViewModels
             if (_isDestroyed) return;
             HasCameraPermission = cameraOk;
             PermissionStatus = cameraOk ? "Camera ready" : "Camera permission denied";
+
+            // If camera permission just granted and view is ready, start preview immediately.
+            // Handles race where OnAppearing ran before permissions were set.
+            if (cameraOk && _cameraView != null && !IsPreviewRunning)
+                await StartCameraPreviewAsync();
 
             try { await RequestLocationPermissionAsync(); }
             catch (Exception ex)
