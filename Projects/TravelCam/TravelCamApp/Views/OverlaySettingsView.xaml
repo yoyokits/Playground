@@ -2,7 +2,7 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:models="clr-namespace:TravelCamApp.Models"
-             x:Class="TravelCamApp.Views.SensorValueSettingsView"
+             x:Class="TravelCamApp.Views.OverlaySettingsView"
              x:Name="SettingsRoot">
 
     <ContentView.Content>
@@ -56,14 +56,14 @@
                                 BackgroundColor="#1C1C1E" Padding="0"
                                 MinimumHeightRequest="48">
                             <CollectionView x:Name="VisibleSensorsList"
-                                            ItemsSource="{Binding VisibleSensorItems}"
+                                            ItemsSource="{Binding VisibleOverlayItems}"
                                             SelectionMode="Single"
                                             HeightRequest="148"
                                             SelectedItem="{Binding SelectedVisibleItem, Mode=TwoWay}"
                                             CanReorderItems="True"
                                             ReorderCompleted="OnVisibleListReorderCompleted">
                                 <CollectionView.ItemTemplate>
-                                    <DataTemplate x:DataType="models:SensorItem">
+                                    <DataTemplate x:DataType="models:OverlayItem">
                                         <Grid ColumnDefinitions="Auto,*,Auto"
                                               Padding="14,0" HeightRequest="46">
                                             <!-- Drag handle -->
@@ -114,12 +114,12 @@
                                 BackgroundColor="#1C1C1E" Padding="0"
                                 MinimumHeightRequest="48">
                             <CollectionView x:Name="AvailableSensorsList"
-                                            ItemsSource="{Binding AvailableSensorItems}"
+                                            ItemsSource="{Binding AvailableOverlayItems}"
                                             SelectionMode="Single"
                                             HeightRequest="148"
                                             SelectedItem="{Binding SelectedAvailableItem, Mode=TwoWay}">
                                 <CollectionView.ItemTemplate>
-                                    <DataTemplate x:DataType="models:SensorItem">
+                                    <DataTemplate x:DataType="models:OverlayItem">
                                         <Grid ColumnDefinitions="*,Auto"
                                               Padding="14,0" HeightRequest="46">
                                             <!-- Sensor name -->
@@ -192,8 +192,10 @@
                     </Border>
 
                 </VerticalStackLayout>
+
             </ScrollView>
 
         </AbsoluteLayout>
     </ContentView.Content>
+
 </ContentView>

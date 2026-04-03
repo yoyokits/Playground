@@ -2,9 +2,9 @@ using TravelCamApp.ViewModels;
 
 namespace TravelCamApp.Views
 {
-    public partial class SensorValueView : ContentView
+    public partial class DataOverlayView : ContentView
     {
-        public SensorValueView()
+        public DataOverlayView()
         {
             InitializeComponent();
         }

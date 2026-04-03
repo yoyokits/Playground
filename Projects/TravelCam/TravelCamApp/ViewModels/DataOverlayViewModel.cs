@@ -3,12 +3,12 @@
 // Website: https://github.com/yoyokits       //
 // ========================================== //
 //
-// SensorValueViewModel: Owns and manages the observable list of
-// SensorItem objects shown on the camera overlay. Subscribes to
+// DataOverlayViewModel: Owns and manages the observable list of
+// OverlayItem objects shown on the camera overlay. Subscribes to
 // SensorHelper for live data updates and handles settings persistence.
 //
 // MainPageViewModel holds a reference to this VM and exposes
-// SensorItems as a passthrough so existing XAML bindings continue
+// OverlayItems as a passthrough so existing XAML bindings continue
 // to work unchanged.
 
 using System;
@@ -24,12 +24,12 @@ using TravelCamApp.Models;
 
 namespace TravelCamApp.ViewModels
 {
-    public class SensorValueViewModel : INotifyPropertyChanged, IDisposable
+    public class DataOverlayViewModel : INotifyPropertyChanged, IDisposable
     {
         #region Fields
 
         private readonly SensorHelper _sensorHelper;
-        private ObservableCollection<SensorItem> _sensorItems = new();
+        private ObservableCollection<OverlayItem> _sensorItems = new();
         private float _fontSize = 12f;
         private bool _isMapOverlayVisible;
         private bool _isDisposed;
@@ -40,7 +40,7 @@ namespace TravelCamApp.ViewModels
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public ObservableCollection<SensorItem> SensorItems
+        public ObservableCollection<OverlayItem> OverlayItems
         {
             get => _sensorItems;
             private set { _sensorItems = value; OnPropertyChanged(); }
@@ -76,10 +76,10 @@ namespace TravelCamApp.ViewModels
 
         #region Constructor
 
-        public SensorValueViewModel(SensorHelper sensorHelper)
+        public DataOverlayViewModel(SensorHelper sensorHelper)
         {
             _sensorHelper = sensorHelper;
-            InitializeSensorItems();
+            InitializeOverlayItems();
             _sensorHelper.SensorDataUpdated += OnSensorDataUpdated;
         }
 
@@ -95,11 +95,11 @@ namespace TravelCamApp.ViewModels
         {
             try
             {
-                var config = await SettingsHelper.LoadSensorItemsConfigurationAsync();
+                var config = await SettingsHelper.LoadOverlayItemsConfigurationAsync();
                 if (config != null)
                 {
-                    SettingsHelper.ApplyConfigurationToSensorItems(
-                        new List<SensorItem>(_sensorItems), config);
+                    SettingsHelper.ApplyConfigurationToOverlayItems(
+                        new List<OverlayItem>(_sensorItems), config);
                 }
                 else
                 {
@@ -112,7 +112,7 @@ namespace TravelCamApp.ViewModels
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
-                    $"[SensorValueViewModel] ApplyPersistedSettings error: {ex.Message}");
+                    $"[DataOverlayViewModel] ApplyPersistedSettings error: {ex.Message}");
             }
         }
 
@@ -151,20 +151,20 @@ namespace TravelCamApp.ViewModels
 
         #region Initialization
 
-        private void InitializeSensorItems()
+        private void InitializeOverlayItems()
         {
-            _sensorItems = new ObservableCollection<SensorItem>
+            _sensorItems = new ObservableCollection<OverlayItem>
             {
-                new SensorItem("City",        "",                                  isVisible: true),
-                new SensorItem("Country",     "",                                  isVisible: true),
-                new SensorItem("Temperature", "",                                  isVisible: true),
-                new SensorItem("Altitude",    "",                                  isVisible: false),
-                new SensorItem("Latitude",    "",                                  isVisible: false),
-                new SensorItem("Longitude",   "",                                  isVisible: false),
-                new SensorItem("Date",        DateTime.Now.ToString("MM/dd/yyyy"), isVisible: false),
-                new SensorItem("Time",        DateTime.Now.ToString("HH:mm:ss"),   isVisible: false),
-                new SensorItem("Heading",     "",                                  isVisible: false),
-                new SensorItem("Speed",       "",                                  isVisible: false),
+                new OverlayItem("City",        "",                                  isVisible: true),
+                new OverlayItem("Country",     "",                                  isVisible: true),
+                new OverlayItem("Temperature", "",                                  isVisible: true),
+                new OverlayItem("Altitude",    "",                                  isVisible: false),
+                new OverlayItem("Latitude",    "",                                  isVisible: false),
+                new OverlayItem("Longitude",   "",                                  isVisible: false),
+                new OverlayItem("Date",        DateTime.Now.ToString("MM/dd/yyyy"), isVisible: false),
+                new OverlayItem("Time",        DateTime.Now.ToString("HH:mm:ss"),   isVisible: false),
+                new OverlayItem("Heading",     "",                                  isVisible: false),
+                new OverlayItem("Speed",       "",                                  isVisible: false),
             };
         }
 

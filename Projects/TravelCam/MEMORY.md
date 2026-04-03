@@ -119,10 +119,10 @@ class MediaCaptureFailedEventArgs {
 
 ### RelativeSource binding inside DataTemplate (to reach parent ViewModel)
 ```xml
-<!-- Inside CollectionView DataTemplate where DataContext is SensorItem,
-     but we need MainPageViewModel.SensorValueViewModel.LabelFontSize -->
+<!-- Inside CollectionView DataTemplate where DataContext is OverlayItem,
+     but we need MainPageViewModel.DataOverlayViewModel.LabelFontSize -->
 <Label FontSize="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}},
-                           Path=BindingContext.SensorValueViewModel.LabelFontSize}" />
+                           Path=BindingContext.DataOverlayViewModel.LabelFontSize}" />
 ```
 
 ### BindableLayout for dynamic item strip
@@ -214,8 +214,8 @@ builder.Services.AddSingleton<SensorHelper>();
 builder.Services.AddSingleton<CameraSettingsViewModel>();
 
 // Transient — new instance per injection
-builder.Services.AddTransient<SensorValueViewModel>();
-builder.Services.AddTransient<SensorValueSettingsViewModel>();
+builder.Services.AddTransient<DataOverlayViewModel>();
+builder.Services.AddTransient<OverlaySettingsViewModel>();
 builder.Services.AddTransient<MainPageViewModel>();
 builder.Services.AddTransient<MainPage>();
 ```
@@ -256,7 +256,7 @@ TravelCamApp/
 │
 ├── Models/
 │   ├── SensorData.cs
-│   ├── SensorItem.cs                         # Observable display item (Name, Value, IsVisible)
+│   ├── OverlayItem.cs                         # Observable display item (Name, Value, IsVisible)
 │   └── ZoomPreset.cs                         # Dynamic zoom pill model with ICommand closure
 │
 ├── Platforms/Android/
@@ -266,14 +266,14 @@ TravelCamApp/
 ├── ViewModels/
 │   ├── CameraSettingsViewModel.cs            # ShowRuleOfThirds, ShowSensorOverlay, GridLineOpacity
 │   ├── MainPageViewModel.cs                  # Main coordinator (camera, sensors, commands, lifecycle)
-│   ├── SensorValueSettingsViewModel.cs       # Visible/Available sensor lists + FontSize slider
-│   └── SensorValueViewModel.cs              # SensorItems, FontSize, LabelFontSize, ValueFontSize
+│   ├── OverlaySettingsViewModel.cs       # Visible/Available sensor lists + FontSize slider
+│   └── DataOverlayViewModel.cs              # OverlayItems, FontSize, LabelFontSize, ValueFontSize
 │
 └── Views/
     ├── CameraSettingsView.xaml/cs            # Right-side camera settings overlay panel
     ├── MainPage.xaml/cs                      # Main camera UI
-    ├── SensorValueSettingsView.xaml/cs       # Dark sensor settings slide-in panel
-    └── SensorValueView.xaml/cs              # Sensor data overlay (FontSize bound to SensorValueViewModel)
+    ├── OverlaySettingsView.xaml/cs       # Dark sensor settings slide-in panel
+    └── DataOverlayView.xaml/cs              # Sensor data overlay (FontSize bound to DataOverlayViewModel)
 ```
 
 ---
@@ -295,7 +295,4 @@ TravelCamApp/
 |---|---|
 | 2026-04-01 | Migrated camera library: Camera.MAUI 1.5.1 → CommunityToolkit.Maui.Camera 6.0.0 |
 | 2026-04-01 | Added dynamic zoom presets (ZoomPreset model, ObservableCollection, BindableLayout) |
-| 2026-04-01 | Added CameraSettingsViewModel + CameraSettingsView (rule of thirds, sensor overlay toggle) |
-| 2026-04-01 | FileHelper.SavePhotoAsync now returns (GalleryPath, ThumbPath) tuple |
-| 2026-04-02 | SensorValueView font sizes bound to SensorValueViewModel.LabelFontSize / ValueFontSize |
-| 2026-04-02 | MEMORY.md rewritten with CommunityToolkit.Maui.Camera 6.0.0 verified API |
+| 2026-04-01 | Added CameraSettingsViewModel + CameraSettingsView (rule of thirds, sensor o

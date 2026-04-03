@@ -305,7 +305,7 @@
         ═══════════════════════════════════════════════════════════════════ -->
 
         <!-- Sensor settings panel -->
-        <views:SensorValueSettingsView
+        <views:OverlaySettingsView
             x:Name="SensorSettingsOverlay"
             Grid.RowSpan="2"
             IsVisible="{Binding Source={x:Reference ThisPage},

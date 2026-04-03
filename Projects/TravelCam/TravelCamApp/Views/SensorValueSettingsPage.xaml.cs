@@ -3,22 +3,22 @@ using TravelCamApp.Models;
 
 namespace TravelCamApp.Views
 {
-    public partial class SensorValueSettingsPage : ContentPage
+    public partial class OverlaySettingsPage : ContentPage
     {
-        private SensorValueSettingsViewModel? _viewModel;
+        private OverlaySettingsViewModel? _viewModel;
 
-        public SensorValueSettingsPage()
+        public OverlaySettingsPage()
         {
             InitializeComponent();
-            _viewModel = new SensorValueSettingsViewModel();
+            _viewModel = new OverlaySettingsViewModel();
             BindingContext = _viewModel;
         }
 
-        private SensorValueSettingsViewModel ViewModel
+        private OverlaySettingsViewModel ViewModel
         {
             get
             {
-                if (_viewModel == null && BindingContext is SensorValueSettingsViewModel vm)
+                if (_viewModel == null && BindingContext is OverlaySettingsViewModel vm)
                 {
                     _viewModel = vm;
                 }
@@ -30,13 +30,13 @@ namespace TravelCamApp.Views
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            await ViewModel.LoadSettingsAsync();
+            // await ViewModel.LoadSettingsAsync();
         }
 
         protected override async void OnDisappearing()
         {
             base.OnDisappearing();
-            await ViewModel.SaveSettingsAsync();
+            // await ViewModel.SaveSettingsAsync();
         }
 
         private async void OnBackClicked(object sender, EventArgs e)
@@ -66,7 +66,7 @@ namespace TravelCamApp.Views
 
         private void OnVisibleListSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            var selectedItem = e.CurrentSelection.FirstOrDefault() as SensorItem;
+            var selectedItem = e.CurrentSelection.FirstOrDefault() as OverlayItem;
             if (selectedItem != null)
             {
                 AvailableSensorsList.SelectedItem = null;
@@ -75,7 +75,7 @@ namespace TravelCamApp.Views
 
         private void OnAvailableListSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            var selectedItem = e.CurrentSelection.FirstOrDefault() as SensorItem;
+            var selectedItem = e.CurrentSelection.FirstOrDefault() as OverlayItem;
             if (selectedItem != null)
             {
                 VisibleSensorsList.SelectedItem = null;
