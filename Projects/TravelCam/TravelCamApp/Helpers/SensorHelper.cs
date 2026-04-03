@@ -52,10 +52,24 @@ namespace TravelCamApp.Helpers
 
             _cts = new CancellationTokenSource();
 
-            await RequestLocationPermissionAsync();
+            // Permission dialogs must run on the main thread
+            await MainThread.InvokeOnMainThreadAsync(RequestLocationPermissionAsync);
 
             if (_cts.IsCancellationRequested) return;
-            await UpdateSensorDataAsync(_cts.Token);
+
+            // Fire-and-forget initial sensor poll on a background thread so the
+            // caller (often the main thread) is not blocked by geolocation/HTTP.
+            var token = _cts.Token;
+            _ = Task.Run(async () =>
+            {
+                try { await UpdateSensorDataAsync(token); }
+                catch (OperationCanceledException) { }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[SensorHelper] Initial update error: {ex.Message}");
+                }
+            });
 
             if (_cts.IsCancellationRequested) return;
 

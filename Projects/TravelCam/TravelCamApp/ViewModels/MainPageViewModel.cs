@@ -309,7 +309,11 @@ namespace TravelCamApp.ViewModels
                 _lastThumbPath = path;
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    try { LastCaptureImage = ImageSource.FromFile(path); }
+                    try
+                    {
+                        LastCaptureImage = ImageSource.FromStream(() =>
+                            new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read));
+                    }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine(
@@ -676,9 +680,17 @@ namespace TravelCamApp.ViewModels
                     }
                 }
 
-                // Display thumbnail — always use the file copy, not content://
+                // Display thumbnail using FromStream to bypass MAUI image cache.
+                // FromFile with the same path returns the cached bitmap even after
+                // the file is overwritten. FromStream always reads fresh bytes.
                 if (!string.IsNullOrEmpty(thumbPath) && File.Exists(thumbPath))
-                    LastCaptureImage = ImageSource.FromFile(thumbPath);
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        LastCaptureImage = ImageSource.FromStream(() =>
+                            new FileStream(thumbPath, FileMode.Open, FileAccess.Read, FileShare.Read));
+                    });
+                }
 
                 System.Diagnostics.Debug.WriteLine(
                     $"[MainPageViewModel] Photo saved. Gallery={galleryPath} Thumb={thumbPath}");
@@ -863,63 +875,22 @@ namespace TravelCamApp.ViewModels
 
         private async Task OpenGalleryAsync()
         {
-#if ANDROID
             try
             {
-                var context = Android.App.Application.Context;
-                Android.Content.Intent? intent = null;
+                var path = _lastThumbPath;
+                if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
 
-                // Use the gallery URI if available; otherwise open gallery browser
-                if (!string.IsNullOrEmpty(_lastGalleryPath)
-                    && _lastGalleryPath.StartsWith("content://",
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    var uri = Android.Net.Uri.Parse(_lastGalleryPath);
-                    intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                    intent.SetDataAndType(uri, "image/jpeg");
-                    intent.AddFlags(Android.Content.ActivityFlags.GrantReadUriPermission);
-                    intent.AddFlags(Android.Content.ActivityFlags.NewTask);
-                    intent.AddFlags(Android.Content.ActivityFlags.ClearTop);
-                }
-                else
-                {
-                    intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                    intent.SetType("image/*");
-                    intent.AddFlags(Android.Content.ActivityFlags.NewTask);
-                }
-
-                try
-                {
-                    context.StartActivity(intent);
-                }
-                catch (Android.Content.ActivityNotFoundException)
-                {
-                    var chooser = Android.Content.Intent.CreateChooser(intent, "Open with");
-                    chooser?.AddFlags(Android.Content.ActivityFlags.NewTask);
-                    if (chooser != null) context.StartActivity(chooser);
-                }
+                // Use MAUI's Launcher which creates a proper FileProvider content URI
+                // and opens ACTION_VIEW without messing with the activity stack.
+                await Launcher.Default.OpenAsync(
+                    new OpenFileRequest("Photo",
+                        new ReadOnlyFile(path, "image/jpeg")));
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
                     $"[MainPageViewModel] OpenGallery error: {ex.Message}");
             }
-#else
-            if (!string.IsNullOrEmpty(_lastThumbPath))
-            {
-                try
-                {
-                    await Launcher.Default.OpenAsync(
-                        new OpenFileRequest("Open Image",
-                            new ReadOnlyFile(_lastThumbPath)));
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[MainPageViewModel] OpenGallery error: {ex.Message}");
-                }
-            }
-#endif
         }
 
         #endregion
