@@ -255,6 +255,7 @@ namespace TravelCamApp.Helpers
             System.Diagnostics.Debug.WriteLine(format, args);
         }
 
-        #endregion Methods
+        #endregion
+
     }
 }

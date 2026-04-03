@@ -19,14 +19,14 @@
 - `_isDestroyed` flag prevents callbacks after window cleanup.
 - Camera initialized only after `CamerasLoaded` event from the view.
 
-## SensorValueViewModel.cs
-- Bridge ViewModel for the SensorValueView overlay.
+## DataOverlayViewModel.cs
+- Bridge ViewModel for the DataOverlayView overlay.
 - Subscribes to SensorHelper updates (legacy — some logic merged into MainPageViewModel now).
 
-## SensorValueSettingsViewModel.cs
-- Manages two lists: VisibleSensorItems and AvailableSensorItems.
-- `LoadFromSensorItems()` populates lists when settings opens.
-- `ApplyToSensorItems()` writes visibility state back to source.
+## OverlaySettingsViewModel.cs
+- Manages two lists: VisibleOverlayItems and AvailableOverlayItems.
+- `LoadFromOverlayItems()` populates lists when settings opens.
+- `ApplyToOverlayItems()` writes visibility state back to source.
 - `SaveSettingsAsync()` persists to JSON via SettingsHelper.
 
 ---
@@ -53,8 +53,4 @@ CaptureCommand = new Command(async () => await CaptureAsync());
 ```csharp
 private void OnSensorDataUpdated(SensorData data) {
     MainThread.BeginInvokeOnMainThread(() => {
-        UpdateSensorItem("Temperature", $"{data.Temperature:F1}°C");
-        // ... update all sensor items
-    });
-}
-```
+        UpdateOverlayItem("Temperature", $"{data.Temperature:F1}°C")

@@ -20,24 +20,24 @@ namespace TravelCamApp.Helpers
         private const string SETTINGS_FILE_NAME = "sensor_settings.json";
         
         /// <summary>
-        /// Saves the sensor items configuration to a JSON file
+        /// Saves the overlay items configuration to a JSON file
         /// </summary>
-        /// <param name="sensorItems">The collection of sensor items to save</param>
+        /// <param name="overlayItems">The collection of overlay items to save</param>
         /// <returns>True if the save was successful, false otherwise</returns>
-        public static async Task<bool> SaveSensorItemsConfigurationAsync(IEnumerable<SensorItem> sensorItems)
+        public static async Task<bool> SaveOverlayItemsConfigurationAsync(IEnumerable<OverlayItem> overlayItems)
         {
             try
             {
                 var settingsPath = Path.Combine(FileSystem.AppDataDirectory, SETTINGS_FILE_NAME);
 
-                var config = new SensorItemsConfiguration
+                var config = new OverlayItemsConfiguration
                 {
-                    Items = new List<SensorItemConfig>()
+                    Items = new List<OverlayItemConfig>()
                 };
 
-                foreach (var item in sensorItems)
+                foreach (var item in overlayItems)
                 {
-                    config.Items.Add(new SensorItemConfig
+                    config.Items.Add(new OverlayItemConfig
                     {
                         Name = item.Name,
                         IsVisible = item.IsVisible,
@@ -65,10 +65,10 @@ namespace TravelCamApp.Helpers
         }
 
         /// <summary>
-        /// Loads the sensor items configuration from a JSON file
+        /// Loads the overlay items configuration from a JSON file
         /// </summary>
         /// <returns>The loaded configuration, or null if loading failed</returns>
-        public static async Task<SensorItemsConfiguration?> LoadSensorItemsConfigurationAsync()
+        public static async Task<OverlayItemsConfiguration?> LoadOverlayItemsConfigurationAsync()
         {
             try
             {
@@ -86,7 +86,7 @@ namespace TravelCamApp.Helpers
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 };
 
-                var config = JsonSerializer.Deserialize<SensorItemsConfiguration>(json, options);
+                var config = JsonSerializer.Deserialize<OverlayItemsConfiguration>(json, options);
                 
                 return config;
             }
@@ -98,16 +98,16 @@ namespace TravelCamApp.Helpers
         }
 
         /// <summary>
-        /// Applies the loaded configuration to the sensor items
+        /// Applies the loaded configuration to the overlay items
         /// </summary>
-        /// <param name="allSensorItems">The collection of all sensor items to update</param>
+        /// <param name="allOverlayItems">The collection of all overlay items to update</param>
         /// <param name="config">The configuration to apply</param>
-        public static void ApplyConfigurationToSensorItems(List<SensorItem> allSensorItems, SensorItemsConfiguration? config)
+        public static void ApplyConfigurationToOverlayItems(List<OverlayItem> allOverlayItems, OverlayItemsConfiguration? config)
         {
             if (config?.Items == null) return;
 
             // First, set visibility and update interval based on the configuration
-            foreach (var item in allSensorItems)
+            foreach (var item in allOverlayItems)
             {
                 var configItem = config.Items.Find(ci => ci.Name == item.Name);
                 if (configItem != null)
@@ -119,91 +119,28 @@ namespace TravelCamApp.Helpers
         }
 
         /// <summary>
-        /// Applies the loaded configuration to separate available and visible collections
+        /// Creates an OverlayItemsConfiguration from overlay items
         /// </summary>
-        /// <param name="availableSensorItems">Collection of available sensor items</param>
-        /// <param name="visibleSensorItems">Collection of visible sensor items</param>
-        /// <param name="config">The configuration to apply</param>
-        public static void ApplyConfigurationToSensorItemsCollections(
-            System.Collections.ObjectModel.ObservableCollection<SensorItem> availableSensorItems,
-            System.Collections.ObjectModel.ObservableCollection<SensorItem> visibleSensorItems,
-            SensorItemsConfiguration? config)
+        /// <param name="overlayItems">The overlay items to convert</param>
+        /// <returns>The created configuration</returns>
+        public static OverlayItemsConfiguration CreateOverlayItemsConfiguration(List<OverlayItem> overlayItems)
         {
-            if (config?.Items == null) return;
-
-            System.Diagnostics.Debug.WriteLine($"[SettingsHelper] ApplyConfigurationToSensorItemsCollections - Config has {config.Items.Count} items");
-
-            // Clear existing items to prevent duplicates
-            availableSensorItems.Clear();
-            visibleSensorItems.Clear();
-
-            // Track which items have been added to prevent duplicates
-            var addedItems = new HashSet<string>();
-
-            // Create a dictionary of all possible sensor items by name
-            var allPossibleItems = new Dictionary<string, SensorItem>
+            var config = new OverlayItemsConfiguration
             {
-                ["City"] = new SensorItem("City", "Jakarta", false),
-                ["Country"] = new SensorItem("Country", "Indonesia", false),
-                ["Temperature"] = new SensorItem("Temperature", "28°C", false),
-                ["Altitude"] = new SensorItem("Altitude", "12m", false),
-                ["Latitude"] = new SensorItem("Latitude", "-6.2088", false),
-                ["Longitude"] = new SensorItem("Longitude", "106.8456", false),
-                ["Date"] = new SensorItem("Date", DateTime.Now.ToString("MM/dd/yyyy"), false),
-                ["Time"] = new SensorItem("Time", DateTime.Now.ToString("HH:mm:ss"), false),
-                ["Heading"] = new SensorItem("Heading", "0°", false),
-                ["Speed"] = new SensorItem("Speed", "0 m/s", false),
-                ["Compass"] = new SensorItem("Compass", "0°", false),
-                ["Map"] = new SensorItem("Map", "Map View", false) // Add map overlay option
+                Items = new List<OverlayItemConfig>()
             };
 
-            // Process each item in the configuration (preserve order)
-            foreach (var configItem in config.Items)
+            foreach (var item in overlayItems)
             {
-                // Skip if already added (prevent duplicates)
-                if (addedItems.Contains(configItem.Name))
+                config.Items.Add(new OverlayItemConfig
                 {
-                    System.Diagnostics.Debug.WriteLine($"[SettingsHelper] Skipping duplicate item: {configItem.Name}");
-                    continue;
-                }
-
-                if (allPossibleItems.TryGetValue(configItem.Name, out var item))
-                {
-                    item.IsVisible = configItem.IsVisible;
-                    item.UpdateInterval = configItem.UpdateInterval; // Add update interval
-                    addedItems.Add(configItem.Name);
-
-                    if (configItem.IsVisible)
-                    {
-                        visibleSensorItems.Add(item);
-                        System.Diagnostics.Debug.WriteLine($"[SettingsHelper] Added {configItem.Name} to visible");
-                    }
-                    else
-                    {
-                        availableSensorItems.Add(item);
-                        System.Diagnostics.Debug.WriteLine($"[SettingsHelper] Added {configItem.Name} to available");
-                    }
-                }
+                    Name = item.Name,
+                    IsVisible = item.IsVisible,
+                    UpdateInterval = item.UpdateInterval
+                });
             }
 
-            // Add any remaining items that weren't in the config
-            foreach (var kvp in allPossibleItems)
-            {
-                var itemName = kvp.Key;
-                var item = kvp.Value;
-
-                // Check if this item is already added
-                if (!addedItems.Contains(itemName))
-                {
-                    // Add to available by default
-                    item.IsVisible = false;
-                    availableSensorItems.Add(item);
-                    addedItems.Add(itemName);
-                    System.Diagnostics.Debug.WriteLine($"[SettingsHelper] Added {itemName} to available (not in config)");
-                }
-            }
-
-            System.Diagnostics.Debug.WriteLine($"[SettingsHelper] Final counts - Available: {availableSensorItems.Count}, Visible: {visibleSensorItems.Count}");
+            return config;
         }
 
         /// <summary>
@@ -278,17 +215,17 @@ namespace TravelCamApp.Helpers
     }
 
     /// <summary>
-    /// Represents the configuration for sensor items
+    /// Represents the configuration for overlay items
     /// </summary>
-    public class SensorItemsConfiguration
+    public class OverlayItemsConfiguration
     {
-        public List<SensorItemConfig>? Items { get; set; }
+        public List<OverlayItemConfig>? Items { get; set; }
     }
 
     /// <summary>
-    /// Represents the configuration for a single sensor item
+    /// Represents the configuration for a single overlay item
     /// </summary>
-    public class SensorItemConfig
+    public class OverlayItemConfig
     {
         public string? Name { get; set; }
         public bool IsVisible { get; set; }

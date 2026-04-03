@@ -28,8 +28,8 @@ namespace TravelCamApp
             builder.Services.AddSingleton<CameraSettingsViewModel>();
 
             // Transient — fresh instance per injection (each page/navigation)
-            builder.Services.AddTransient<SensorValueViewModel>();
-            builder.Services.AddTransient<SensorValueSettingsViewModel>();
+            builder.Services.AddTransient<DataOverlayViewModel>();
+            builder.Services.AddTransient<OverlaySettingsViewModel>();
             builder.Services.AddTransient<MainPageViewModel>();
 
             // Pages / views

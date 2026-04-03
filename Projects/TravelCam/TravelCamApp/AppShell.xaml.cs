@@ -7,7 +7,6 @@ namespace TravelCamApp
         public AppShell()
         {
             InitializeComponent();
-            Routing.RegisterRoute(nameof(SensorValueSettingsPage), typeof(SensorValueSettingsPage));
         }
     }
 }

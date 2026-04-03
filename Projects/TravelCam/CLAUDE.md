@@ -134,10 +134,10 @@ string FailureReason { get; }
 builder.Services.AddSingleton<SensorHelper>();
 
 // Transient — new instance per injection
+builder.Services.AddTransient<DataOverlayViewModel>();
+builder.Services.AddTransient<OverlaySettingsViewModel>();
 builder.Services.AddTransient<MainPageViewModel>();
-builder.Services.AddTransient<SensorValueSettingsViewModel>();
 builder.Services.AddTransient<MainPage>();
-builder.Services.AddTransient<SensorValueSettingsView>();
 ```
 
 ### Camera Lifecycle
@@ -213,10 +213,10 @@ See `CodeStyle.txt` for full standards. Key rules:
 | `SensorHelper.cs` | GPS+Compass+Weather polling (10s), IDisposable |
 | `FileHelper.cs` | MediaStore gallery integration |
 | `SettingsHelper.cs` | JSON persistence for sensor settings |
-| `SensorData.cs` | Sensor data model |
-| `SensorItem.cs` | Observable display item (Name, Value, IsVisible) |
-| `SensorValueSettingsViewModel.cs` | Manages visible/available sensor lists |
-| `SensorValueViewModel.cs` | Owns SensorItems, subscribes to SensorHelper, wired into main flow |
+| `SensorData.cs` | Sensor data model (raw GPS/weather/compass data from SensorHelper) |
+| `OverlayItem.cs` | Observable display item (Name, Value, IsVisible) — shown in camera overlay |
+| `OverlaySettingsViewModel.cs` | Manages VisibleOverlayItems / AvailableOverlayItems lists |
+| `DataOverlayViewModel.cs` | Owns OverlayItems, subscribes to SensorHelper, LabelFontSize/ValueFontSize |
 
 ---
 
@@ -249,7 +249,7 @@ Key compile checks:
 - [ ] Weather API verification — Open-Meteo integrated, untested on device
 - [ ] Upgrade Target SDK to API 36 before Aug 2026 Google Play deadline
 - [x] Migrated from Camera.MAUI 1.5.1 to CommunityToolkit.Maui.Camera 6.0.0
-- [x] SensorValueViewModel rewired — subscribes to SensorHelper, owns SensorItems
+- [x] DataOverlayViewModel rewired — subscribes to SensorHelper, owns OverlayItems
 - [ ] Verify CommunityToolkit.Maui.Camera 6.0.0 net10.0 compatibility; upgrade if needed
 - [ ] iOS support — scaffold only, not targeted
 - [x] Premium Samsung-style camera UI — shutter ring+circle, flip path icon, grid lines, mode dots

@@ -3,8 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewModels="clr-namespace:TravelCamApp.ViewModels"
              xmlns:models="clr-namespace:TravelCamApp.Models"
-             x:Class="TravelCamApp.Views.SensorValueSettingsPage"
-             x:DataType="viewModels:SensorValueSettingsViewModel"
+             x:Class="TravelCamApp.Views.OverlaySettingsPage"
+             x:DataType="viewModels:OverlaySettingsViewModel"
              Title="Sensor Settings"
              BackgroundColor="#FFFBFE"
              Shell.NavBarIsVisible="False">
@@ -90,7 +90,7 @@
                         </HorizontalStackLayout>
 
                         <CollectionView x:Name="VisibleSensorsList"
-                                        ItemsSource="{Binding VisibleSensorItems}"
+                                        ItemsSource="{Binding VisibleOverlayItems}"
                                         SelectionMode="Single"
                                         HeightRequest="180"
                                         SelectedItem="{Binding SelectedVisibleItem, Mode=TwoWay}"
@@ -98,7 +98,7 @@
                                         CanReorderItems="True"
                                         ReorderCompleted="OnVisibleListReorderCompleted">
                             <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="models:SensorItem">
+                                <DataTemplate x:DataType="models:OverlayItem">
                                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,1" HeightRequest="40">
                                         <Border Grid.Column="0"
                                                 BackgroundColor="{StaticResource MD3SurfaceVariant}"
@@ -119,7 +119,7 @@
                                                 Stroke="Transparent"
                                                 Padding="8,4">
                                             <Border.GestureRecognizers>
-                                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewModels:SensorValueSettingsViewModel}}, Path=MoveToAvailableCommand}" CommandParameter="{Binding .}" />
+                                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewModels:OverlaySettingsViewModel}}, Path=MoveToAvailableCommand}" CommandParameter="{Binding .}" />
                                             </Border.GestureRecognizers>
                                             <Label Text="X" FontSize="14" FontAttributes="Bold" TextColor="White" VerticalOptions="Center" HorizontalOptions="Center" />
                                         </Border>
@@ -143,13 +143,13 @@
                                TextColor="{StaticResource MD3OnSurface}" />
 
                         <CollectionView x:Name="AvailableSensorsList"
-                                        ItemsSource="{Binding AvailableSensorItems}"
+                                        ItemsSource="{Binding AvailableOverlayItems}"
                                         SelectionMode="Single"
                                         HeightRequest="180"
                                         SelectedItem="{Binding SelectedAvailableItem, Mode=TwoWay}"
                                         SelectionChanged="OnAvailableListSelectionChanged">
                             <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="models:SensorItem">
+                                <DataTemplate x:DataType="models:OverlayItem">
                                     <Grid ColumnDefinitions="*,Auto" Margin="0,1" HeightRequest="40">
                                         <Border Grid.Column="0"
                                                 BackgroundColor="{StaticResource MD3SurfaceVariant}"
@@ -164,7 +164,7 @@
                                                 Stroke="Transparent"
                                                 Padding="8,4">
                                             <Border.GestureRecognizers>
-                                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewModels:SensorValueSettingsViewModel}}, Path=MoveToVisibleCommand}" CommandParameter="{Binding .}" />
+                                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewModels:OverlaySettingsViewModel}}, Path=MoveToVisibleCommand}" CommandParameter="{Binding .}" />
                                             </Border.GestureRecognizers>
                                             <Label Text="+" FontSize="16" FontAttributes="Bold" TextColor="White" VerticalOptions="Center" HorizontalOptions="Center" />
                                         </Border>

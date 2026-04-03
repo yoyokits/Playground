@@ -11,8 +11,8 @@
 // from MainPage.xaml.cs.  Video stream is returned synchronously
 // from StopVideoRecording().
 //
-// Sensor display is delegated to SensorValueViewModel, which
-// subscribes to SensorHelper independently.  SensorItems is
+// Sensor display is delegated to DataOverlayViewModel, which
+// subscribes to SensorHelper independently.  OverlayItems is
 // exposed here as a passthrough so XAML bindings are unchanged.
 
 using System;
@@ -39,7 +39,7 @@ namespace TravelCamApp.ViewModels
         #region Fields
 
         private readonly SensorHelper _sensorHelper;
-        private readonly SensorValueViewModel _sensorValueViewModel;
+        private readonly DataOverlayViewModel _sensorValueViewModel;
         private readonly CameraSettingsViewModel _cameraSettings;
 
         // Camera
@@ -160,11 +160,11 @@ namespace TravelCamApp.ViewModels
         /// </summary>
         public ObservableCollection<ZoomPreset> ZoomPresets { get; } = new();
 
-        /// <summary>Passthrough to SensorValueViewModel.SensorItems.</summary>
-        public ObservableCollection<SensorItem> SensorItems => _sensorValueViewModel.SensorItems;
+        /// <summary>Passthrough to DataOverlayViewModel.OverlayItems.</summary>
+        public ObservableCollection<OverlayItem> OverlayItems => _sensorValueViewModel.OverlayItems;
 
         /// <summary>Exposes the sensor sub-ViewModel (font size, items).</summary>
-        public SensorValueViewModel SensorValueViewModel => _sensorValueViewModel;
+        public DataOverlayViewModel DataOverlayViewModel => _sensorValueViewModel;
 
         /// <summary>Exposes the camera display settings (grid, overlay toggles).</summary>
         public CameraSettingsViewModel CameraSettings => _cameraSettings;
@@ -189,7 +189,7 @@ namespace TravelCamApp.ViewModels
 
         public MainPageViewModel(
             SensorHelper sensorHelper,
-            SensorValueViewModel sensorValueViewModel,
+            DataOverlayViewModel sensorValueViewModel,
             CameraSettingsViewModel cameraSettings)
         {
             _sensorHelper = sensorHelper;
@@ -838,8 +838,8 @@ namespace TravelCamApp.ViewModels
         {
             try
             {
-                await SettingsHelper.SaveSensorItemsConfigurationAsync(
-                    _sensorValueViewModel.SensorItems);
+                await SettingsHelper.SaveOverlayItemsConfigurationAsync(
+                    _sensorValueViewModel.OverlayItems);
             }
             catch (Exception ex)
             {
@@ -919,7 +919,7 @@ namespace TravelCamApp.ViewModels
 
         private string GetCityForFileName()
         {
-            var cityItem = SensorItems.FirstOrDefault(s => s.Name == "City");
+            var cityItem = OverlayItems.FirstOrDefault(s => s.Name == "City");
             var city = cityItem?.Value;
             return string.IsNullOrWhiteSpace(city) || city == "Unknown" ? "CekliCam" : city;
         }

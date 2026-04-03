@@ -42,7 +42,7 @@
     <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}"/>
     <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}"/>
 
-    <!-- Material Design 3 color tokens (used by SensorValueSettingsView) -->
+    <!-- Material Design 3 color tokens (used by OverlaySettingsView) -->
     <Color x:Key="MD3Primary">#6750A4</Color>
     <Color x:Key="MD3OnPrimary">#FFFFFF</Color>
     <Color x:Key="MD3PrimaryContainer">#EADDFF</Color>

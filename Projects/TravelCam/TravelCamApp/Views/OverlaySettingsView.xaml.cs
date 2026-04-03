@@ -3,11 +3,11 @@ using TravelCamApp.Models;
 
 namespace TravelCamApp.Views
 {
-    public partial class SensorValueSettingsView : ContentView
+    public partial class OverlaySettingsView : ContentView
     {
-        private SensorValueSettingsViewModel ViewModel =>
-            (BindingContext as SensorValueSettingsViewModel)
-            ?? throw new InvalidOperationException("SensorValueSettingsView BindingContext not set");
+        private OverlaySettingsViewModel ViewModel =>
+            (BindingContext as OverlaySettingsViewModel)
+            ?? throw new InvalidOperationException("OverlaySettingsView BindingContext not set");
 
         /// <summary>
         /// Raised when the user closes the settings overlay.
@@ -15,19 +15,19 @@ namespace TravelCamApp.Views
         /// </summary>
         public event EventHandler? CloseRequested;
 
-        public SensorValueSettingsView()
+        public OverlaySettingsView()
         {
             InitializeComponent();
         }
 
         private void OnVisibleListReorderCompleted(object? sender, EventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("[SensorValueSettingsView] Reorder completed");
+            System.Diagnostics.Debug.WriteLine("[OverlaySettingsView] Reorder completed");
         }
 
         private void OnAddButtonClicked(object? sender, EventArgs e)
         {
-            if (AvailableSensorsList.SelectedItem is SensorItem item)
+            if (AvailableSensorsList.SelectedItem is OverlayItem item)
             {
                 ViewModel.MoveToVisible(item);
                 AvailableSensorsList.SelectedItem = null;
@@ -36,7 +36,7 @@ namespace TravelCamApp.Views
 
         private void OnRemoveButtonClicked(object? sender, EventArgs e)
         {
-            if (VisibleSensorsList.SelectedItem is SensorItem item)
+            if (VisibleSensorsList.SelectedItem is OverlayItem item)
             {
                 ViewModel.MoveToAvailable(item);
                 VisibleSensorsList.SelectedItem = null;

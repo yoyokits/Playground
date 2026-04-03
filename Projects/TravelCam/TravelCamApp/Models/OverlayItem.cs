@@ -1,12 +1,13 @@
 using System;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace TravelCamApp.Models
 {
     /// <summary>
     /// Represents a single sensor value item for visualization
     /// </summary>
-    public class SensorItem : INotifyPropertyChanged
+    public class OverlayItem : INotifyPropertyChanged
     {
         private string _name;
         private string _value;
@@ -14,13 +15,13 @@ namespace TravelCamApp.Models
         private TimeSpan _updateInterval;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SensorItem"/> class.
+        /// Initializes a new instance of the <see cref="OverlayItem"/> class.
         /// </summary>
         /// <param name="name">The name of the sensor (e.g., "Temperature", "City")</param>
         /// <param name="value">The current value of the sensor</param>
         /// <param name="isVisible">Whether the sensor item should be visible</param>
         /// <param name="updateInterval">How often the sensor should be updated</param>
-        public SensorItem(string name, string value, bool isVisible = true, TimeSpan? updateInterval = null)
+        public OverlayItem(string name, string value, bool isVisible = true, TimeSpan? updateInterval = null)
         {
             _name = name ?? throw new ArgumentNullException(nameof(name));
             _value = value ?? "";
@@ -40,7 +41,7 @@ namespace TravelCamApp.Models
                 {
                     _name = value;
                     OnPropertyChanged(nameof(Name));
-                    NotifyDependentProperties(nameof(Name));
+                    OnPropertyChanged(nameof(NameAndValue));
                 }
             }
         }
@@ -73,7 +74,7 @@ namespace TravelCamApp.Models
                 {
                     _value = value;
                     OnPropertyChanged(nameof(Value));
-                    NotifyDependentProperties(nameof(Value));
+                    OnPropertyChanged(nameof(NameAndValue));
                 }
             }
         }
@@ -105,20 +106,12 @@ namespace TravelCamApp.Models
         public event PropertyChangedEventHandler? PropertyChanged;
 
         /// <summary>
-        /// Raises the PropertyChanged event.
+        /// Raises the PropertyChanged event for the specified property.
         /// </summary>
-        /// <param name="propertyName">Name of the property that changed.</param>
-        protected virtual void OnPropertyChanged(string propertyName)
+        /// <param name="propertyName">The name of the property that changed.</param>
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-
-        private void NotifyDependentProperties(string propertyName)
-        {
-            if (propertyName == nameof(Name) || propertyName == nameof(Value))
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NameAndValue)));
-            }
         }
     }
 }

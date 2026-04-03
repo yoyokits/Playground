@@ -20,12 +20,12 @@ namespace TravelCamApp.Views
     {
         private MainPageViewModel ViewModel => (MainPageViewModel)BindingContext;
 
-        private readonly SensorValueSettingsViewModel _sensorSettingsVm;
+        private readonly OverlaySettingsViewModel _sensorSettingsVm;
         private readonly CameraSettingsViewModel _cameraSettingsVm;
 
         public MainPage(
             MainPageViewModel viewModel,
-            SensorValueSettingsViewModel sensorSettingsVm,
+            OverlaySettingsViewModel sensorSettingsVm,
             CameraSettingsViewModel cameraSettingsVm)
         {
             InitializeComponent();
@@ -43,8 +43,8 @@ namespace TravelCamApp.Views
                     && viewModel.IsSettingsVisible)
                 {
                     // Load current items + sync font size into settings panel
-                    _sensorSettingsVm.LoadFromSensorItems(viewModel.SensorItems);
-                    _sensorSettingsVm.FontSize = viewModel.SensorValueViewModel.FontSize;
+                    _sensorSettingsVm.LoadFromOverlayItems(viewModel.OverlayItems);
+                    _sensorSettingsVm.FontSize = viewModel.DataOverlayViewModel.FontSize;
                 }
             };
 
@@ -100,10 +100,10 @@ namespace TravelCamApp.Views
         private async Task HideSensorSettingsAsync()
         {
             // Sync font size back to the live display VM before closing
-            ViewModel.SensorValueViewModel.FontSize = _sensorSettingsVm.FontSize;
+            ViewModel.DataOverlayViewModel.FontSize = _sensorSettingsVm.FontSize;
 
             await _sensorSettingsVm.SaveSettingsAsync();
-            _sensorSettingsVm.ApplyToSensorItems(ViewModel.SensorItems);
+            _sensorSettingsVm.ApplyToOverlayItems(ViewModel.OverlayItems);
             ViewModel.IsSettingsVisible = false;
         }
     }
