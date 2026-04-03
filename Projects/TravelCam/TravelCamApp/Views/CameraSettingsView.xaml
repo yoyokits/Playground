@@ -18,7 +18,7 @@
 
             <!-- Settings Panel — dark card, right-aligned slide-in -->
             <ScrollView AbsoluteLayout.LayoutBounds="1,0,300,1"
-                        AbsoluteLayout.LayoutFlags="PositionProportional,SizeProportional"
+                        AbsoluteLayout.LayoutFlags="PositionProportional,HeightProportional"
                         BackgroundColor="#111111">
                 <VerticalStackLayout Padding="0" Spacing="0">
 
