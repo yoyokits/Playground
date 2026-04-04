@@ -2,7 +2,9 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:models="clr-namespace:TravelCamApp.Models"
+             xmlns:vm="clr-namespace:TravelCamApp.ViewModels"
              x:Class="TravelCamApp.Views.OverlaySettingsView"
+             x:DataType="vm:OverlaySettingsViewModel"
              x:Name="SettingsRoot">
 
     <ContentView.Content>

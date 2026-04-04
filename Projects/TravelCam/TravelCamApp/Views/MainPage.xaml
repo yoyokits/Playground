@@ -139,7 +139,7 @@
                 <HorizontalStackLayout Spacing="2"
                     BindableLayout.ItemsSource="{Binding ZoomPresets}">
                     <BindableLayout.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="models:ZoomPreset">
                             <Border StrokeShape="RoundRectangle 13" Stroke="Transparent"
                                     MinimumWidthRequest="36" HeightRequest="28"
                                     Padding="6,0"
