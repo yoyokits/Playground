@@ -26,11 +26,12 @@ namespace TravelCamApp.Helpers
         #region Methods
 
         /// <summary>
-        /// Saves a video stream (returned by StopVideoRecording) to the gallery.
-        /// Writes to a temp cache file first, then publishes via MediaStore.
-        /// Returns the gallery URI (content://) or null on failure.
+        /// Saves a video stream (returned by StopVideoRecording) to the gallery and
+        /// extracts the first frame as a thumbnail for the in-app preview.
+        /// Returns (GalleryPath, ThumbPath). ThumbPath is a plain file path to a JPEG;
+        /// empty string if frame extraction failed.
         /// </summary>
-        public static async Task<string?> SaveVideoAsync(Stream stream, string city)
+        public static async Task<(string GalleryPath, string ThumbPath)> SaveVideoAsync(Stream stream, string city)
         {
             var now = DateTime.Now;
             var datePart = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -61,12 +62,52 @@ namespace TravelCamApp.Helpers
             if (fileInfo.Length == 0)
             {
                 System.Diagnostics.Debug.WriteLine("[FileHelper] SaveVideoAsync - WARNING: File is empty!");
-                return tempPath;
+                return (tempPath, string.Empty);
             }
 
+            // Extract first frame as thumbnail before publishing to MediaStore
+            var thumbPath = string.Empty;
+#if ANDROID
+            thumbPath = ExtractVideoFirstFrame(tempPath);
+#endif
+
             var galleryPath = CopyToGallery(tempPath, "video/mp4");
-            return galleryPath ?? tempPath;
+            return (galleryPath ?? tempPath, thumbPath);
         }
+
+#if ANDROID
+        /// <summary>
+        /// Extracts the first frame of a video file and saves it as a JPEG thumbnail.
+        /// Returns the thumb file path, or empty string on failure.
+        /// </summary>
+        private static string ExtractVideoFirstFrame(string videoPath)
+        {
+            try
+            {
+                using var retriever = new Android.Media.MediaMetadataRetriever();
+                retriever.SetDataSource(videoPath);
+                using var bitmap = retriever.GetFrameAtTime(0,
+                    Android.Media.Option.ClosestSync);
+                if (bitmap == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[FileHelper] Video first frame is null");
+                    return string.Empty;
+                }
+
+                var thumbPath = ThumbPath;
+                using var outStream = new FileStream(thumbPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                bitmap.Compress(Android.Graphics.Bitmap.CompressFormat.Jpeg!, 90, outStream);
+                outStream.Flush();
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] Video thumbnail saved: {thumbPath}");
+                return thumbPath;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] ExtractVideoFirstFrame error: {ex.Message}");
+                return string.Empty;
+            }
+        }
+#endif
 
         /// <summary>
         /// Saves a captured photo stream to the gallery and also keeps a private
@@ -128,6 +169,21 @@ namespace TravelCamApp.Helpers
             // Copy into the gallery via MediaStore (Android 10+) or direct path (other platforms)
             var galleryPath = CopyToGallery(tempPath, "image/jpeg");
             return (galleryPath ?? tempPath, thumbPath);
+        }
+
+        /// <summary>
+        /// Returns all captured image file paths from the captures cache directory,
+        /// sorted newest first.
+        /// </summary>
+        public static List<string> GetAllCapturedImagePaths()
+        {
+            var dir = GetAppCacheDir();
+            if (!Directory.Exists(dir))
+                return new List<string>();
+
+            return Directory.GetFiles(dir, "*.jpg")
+                .OrderByDescending(File.GetLastWriteTime)
+                .ToList();
         }
 
         /// <summary>

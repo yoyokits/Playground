@@ -27,8 +27,11 @@ namespace TravelCamApp
             // a single instance avoids reloading prefs on every navigation.
             builder.Services.AddSingleton<CameraSettingsViewModel>();
 
+            // DataOverlayViewModel subscribes to SensorHelper events — singleton
+            // prevents event handler accumulation on repeated page navigation.
+            builder.Services.AddSingleton<DataOverlayViewModel>();
+
             // Transient — fresh instance per injection (each page/navigation)
-            builder.Services.AddTransient<DataOverlayViewModel>();
             builder.Services.AddTransient<OverlaySettingsViewModel>();
             builder.Services.AddTransient<MainPageViewModel>();
 

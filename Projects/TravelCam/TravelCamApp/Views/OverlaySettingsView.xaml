@@ -90,9 +90,7 @@
                                                        VerticalOptions="Center"
                                                        Margin="0,0,0,2" />
                                                 <Border.GestureRecognizers>
-                                                    <TapGestureRecognizer
-                                                        Command="{Binding Source={x:Reference SettingsRoot}, Path=BindingContext.MoveToAvailableCommand}"
-                                                        CommandParameter="{Binding .}" />
+                                                    <TapGestureRecognizer Tapped="OnItemRemoveClicked" />
                                                 </Border.GestureRecognizers>
                                             </Border>
                                         </Grid>
@@ -140,9 +138,7 @@
                                                        VerticalOptions="Center"
                                                        Margin="0,0,0,1" />
                                                 <Border.GestureRecognizers>
-                                                    <TapGestureRecognizer
-                                                        Command="{Binding Source={x:Reference SettingsRoot}, Path=BindingContext.MoveToVisibleCommand}"
-                                                        CommandParameter="{Binding .}" />
+                                                    <TapGestureRecognizer Tapped="OnItemAddClicked" />
                                                 </Border.GestureRecognizers>
                                             </Border>
                                         </Grid>
@@ -175,23 +171,10 @@
                     </VerticalStackLayout>
 
                     <!-- ── Tip text ── -->
-                    <Label Margin="20,12,20,0"
+                    <Label Margin="20,12,20,24"
                            Text="Drag items in Visible list to reorder. Tap + or − to move sensors."
                            FontSize="11" TextColor="#636366"
                            LineBreakMode="WordWrap" />
-
-                    <!-- ── Done button ── -->
-                    <Border Margin="20,20,20,24"
-                            StrokeShape="RoundRectangle 22"
-                            BackgroundColor="#FFFFFF" Stroke="Transparent"
-                            HeightRequest="44">
-                        <Label Text="Done" FontSize="15" FontAttributes="Bold"
-                               TextColor="#000000"
-                               HorizontalOptions="Center" VerticalOptions="Center" />
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Tapped="OnCloseClicked" />
-                        </Border.GestureRecognizers>
-                    </Border>
 
                 </VerticalStackLayout>
 

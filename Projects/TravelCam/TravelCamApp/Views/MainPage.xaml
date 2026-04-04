@@ -124,10 +124,10 @@
                 </Border>
             </Grid>
 
-            <!-- ── Sensor overlay (bottom-right corner) ── -->
+            <!-- ── Sensor overlay (right-center) ── -->
             <views:DataOverlayView
-                HorizontalOptions="End" VerticalOptions="End"
-                Margin="0,0,12,72"
+                HorizontalOptions="End" VerticalOptions="Center"
+                Margin="0,0,12,0"
                 IsVisible="{Binding CameraSettings.ShowSensorOverlay}" />
 
             <!-- ── Zoom pills strip (BindableLayout, dynamic presets) ── -->
@@ -324,6 +324,13 @@
             Grid.RowSpan="2"
             IsVisible="{Binding Source={x:Reference ThisPage},
                 Path=BindingContext.IsCameraSettingsVisible}"
+            HorizontalOptions="Fill" VerticalOptions="Fill"
+            InputTransparent="False" />
+
+        <!-- Image viewer overlay — full-screen, above all other overlays -->
+        <views:ImageViewerView
+            Grid.RowSpan="2"
+            IsVisible="{Binding IsImageViewerVisible}"
             HorizontalOptions="Fill" VerticalOptions="Fill"
             InputTransparent="False" />
 

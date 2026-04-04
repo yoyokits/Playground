@@ -24,7 +24,7 @@ namespace TravelCamApp.Helpers
         private bool _disposed;
         private System.Timers.Timer? _updateTimer;
         private CancellationTokenSource? _cts;
-        private bool _isUpdating;
+        private int _isUpdating; // 0 = idle, 1 = updating (atomic via Interlocked)
 
         public SensorData CurrentData { get; private set; } = new()
         {
@@ -75,14 +75,23 @@ namespace TravelCamApp.Helpers
 
         public void Stop()
         {
-            // Cancel all in-flight async work first
-            try { _cts?.Cancel(); } catch { /* already disposed */ }
-            _cts?.Dispose();
+            // Capture and null-out references before disposing to prevent double-dispose
+            var cts = _cts;
             _cts = null;
+            if (cts != null)
+            {
+                try { cts.Cancel(); } catch { /* already cancelled/disposed */ }
+                try { cts.Dispose(); } catch { /* best effort */ }
+            }
 
-            _updateTimer?.Stop();
-            _updateTimer?.Dispose();
+            var timer = _updateTimer;
             _updateTimer = null;
+            if (timer != null)
+            {
+                timer.Elapsed -= OnTimerElapsed;
+                try { timer.Stop(); } catch { }
+                try { timer.Dispose(); } catch { }
+            }
         }
 
         public void Dispose()
@@ -115,8 +124,8 @@ namespace TravelCamApp.Helpers
 
         private async Task UpdateSensorDataAsync(CancellationToken ct)
         {
-            if (_isUpdating) return;
-            _isUpdating = true;
+            // Atomic guard: only one update runs at a time
+            if (Interlocked.CompareExchange(ref _isUpdating, 1, 0) != 0) return;
 
             try
             {
@@ -209,7 +218,7 @@ namespace TravelCamApp.Helpers
             }
             finally
             {
-                _isUpdating = false;
+                Interlocked.Exchange(ref _isUpdating, 0);
             }
         }
 
@@ -253,27 +262,29 @@ namespace TravelCamApp.Helpers
 
         private async Task<double?> GetCompassReadingAsync()
         {
+            if (!Compass.Default.IsSupported) return null;
+
+            var tcs = new TaskCompletionSource<CompassChangedEventArgs>();
+            EventHandler<CompassChangedEventArgs> handler = (_, e) =>
+                tcs.TrySetResult(e);
+
+            Compass.Default.ReadingChanged += handler;
             try
             {
-                if (!Compass.Default.IsSupported) return null;
-
-                var tcs = new TaskCompletionSource<CompassChangedEventArgs>();
-                EventHandler<CompassChangedEventArgs> handler = (_, e) =>
-                    tcs.TrySetResult(e);
-
-                Compass.Default.ReadingChanged += handler;
                 Compass.Default.Start(SensorSpeed.Fastest);
 
                 var result = await tcs.Task.TimeoutAfter(TimeSpan.FromSeconds(2));
-
-                Compass.Default.Stop();
-                Compass.Default.ReadingChanged -= handler;
-
                 return result.Reading.HeadingMagneticNorth;
             }
             catch
             {
                 return null;
+            }
+            finally
+            {
+                // Always clean up — prevents handler leak on timeout or exception
+                try { Compass.Default.Stop(); } catch { }
+                Compass.Default.ReadingChanged -= handler;
             }
         }
 
