@@ -938,18 +938,46 @@ namespace TravelCamApp.ViewModels
         {
             try
             {
+                // CRITICAL: Release camera hardware BEFORE launching the gallery.
+                // Camera buffers consume significant memory. If the camera is still
+                // held while our Activity is in the background, Android will kill
+                // the process due to memory pressure within seconds.
+                // OnWindowResumed will restart the camera when the user returns.
+                if (_cameraView != null)
+                {
+                    try
+                    {
+                        CameraHelper.StopPreview(_cameraView);
+                        IsPreviewRunning = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[MainPageViewModel] StopPreview before gallery error: {ex.Message}");
+                    }
+                }
+
+                _sensorHelper.Stop();
+
 #if ANDROID
                 // Open via the MediaStore content:// URI so gallery apps (Google Photos,
                 // Samsung Gallery) show the full album and allow swiping between images.
+                //
+                // Use Platform.CurrentActivity (not Application.Context) so the gallery
+                // Activity is launched on top of the camera's task stack.  Back button
+                // returns to the camera correctly.
                 var galleryUri = _lastGalleryPath;
                 if (!string.IsNullOrEmpty(galleryUri))
                 {
-                    var uri = Android.Net.Uri.Parse(galleryUri);
-                    var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                    intent.SetDataAndType(uri, "image/*");
-                    intent.AddFlags(Android.Content.ActivityFlags.NewTask);
-                    Android.App.Application.Context.StartActivity(intent);
-                    return;
+                    var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+                    if (activity != null)
+                    {
+                        var uri = Android.Net.Uri.Parse(galleryUri);
+                        var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
+                        intent.SetDataAndType(uri, "image/*");
+                        activity.StartActivity(intent);
+                        return;
+                    }
                 }
 #endif
                 // Fallback: open the local thumbnail file

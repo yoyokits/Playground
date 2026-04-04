@@ -2,7 +2,9 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:models="clr-namespace:TravelCamApp.Models"
-             x:Class="TravelCamApp.Views.DataOverlayView">
+             xmlns:vm="clr-namespace:TravelCamApp.ViewModels"
+             x:Class="TravelCamApp.Views.DataOverlayView"
+             x:DataType="vm:MainPageViewModel">
 
     <!--
         Sensor overlay: compact dark pill in the bottom-right of the camera preview.

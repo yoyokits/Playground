@@ -13,7 +13,6 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Devices.Sensors;
 using TravelCamApp.Models;
 
@@ -51,11 +50,6 @@ namespace TravelCamApp.Helpers
             Stop();
 
             _cts = new CancellationTokenSource();
-
-            // Permission dialogs must run on the main thread
-            await MainThread.InvokeOnMainThreadAsync(RequestLocationPermissionAsync);
-
-            if (_cts.IsCancellationRequested) return;
 
             // Fire-and-forget initial sensor poll on a background thread so the
             // caller (often the main thread) is not blocked by geolocation/HTTP.
@@ -97,6 +91,7 @@ namespace TravelCamApp.Helpers
             _disposed = true;
             Stop();
             _httpClient.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         private async void OnTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
@@ -115,22 +110,6 @@ namespace TravelCamApp.Helpers
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[SensorHelper] Timer callback error: {ex.Message}");
-            }
-        }
-
-        private async Task RequestLocationPermissionAsync()
-        {
-            try
-            {
-                var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
-                if (status != PermissionStatus.Granted)
-                {
-                    status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[SensorHelper] Permission error: {ex.Message}");
             }
         }
 
