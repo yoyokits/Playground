@@ -21,6 +21,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using CommunityToolkit.Maui.Core;
@@ -49,7 +50,6 @@ namespace TravelCamApp.ViewModels
         private CaptureMode _selectedMode = CaptureMode.Photo;
         private string _recordingTimeText = "00:00";
         private ImageSource? _lastCaptureImage;
-        private string? _lastGalleryPath;     // content:// URI — for gallery open
         private string? _lastThumbPath;       // plain file path — for thumbnail display
         private bool _isCapturing;
         private bool _isTogglingRecording;
@@ -60,6 +60,7 @@ namespace TravelCamApp.ViewModels
         private bool _isSensorOverlayVisible = true;
         private bool _isSettingsVisible;
         private bool _isCameraSettingsVisible;
+        private bool _isImageViewerVisible;
 
         // Flash
         private bool _isFlashOn;
@@ -68,13 +69,19 @@ namespace TravelCamApp.ViewModels
         private System.Timers.Timer? _recordingTimer;
         private DateTime _recordingStart;
 
+        // Gallery viewer
+        private List<string> _galleryImagePaths = new();
+        private int _currentImageIndex;
+
         // Lifecycle guards
         private bool _lifecycleSubscribed;
         private bool _isDestroyed;
 
+        // Concurrency guard — serializes camera start/stop/toggle to prevent crashes
+        private readonly SemaphoreSlim _cameraLock = new(1, 1);
+
         // Preference keys
         private const string PrefLastThumbPath = "LastThumbPath";
-        private const string PrefLastGalleryPath = "LastGalleryPath";
 
         #endregion
 
@@ -148,6 +155,34 @@ namespace TravelCamApp.ViewModels
             set { _isCameraSettingsVisible = value; OnPropertyChanged(); }
         }
 
+        public bool IsImageViewerVisible
+        {
+            get => _isImageViewerVisible;
+            set { _isImageViewerVisible = value; OnPropertyChanged(); }
+        }
+
+        public List<string> GalleryImagePaths
+        {
+            get => _galleryImagePaths;
+            set { _galleryImagePaths = value; OnPropertyChanged(); OnPropertyChanged(nameof(ImagePositionText)); }
+        }
+
+        public int CurrentImageIndex
+        {
+            get => _currentImageIndex;
+            set
+            {
+                if (_currentImageIndex == value) return;
+                _currentImageIndex = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ImagePositionText));
+            }
+        }
+
+        public string ImagePositionText => _galleryImagePaths.Count > 0
+            ? $"{CurrentImageIndex + 1} / {_galleryImagePaths.Count}"
+            : string.Empty;
+
         public bool IsFlashOn
         {
             get => _isFlashOn;
@@ -183,6 +218,8 @@ namespace TravelCamApp.ViewModels
         public ICommand OpenCameraSettingsCommand { get; }
         public ICommand CloseSettingsCommand { get; }
         public ICommand OpenGalleryCommand { get; }
+        public ICommand CloseImageViewerCommand { get; }
+        public ICommand ShareImageCommand { get; }
 
         #endregion
 
@@ -205,7 +242,9 @@ namespace TravelCamApp.ViewModels
             OpenSettingsCommand = new Command(() => IsSettingsVisible = true);
             OpenCameraSettingsCommand = new Command(() => IsCameraSettingsVisible = true);
             CloseSettingsCommand = new Command(async () => await CloseSettingsAsync());
-            OpenGalleryCommand = new Command(async () => await OpenGalleryAsync());
+            OpenGalleryCommand = new Command(() => OpenImageViewer());
+            CloseImageViewerCommand = new Command(() => IsImageViewerVisible = false);
+            ShareImageCommand = new Command(async () => await ShareCurrentImageAsync());
 
             _ = SafeInitializeAsync();
 
@@ -296,11 +335,6 @@ namespace TravelCamApp.ViewModels
         {
             try
             {
-                // Restore gallery URI (content://) for gallery-open with swipe support
-                var galleryPath = Preferences.Get(PrefLastGalleryPath, string.Empty);
-                if (!string.IsNullOrEmpty(galleryPath))
-                    _lastGalleryPath = galleryPath;
-
                 // Prefer the thumb path key; fall back to legacy key for existing installs
                 var path = Preferences.Get(PrefLastThumbPath, string.Empty);
                 if (string.IsNullOrEmpty(path))
@@ -437,25 +471,35 @@ namespace TravelCamApp.ViewModels
 
                 if (_cameraView != null && HasCameraPermission && !_isDestroyed)
                 {
-                    IsPreviewRunning = false;
-                    bool ok = false;
-                    try { ok = await CameraHelper.StartPreviewAsync(_cameraView); }
-                    catch (Exception cex)
+                    if (!await _cameraLock.WaitAsync(3000)) return;
+                    try
                     {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"[MainPageViewModel] Camera resume (attempt 1) error: {cex.Message}");
-                        await Task.Delay(800);
-                        if (!_isDestroyed && _cameraView != null)
+                        if (_isDestroyed || _cameraView == null) return;
+
+                        IsPreviewRunning = false;
+                        bool ok = false;
+                        try { ok = await CameraHelper.StartPreviewAsync(_cameraView); }
+                        catch (Exception cex)
                         {
-                            try { ok = await CameraHelper.StartPreviewAsync(_cameraView); }
-                            catch (Exception cex2)
+                            System.Diagnostics.Debug.WriteLine(
+                                $"[MainPageViewModel] Camera resume (attempt 1) error: {cex.Message}");
+                            await Task.Delay(800);
+                            if (!_isDestroyed && _cameraView != null)
                             {
-                                System.Diagnostics.Debug.WriteLine(
-                                    $"[MainPageViewModel] Camera resume (attempt 2) error: {cex2.Message}");
+                                try { ok = await CameraHelper.StartPreviewAsync(_cameraView); }
+                                catch (Exception cex2)
+                                {
+                                    System.Diagnostics.Debug.WriteLine(
+                                        $"[MainPageViewModel] Camera resume (attempt 2) error: {cex2.Message}");
+                                }
                             }
                         }
+                        IsPreviewRunning = ok;
                     }
-                    IsPreviewRunning = ok;
+                    finally
+                    {
+                        _cameraLock.Release();
+                    }
                 }
             }
             catch (Exception ex)
@@ -466,6 +510,7 @@ namespace TravelCamApp.ViewModels
 
         private async void OnWindowStopped(object? sender, EventArgs e)
         {
+            if (_isDestroyed) return;
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window Stopped");
 
             try
@@ -534,9 +579,9 @@ namespace TravelCamApp.ViewModels
 
             _sensorHelper.Stop();
             _sensorValueViewModel.Dispose();
-            _recordingTimer?.Dispose();
-            _recordingTimer = null;
+            StopRecordingTimer();
             _cameraView = null;
+            _cameraLock.Dispose();
         }
 
         private void OnPageAppearing(object? sender, Page page)
@@ -578,35 +623,55 @@ namespace TravelCamApp.ViewModels
             if (_isDestroyed || _cameraView == null) return;
             if (IsPreviewRunning) return;
 
-            var selected = await CameraHelper.SelectFirstAvailableCameraAsync(_cameraView);
-            if (selected == null)
+            if (!await _cameraLock.WaitAsync(3000)) return; // timeout: avoid deadlock
+            try
             {
-                PermissionStatus = "No camera device found";
-                IsPreviewRunning = false;
-                return;
+                if (_isDestroyed || _cameraView == null || IsPreviewRunning) return;
+
+                var selected = await CameraHelper.SelectFirstAvailableCameraAsync(_cameraView);
+                if (selected == null)
+                {
+                    PermissionStatus = "No camera device found";
+                    IsPreviewRunning = false;
+                    return;
+                }
+
+                // Build zoom presets from actual hardware capabilities
+                UpdateZoomPresets(selected);
+
+                bool ok = await CameraHelper.StartPreviewAsync(_cameraView);
+                IsPreviewRunning = ok;
+                PermissionStatus = ok ? "Camera ready" : "Failed to start camera";
             }
-
-            // Build zoom presets from actual hardware capabilities
-            UpdateZoomPresets(selected);
-
-            bool ok = await CameraHelper.StartPreviewAsync(_cameraView);
-            IsPreviewRunning = ok;
-            PermissionStatus = ok ? "Camera ready" : "Failed to start camera";
+            finally
+            {
+                _cameraLock.Release();
+            }
         }
 
         private async Task ToggleCameraAsync()
         {
-            if (_cameraView == null || !IsPreviewRunning) return;
+            if (_isDestroyed || _cameraView == null || !IsPreviewRunning) return;
 
-            CameraHelper.StopPreview(_cameraView);
-            IsPreviewRunning = false;
+            if (!await _cameraLock.WaitAsync(3000)) return;
+            try
+            {
+                if (_isDestroyed || _cameraView == null) return;
 
-            var newCamera = await CameraHelper.ToggleCameraDeviceAsync(_cameraView);
-            if (newCamera != null)
-                UpdateZoomPresets(newCamera);
+                CameraHelper.StopPreview(_cameraView);
+                IsPreviewRunning = false;
 
-            bool ok = await CameraHelper.StartPreviewAsync(_cameraView);
-            IsPreviewRunning = ok;
+                var newCamera = await CameraHelper.ToggleCameraDeviceAsync(_cameraView);
+                if (newCamera != null)
+                    UpdateZoomPresets(newCamera);
+
+                bool ok = await CameraHelper.StartPreviewAsync(_cameraView);
+                IsPreviewRunning = ok;
+            }
+            finally
+            {
+                _cameraLock.Release();
+            }
         }
 
         #endregion
@@ -671,7 +736,7 @@ namespace TravelCamApp.ViewModels
 
         private async Task CaptureAsync()
         {
-            if (_cameraView == null || !IsPreviewRunning) return;
+            if (_isDestroyed || _cameraView == null || !IsPreviewRunning) return;
 
             if (SelectedMode == CaptureMode.Photo)
                 await CapturePhotoAsync();
@@ -681,12 +746,12 @@ namespace TravelCamApp.ViewModels
 
         private async Task CapturePhotoAsync()
         {
-            if (_isCapturing) return;
+            if (_isCapturing || _cameraView == null) return;
             _isCapturing = true;
 
             try
             {
-                await CameraHelper.TriggerCaptureAsync(_cameraView!);
+                await CameraHelper.TriggerCaptureAsync(_cameraView);
             }
             catch (Exception ex)
             {
@@ -716,43 +781,9 @@ namespace TravelCamApp.ViewModels
 
                 var city = GetCityForFileName();
                 var (galleryPath, thumbPath) = await FileHelper.SavePhotoAsync(stream, city);
+                _ = galleryPath; // published to MediaStore; not stored in VM
 
-                _lastGalleryPath = galleryPath;
-                _lastThumbPath = thumbPath;
-
-                // Persist paths across restarts
-                if (!string.IsNullOrEmpty(thumbPath))
-                {
-                    try { Preferences.Set(PrefLastThumbPath, thumbPath); }
-                    catch (Exception pex)
-                    {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"[MainPageViewModel] Preferences.Set thumb error: {pex.Message}");
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(galleryPath))
-                {
-                    try { Preferences.Set(PrefLastGalleryPath, galleryPath); }
-                    catch (Exception pex)
-                    {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"[MainPageViewModel] Preferences.Set gallery error: {pex.Message}");
-                    }
-                }
-
-                // Display thumbnail using FromStream to bypass MAUI image cache.
-                // FromFile with the same path returns the cached bitmap even after
-                // the file is overwritten. FromStream always reads fresh bytes.
-                if (!string.IsNullOrEmpty(thumbPath) && File.Exists(thumbPath))
-                {
-                    MainThread.BeginInvokeOnMainThread(() =>
-                    {
-                        LastCaptureImage = ImageSource.FromStream(() =>
-                            new FileStream(thumbPath, FileMode.Open, FileAccess.Read, FileShare.Read));
-                    });
-                }
-
+                UpdateLastCapture(thumbPath);
                 System.Diagnostics.Debug.WriteLine(
                     $"[MainPageViewModel] Photo saved. Gallery={galleryPath} Thumb={thumbPath}");
             }
@@ -844,9 +875,10 @@ namespace TravelCamApp.ViewModels
                 try
                 {
                     var city = GetCityForFileName();
-                    var galleryPath = await FileHelper.SaveVideoAsync(videoStream, city);
+                    var (galleryPath, thumbPath) = await FileHelper.SaveVideoAsync(videoStream, city);
                     System.Diagnostics.Debug.WriteLine(
                         $"[MainPageViewModel] Video published: {galleryPath}");
+                    UpdateLastCapture(thumbPath);
                 }
                 catch (Exception ex)
                 {
@@ -875,6 +907,7 @@ namespace TravelCamApp.ViewModels
 
         private void StartRecordingTimer()
         {
+            StopRecordingTimer(); // Clean up any previous timer first
             _recordingTimer = new System.Timers.Timer(1000);
             _recordingTimer.Elapsed += OnRecordingTimerElapsed;
             _recordingTimer.AutoReset = true;
@@ -883,8 +916,14 @@ namespace TravelCamApp.ViewModels
 
         private void StopRecordingTimer()
         {
-            _recordingTimer?.Dispose();
+            var timer = _recordingTimer;
             _recordingTimer = null;
+            if (timer != null)
+            {
+                timer.Elapsed -= OnRecordingTimerElapsed;
+                try { timer.Stop(); } catch { }
+                try { timer.Dispose(); } catch { }
+            }
             RecordingTimeText = "00:00";
         }
 
@@ -932,72 +971,69 @@ namespace TravelCamApp.ViewModels
 
         #endregion
 
-        #region Gallery
+        #region Image Viewer
 
-        private async Task OpenGalleryAsync()
+        private void OpenImageViewer()
         {
+            var images = FileHelper.GetAllCapturedImagePaths();
+            // Temp files are deleted after gallery copy — fall back to last thumbnail
+            if (images.Count == 0 && !string.IsNullOrEmpty(_lastThumbPath) && File.Exists(_lastThumbPath))
+                images = new List<string> { _lastThumbPath };
+
+            if (images.Count == 0) return;
+
+            GalleryImagePaths = images;
+            CurrentImageIndex = 0; // newest first
+            IsImageViewerVisible = true;
+        }
+
+        private async Task ShareCurrentImageAsync()
+        {
+            if (_galleryImagePaths.Count == 0 ||
+                _currentImageIndex < 0 ||
+                _currentImageIndex >= _galleryImagePaths.Count)
+                return;
+
+            var path = _galleryImagePaths[_currentImageIndex];
+            if (!File.Exists(path)) return;
+
             try
             {
-                // CRITICAL: Release camera hardware BEFORE launching the gallery.
-                // Camera buffers consume significant memory. If the camera is still
-                // held while our Activity is in the background, Android will kill
-                // the process due to memory pressure within seconds.
-                // OnWindowResumed will restart the camera when the user returns.
-                if (_cameraView != null)
+                await Share.RequestAsync(new ShareFileRequest
                 {
-                    try
-                    {
-                        CameraHelper.StopPreview(_cameraView);
-                        IsPreviewRunning = false;
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"[MainPageViewModel] StopPreview before gallery error: {ex.Message}");
-                    }
-                }
-
-                _sensorHelper.Stop();
-
-#if ANDROID
-                // Open via the MediaStore content:// URI so gallery apps (Google Photos,
-                // Samsung Gallery) show the full album and allow swiping between images.
-                //
-                // Use Platform.CurrentActivity (not Application.Context) so the gallery
-                // Activity is launched on top of the camera's task stack.  Back button
-                // returns to the camera correctly.
-                var galleryUri = _lastGalleryPath;
-                if (!string.IsNullOrEmpty(galleryUri))
-                {
-                    var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
-                    if (activity != null)
-                    {
-                        var uri = Android.Net.Uri.Parse(galleryUri);
-                        var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
-                        intent.SetDataAndType(uri, "image/*");
-                        activity.StartActivity(intent);
-                        return;
-                    }
-                }
-#endif
-                // Fallback: open the local thumbnail file
-                var path = _lastThumbPath;
-                if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
-
-                await Launcher.Default.OpenAsync(
-                    new OpenFileRequest("Photo",
-                        new ReadOnlyFile(path, "image/jpeg")));
+                    Title = "Share Photo",
+                    File = new ShareFile(path)
+                });
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
-                    $"[MainPageViewModel] OpenGallery error: {ex.Message}");
+                    $"[MainPageViewModel] Share error: {ex.Message}");
             }
         }
 
         #endregion
 
         #region Helpers
+
+        /// <summary>
+        /// Updates the thumbnail preview from a plain file path and persists it.
+        /// Used after both photo capture and video recording.
+        /// </summary>
+        private void UpdateLastCapture(string thumbPath)
+        {
+            if (string.IsNullOrEmpty(thumbPath) || !File.Exists(thumbPath)) return;
+
+            _lastThumbPath = thumbPath;
+            try { Preferences.Set(PrefLastThumbPath, thumbPath); } catch { /* best effort */ }
+
+            // Use FromStream to bypass MAUI image cache — always reads fresh bytes
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                LastCaptureImage = ImageSource.FromStream(() =>
+                    new FileStream(thumbPath, FileMode.Open, FileAccess.Read, FileShare.Read));
+            });
+        }
 
         private string GetCityForFileName()
         {

@@ -25,22 +25,16 @@ namespace TravelCamApp.Views
             System.Diagnostics.Debug.WriteLine("[OverlaySettingsView] Reorder completed");
         }
 
-        private void OnAddButtonClicked(object? sender, EventArgs e)
+        private void OnItemRemoveClicked(object? sender, TappedEventArgs e)
         {
-            if (AvailableSensorsList.SelectedItem is OverlayItem item)
-            {
-                ViewModel.MoveToVisible(item);
-                AvailableSensorsList.SelectedItem = null;
-            }
+            if (sender is View v && v.BindingContext is OverlayItem item)
+                ViewModel.MoveToAvailable(item);
         }
 
-        private void OnRemoveButtonClicked(object? sender, EventArgs e)
+        private void OnItemAddClicked(object? sender, TappedEventArgs e)
         {
-            if (VisibleSensorsList.SelectedItem is OverlayItem item)
-            {
-                ViewModel.MoveToAvailable(item);
-                VisibleSensorsList.SelectedItem = null;
-            }
+            if (sender is View v && v.BindingContext is OverlayItem item)
+                ViewModel.MoveToVisible(item);
         }
 
         private void OnCloseClicked(object? sender, EventArgs e)
