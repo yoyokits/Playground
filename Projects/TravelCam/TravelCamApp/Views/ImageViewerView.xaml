@@ -6,11 +6,10 @@
              x:DataType="vm:MainPageViewModel">
 
     <ContentView.Content>
-        <Grid RowDefinitions="Auto,*" BackgroundColor="Black">
+        <Grid RowDefinitions="Auto,*,Auto,Auto" BackgroundColor="Black">
 
-            <!-- ── Top bar: Close | position text | Share ── -->
-            <Grid Grid.Row="0" Padding="12,0,12,8"
-                  SafeAreaEdges="Top"
+            <!-- ── Row 0: Top bar — Close | position text | Share ── -->
+            <Grid Grid.Row="0" Padding="12,8,12,8"
                   ColumnDefinitions="Auto,*,Auto"
                   BackgroundColor="Black">
 
@@ -47,8 +46,9 @@
                 </Border>
             </Grid>
 
-            <!-- ── Swipeable image carousel ── -->
+            <!-- ── Row 1: Main image (CarouselView) ── -->
             <CarouselView Grid.Row="1"
+                          x:Name="MainCarousel"
                           ItemsSource="{Binding GalleryImagePaths}"
                           Position="{Binding CurrentImageIndex, Mode=TwoWay}"
                           Loop="False"
@@ -64,6 +64,50 @@
                     </DataTemplate>
                 </CarouselView.ItemTemplate>
             </CarouselView>
+
+            <!-- ── Row 2: Thumbnail strip ── -->
+            <CollectionView Grid.Row="2"
+                            x:Name="ThumbnailStrip"
+                            ItemsSource="{Binding GalleryImagePaths}"
+                            HeightRequest="72"
+                            BackgroundColor="#1A1A1A"
+                            SelectionMode="Single"
+                            SelectionChanged="OnThumbnailSelected">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="0" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Border StrokeShape="RoundRectangle 4"
+                                Stroke="Transparent"
+                                Padding="2" Margin="3,6"
+                                WidthRequest="60" HeightRequest="60"
+                                BackgroundColor="#333333">
+                            <Image Source="{Binding .}"
+                                   Aspect="AspectFill"
+                                   WidthRequest="56" HeightRequest="56" />
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <!-- ── Row 3: Delete button ── -->
+            <Grid Grid.Row="3" Padding="0,8,0,12"
+                  HorizontalOptions="Center">
+                <Border StrokeShape="RoundRectangle 22"
+                        BackgroundColor="#33FFFFFF" Stroke="Transparent"
+                        WidthRequest="56" HeightRequest="56"
+                        HorizontalOptions="Center">
+                    <!-- Trash icon (Material Design delete) -->
+                    <Path Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+                          Fill="White" Aspect="Uniform"
+                          WidthRequest="24" HeightRequest="24"
+                          HorizontalOptions="Center" VerticalOptions="Center" />
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding DeleteImageCommand}" />
+                    </Border.GestureRecognizers>
+                </Border>
+            </Grid>
 
         </Grid>
     </ContentView.Content>

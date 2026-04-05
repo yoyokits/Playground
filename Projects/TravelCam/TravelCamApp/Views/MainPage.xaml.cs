@@ -48,8 +48,15 @@ namespace TravelCamApp.Views
                 }
             };
 
-            SensorSettingsOverlay.CloseRequested +=
-                async (s, e) => await HideSensorSettingsAsync();
+            SensorSettingsOverlay.CloseRequested += async (s, e) =>
+            {
+                try { await HideSensorSettingsAsync(); }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MainPage] HideSensorSettings error: {ex.Message}");
+                }
+            };
 
             // ── Camera settings overlay ──────────────────────────────────────
             CameraSettingsOverlay.BindingContext = _cameraSettingsVm;
@@ -68,25 +75,49 @@ namespace TravelCamApp.Views
         {
             base.OnAppearing();
             System.Diagnostics.Debug.WriteLine("[MainPage] OnAppearing");
-            await ViewModel.OnViewReady(CameraView);
+            try
+            {
+                await ViewModel.OnViewReady(CameraView);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPage] OnAppearing error: {ex.Message}");
+            }
         }
 
         // ── Shutter button ─────────────────────────────────────────────────────
 
         private async void OnShutterTapped(object? sender, TappedEventArgs e)
         {
-            if (ViewModel.CaptureCommand.CanExecute(null))
-                ViewModel.CaptureCommand.Execute(null);
+            try
+            {
+                if (ViewModel.CaptureCommand.CanExecute(null))
+                    ViewModel.CaptureCommand.Execute(null);
 
-            await ShutterButton.ScaleToAsync(0.86, 80, Easing.CubicOut);
-            await ShutterButton.ScaleToAsync(1.00, 90, Easing.SpringOut);
+                await ShutterButton.ScaleToAsync(0.86, 80, Easing.CubicOut);
+                await ShutterButton.ScaleToAsync(1.00, 90, Easing.SpringOut);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPage] OnShutterTapped error: {ex.Message}");
+            }
         }
 
         // ── Camera media events ────────────────────────────────────────────────
 
         private async void OnMediaCaptured(object? sender, MediaCapturedEventArgs e)
         {
-            await ViewModel.OnMediaCaptured(e.Media);
+            try
+            {
+                await ViewModel.OnMediaCaptured(e.Media);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPage] OnMediaCaptured error: {ex.Message}");
+            }
         }
 
         private void OnMediaCaptureFailed(object? sender, MediaCaptureFailedEventArgs e)

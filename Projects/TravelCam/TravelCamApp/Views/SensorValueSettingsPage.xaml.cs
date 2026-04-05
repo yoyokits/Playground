@@ -41,7 +41,15 @@ namespace TravelCamApp.Views
 
         private async void OnBackClicked(object sender, EventArgs e)
         {
-            await Shell.Current.GoToAsync("..");
+            try
+            {
+                await Shell.Current.GoToAsync("..");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[OverlaySettingsPage] OnBackClicked error: {ex.Message}");
+            }
         }
 
         private void OnVisibilityTabClicked(object sender, EventArgs e)
@@ -82,19 +90,34 @@ namespace TravelCamApp.Views
             }
         }
 
-        private void OnVisibleListReorderCompleted(object sender, EventArgs e)
+        private async void OnVisibleListReorderCompleted(object sender, EventArgs e)
         {
-            _ = ViewModel.SaveSettingsAsync();
+            try { await ViewModel.SaveSettingsAsync(); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[OverlaySettingsPage] OnVisibleListReorderCompleted error: {ex.Message}");
+            }
         }
 
         private async void OnFontSizeChanged(object sender, EventArgs e)
         {
-            await ViewModel.SaveSettingsAsync();
+            try { await ViewModel.SaveSettingsAsync(); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[OverlaySettingsPage] OnFontSizeChanged error: {ex.Message}");
+            }
         }
 
         private async void OnMapOverlayToggled(object sender, ToggledEventArgs e)
         {
-            await ViewModel.SaveSettingsAsync();
+            try { await ViewModel.SaveSettingsAsync(); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[OverlaySettingsPage] OnMapOverlayToggled error: {ex.Message}");
+            }
         }
     }
 }
