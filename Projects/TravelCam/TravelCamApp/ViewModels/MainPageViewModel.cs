@@ -220,6 +220,7 @@ namespace TravelCamApp.ViewModels
         public ICommand OpenGalleryCommand { get; }
         public ICommand CloseImageViewerCommand { get; }
         public ICommand ShareImageCommand { get; }
+        public ICommand DeleteImageCommand { get; }
 
         #endregion
 
@@ -234,17 +235,18 @@ namespace TravelCamApp.ViewModels
             _sensorValueViewModel = sensorValueViewModel;
             _cameraSettings = cameraSettings;
 
-            ToggleCameraCommand = new Command(async () => await ToggleCameraAsync());
-            CaptureCommand = new Command(async () => await CaptureAsync());
+            ToggleCameraCommand = new Command(async () => await SafeExecuteAsync(ToggleCameraAsync));
+            CaptureCommand = new Command(async () => await SafeExecuteAsync(CaptureAsync));
             SetPhotoModeCommand = new Command(() => SelectedMode = CaptureMode.Photo);
             SetVideoModeCommand = new Command(() => SelectedMode = CaptureMode.Video);
             ToggleFlashCommand = new Command(ToggleFlash);
             OpenSettingsCommand = new Command(() => IsSettingsVisible = true);
             OpenCameraSettingsCommand = new Command(() => IsCameraSettingsVisible = true);
-            CloseSettingsCommand = new Command(async () => await CloseSettingsAsync());
+            CloseSettingsCommand = new Command(async () => await SafeExecuteAsync(CloseSettingsAsync));
             OpenGalleryCommand = new Command(() => OpenImageViewer());
             CloseImageViewerCommand = new Command(() => IsImageViewerVisible = false);
-            ShareImageCommand = new Command(async () => await ShareCurrentImageAsync());
+            ShareImageCommand = new Command(async () => await SafeExecuteAsync(ShareCurrentImageAsync));
+            DeleteImageCommand = new Command(async () => await SafeExecuteAsync(DeleteCurrentImageAsync));
 
             _ = SafeInitializeAsync();
 
@@ -471,7 +473,7 @@ namespace TravelCamApp.ViewModels
 
                 if (_cameraView != null && HasCameraPermission && !_isDestroyed)
                 {
-                    if (!await _cameraLock.WaitAsync(3000)) return;
+                    if (!await TryAcquireCameraLockAsync()) return;
                     try
                     {
                         if (_isDestroyed || _cameraView == null) return;
@@ -498,7 +500,7 @@ namespace TravelCamApp.ViewModels
                     }
                     finally
                     {
-                        _cameraLock.Release();
+                        ReleaseCameraLock();
                     }
                 }
             }
@@ -542,18 +544,31 @@ namespace TravelCamApp.ViewModels
         {
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window Destroying");
 
-            // Android back-button calls Destroying without Stopped — stop recording and camera here too.
+            // Set destroyed flag FIRST to prevent new operations from starting
+            _isDestroyed = true;
+
+            // Stop recording before disposing resources.
+            // Use Task.Run to avoid deadlocking the main thread (StopVideoRecordingAsync
+            // may marshal back to UI thread which .Wait() would block).
             if (_isRecording && _cameraView != null)
             {
-                _ = Task.Run(async () =>
+                try
                 {
-                    try { await StopRecordingAsync(); }
-                    catch (Exception ex)
+                    Task.Run(async () =>
                     {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"[MainPageViewModel] Destroy stop-recording error: {ex.Message}");
-                    }
-                });
+                        try { await StopRecordingAsync(); }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine(
+                                $"[MainPageViewModel] Destroy stop-recording error: {ex.Message}");
+                        }
+                    }).Wait(TimeSpan.FromSeconds(3));
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MainPageViewModel] Destroy stop-recording wait error: {ex.Message}");
+                }
             }
 
             if (_cameraView != null)
@@ -561,8 +576,6 @@ namespace TravelCamApp.ViewModels
                 try { CameraHelper.StopPreview(_cameraView); }
                 catch { /* best effort */ }
             }
-
-            _isDestroyed = true;
 
             if (sender is Window window)
             {
@@ -581,7 +594,9 @@ namespace TravelCamApp.ViewModels
             _sensorValueViewModel.Dispose();
             StopRecordingTimer();
             _cameraView = null;
-            _cameraLock.Dispose();
+
+            // Dispose lock LAST — after all operations that use it are guaranteed done
+            try { _cameraLock.Dispose(); } catch { }
         }
 
         private void OnPageAppearing(object? sender, Page page)
@@ -623,7 +638,7 @@ namespace TravelCamApp.ViewModels
             if (_isDestroyed || _cameraView == null) return;
             if (IsPreviewRunning) return;
 
-            if (!await _cameraLock.WaitAsync(3000)) return; // timeout: avoid deadlock
+            if (!await TryAcquireCameraLockAsync()) return; // timeout: avoid deadlock
             try
             {
                 if (_isDestroyed || _cameraView == null || IsPreviewRunning) return;
@@ -645,7 +660,7 @@ namespace TravelCamApp.ViewModels
             }
             finally
             {
-                _cameraLock.Release();
+                ReleaseCameraLock();
             }
         }
 
@@ -653,7 +668,7 @@ namespace TravelCamApp.ViewModels
         {
             if (_isDestroyed || _cameraView == null || !IsPreviewRunning) return;
 
-            if (!await _cameraLock.WaitAsync(3000)) return;
+            if (!await TryAcquireCameraLockAsync()) return;
             try
             {
                 if (_isDestroyed || _cameraView == null) return;
@@ -670,7 +685,7 @@ namespace TravelCamApp.ViewModels
             }
             finally
             {
-                _cameraLock.Release();
+                ReleaseCameraLock();
             }
         }
 
@@ -811,7 +826,7 @@ namespace TravelCamApp.ViewModels
 
         private async Task ToggleRecordingAsync()
         {
-            if (_cameraView == null || !IsPreviewRunning) return;
+            if (_isDestroyed || _cameraView == null || !IsPreviewRunning) return;
             if (_isTogglingRecording) return;
             _isTogglingRecording = true;
 
@@ -975,7 +990,7 @@ namespace TravelCamApp.ViewModels
 
         private void OpenImageViewer()
         {
-            var images = FileHelper.GetAllCapturedImagePaths();
+            var images = FileHelper.GetAllGalleryMediaPaths();
             // Temp files are deleted after gallery copy — fall back to last thumbnail
             if (images.Count == 0 && !string.IsNullOrEmpty(_lastThumbPath) && File.Exists(_lastThumbPath))
                 images = new List<string> { _lastThumbPath };
@@ -1012,6 +1027,41 @@ namespace TravelCamApp.ViewModels
             }
         }
 
+        private async Task DeleteCurrentImageAsync()
+        {
+            if (_galleryImagePaths.Count == 0 ||
+                _currentImageIndex < 0 ||
+                _currentImageIndex >= _galleryImagePaths.Count)
+                return;
+
+            var path = _galleryImagePaths[_currentImageIndex];
+
+            // Confirm deletion
+            var page = Shell.Current ?? Application.Current?.Windows.FirstOrDefault()?.Page;
+            if (page != null)
+            {
+                bool confirm = await page.DisplayAlertAsync("Delete", "Delete this photo?", "Delete", "Cancel");
+                if (!confirm) return;
+            }
+
+            if (!FileHelper.DeleteMedia(path)) return;
+
+            var updated = new List<string>(_galleryImagePaths);
+            updated.RemoveAt(_currentImageIndex);
+
+            if (updated.Count == 0)
+            {
+                IsImageViewerVisible = false;
+                GalleryImagePaths = new List<string>();
+                return;
+            }
+
+            // Adjust index if we deleted the last item
+            var newIndex = _currentImageIndex >= updated.Count ? updated.Count - 1 : _currentImageIndex;
+            GalleryImagePaths = updated;
+            CurrentImageIndex = newIndex;
+        }
+
         #endregion
 
         #region Helpers
@@ -1040,6 +1090,49 @@ namespace TravelCamApp.ViewModels
             var cityItem = OverlayItems.FirstOrDefault(s => s.Name == "City");
             var city = cityItem?.Value;
             return string.IsNullOrWhiteSpace(city) || city == "Unknown" ? "CekliCam" : city;
+        }
+
+        /// <summary>
+        /// Wraps an async action in try-catch so that exceptions from Command lambdas
+        /// don't become unobserved task exceptions that crash the app.
+        /// </summary>
+        private static async Task SafeExecuteAsync(Func<Task> action, [CallerMemberName] string? caller = null)
+        {
+            try
+            {
+                await action();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] Command error in {caller}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Safely acquires the camera lock with timeout. Returns false if the lock
+        /// could not be acquired or was disposed (during app shutdown).
+        /// </summary>
+        private async Task<bool> TryAcquireCameraLockAsync(int timeoutMs = 3000)
+        {
+            try
+            {
+                if (_isDestroyed) return false;
+                return await _cameraLock.WaitAsync(timeoutMs);
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Safely releases the camera lock. No-op if already disposed.
+        /// </summary>
+        private void ReleaseCameraLock()
+        {
+            try { _cameraLock.Release(); }
+            catch (ObjectDisposedException) { }
         }
 
         protected void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? name = null)

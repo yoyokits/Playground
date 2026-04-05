@@ -187,6 +187,133 @@ namespace TravelCamApp.Helpers
         }
 
         /// <summary>
+        /// Queries MediaStore for all images and videos saved by TravelCam (in Pictures/CekliCam).
+        /// Returns file paths sorted newest first. Falls back to cache dir + thumb on failure.
+        /// </summary>
+        public static List<string> GetAllGalleryMediaPaths()
+        {
+#if ANDROID
+            try
+            {
+                return GetMediaStoreImages();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] GetAllGalleryMediaPaths error: {ex.Message}");
+                return GetAllCapturedImagePaths();
+            }
+#else
+            return GetAllCapturedImagePaths();
+#endif
+        }
+
+#if ANDROID
+        private static List<string> GetMediaStoreImages()
+        {
+            var results = new List<(string path, long dateAdded)>();
+            var context = Android.App.Application.Context;
+            var resolver = context.ContentResolver;
+            if (resolver == null) return new List<string>();
+
+            var relativePath = $"{Android.OS.Environment.DirectoryPictures}/{Settings.DefaultCameraName}";
+
+            // Query images
+            QueryMediaStore(resolver, Android.Provider.MediaStore.Images.Media.ExternalContentUri!, relativePath, results);
+            // Query videos
+            QueryMediaStore(resolver, Android.Provider.MediaStore.Video.Media.ExternalContentUri!, relativePath, results);
+
+            return results
+                .OrderByDescending(r => r.dateAdded)
+                .Select(r => r.path)
+                .ToList();
+        }
+
+        private static void QueryMediaStore(
+            Android.Content.ContentResolver resolver,
+            Android.Net.Uri collection,
+            string relativePath,
+            List<(string path, long dateAdded)> results)
+        {
+            string[] projection = {
+                Android.Provider.MediaStore.IMediaColumns.Data!,
+                Android.Provider.MediaStore.IMediaColumns.DateAdded!
+            };
+
+            string selection = $"{Android.Provider.MediaStore.IMediaColumns.RelativePath} = ?";
+            string[] selectionArgs = { relativePath + "/" };
+
+            using var cursor = resolver.Query(collection, projection, selection, selectionArgs,
+                $"{Android.Provider.MediaStore.IMediaColumns.DateAdded} DESC");
+
+            if (cursor == null) return;
+
+            int dataIndex = cursor.GetColumnIndex(Android.Provider.MediaStore.IMediaColumns.Data!);
+            int dateIndex = cursor.GetColumnIndex(Android.Provider.MediaStore.IMediaColumns.DateAdded!);
+
+            while (cursor.MoveToNext())
+            {
+                var path = dataIndex >= 0 ? cursor.GetString(dataIndex) : null;
+                var dateAdded = dateIndex >= 0 ? cursor.GetLong(dateIndex) : 0;
+
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                    results.Add((path, dateAdded));
+            }
+        }
+#endif
+
+        /// <summary>
+        /// Deletes a media file from both the filesystem and MediaStore.
+        /// Returns true if deletion succeeded.
+        /// </summary>
+        public static bool DeleteMedia(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+                return false;
+
+            try
+            {
+#if ANDROID
+                DeleteFromMediaStore(filePath);
+#endif
+                File.Delete(filePath);
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] Deleted: {filePath}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] Delete error: {ex.Message}");
+                return false;
+            }
+        }
+
+#if ANDROID
+        private static void DeleteFromMediaStore(string filePath)
+        {
+            var context = Android.App.Application.Context;
+            var resolver = context.ContentResolver;
+            if (resolver == null) return;
+
+            // Try images collection first, then videos
+            var collections = new[] {
+                Android.Provider.MediaStore.Images.Media.ExternalContentUri!,
+                Android.Provider.MediaStore.Video.Media.ExternalContentUri!
+            };
+
+            foreach (var collection in collections)
+            {
+                string selection = $"{Android.Provider.MediaStore.IMediaColumns.Data} = ?";
+                string[] selectionArgs = { filePath };
+                int deleted = resolver.Delete(collection, selection, selectionArgs);
+                if (deleted > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[FileHelper] Removed from MediaStore: {filePath}");
+                    return;
+                }
+            }
+        }
+#endif
+
+        /// <summary>
         /// Gets a temporary app-private directory for staging captures.
         /// </summary>
         private static string GetAppCacheDir()
