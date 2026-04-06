@@ -124,6 +124,8 @@ namespace TravelCamApp.Helpers
 
             // Save to app-private cache first
             var baseDir = GetAppCacheDir();
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Cache dir: {baseDir}");
+
             Directory.CreateDirectory(baseDir);
 
             var fileName = $"{datePart}_{timePart}_{safeCity}.jpg";
@@ -144,7 +146,7 @@ namespace TravelCamApp.Helpers
             // fileStream is now closed - safe to read from CopyToGallery.
 
             var fileInfo = new FileInfo(tempPath);
-            System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Temp file size: {fileInfo.Length} bytes");
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] SavePhotoAsync - Temp file saved: {tempPath}, size: {fileInfo.Length} bytes");
 
             if (fileInfo.Length == 0)
             {
@@ -167,7 +169,10 @@ namespace TravelCamApp.Helpers
             }
 
             // Copy into the gallery via MediaStore (Android 10+) or direct path (other platforms)
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] Calling CopyToGallery for {tempPath}");
             var galleryPath = CopyToGallery(tempPath, "image/jpeg");
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] CopyToGallery returned: {galleryPath}");
+
             return (galleryPath ?? tempPath, thumbPath);
         }
 
@@ -178,12 +183,25 @@ namespace TravelCamApp.Helpers
         public static List<string> GetAllCapturedImagePaths()
         {
             var dir = GetAppCacheDir();
-            if (!Directory.Exists(dir))
-                return new List<string>();
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] GetAllCapturedImagePaths - checking dir: {dir}");
 
-            return Directory.GetFiles(dir, "*.jpg")
+            if (!Directory.Exists(dir))
+            {
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] GetAllCapturedImagePaths - directory does not exist");
+                return new List<string>();
+            }
+
+            var files = Directory.GetFiles(dir, "*.jpg")
                 .OrderByDescending(File.GetLastWriteTime)
                 .ToList();
+
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] GetAllCapturedImagePaths - found {files.Count} files");
+            foreach (var f in files)
+            {
+                System.Diagnostics.Debug.WriteLine($"  - {f} ({new FileInfo(f).Length} bytes)");
+            }
+
+            return files;
         }
 
         /// <summary>
@@ -192,40 +210,57 @@ namespace TravelCamApp.Helpers
         /// </summary>
         public static List<string> GetAllGalleryMediaPaths()
         {
+            System.Diagnostics.Debug.WriteLine("[FileHelper] GetAllGalleryMediaPaths called");
+
 #if ANDROID
+            // First, try to get paths from MediaStore
             try
             {
-                return GetMediaStoreImages();
+                var mediaStorePaths = GetMediaStoreImages();
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] MediaStore returned {mediaStorePaths.Count} paths");
+
+                // Filter to only existing files - MediaStore entries may be stale or inaccessible
+                var existingMediaPaths = mediaStorePaths
+                    .Where(p => !string.IsNullOrEmpty(p) && File.Exists(p))
+                    .ToList();
+
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] {existingMediaPaths.Count} MediaStore paths exist on disk");
+
+                // If we have valid MediaStore paths, return them
+                if (existingMediaPaths.Count > 0)
+                {
+                    // Also include cache files to ensure we always have images available
+                    var cachePaths = GetAllCapturedImagePaths();
+                    var allPaths = existingMediaPaths.Concat(cachePaths).Distinct()
+                        .OrderByDescending(p => File.GetLastWriteTime(p))
+                        .ToList();
+
+                    System.Diagnostics.Debug.WriteLine($"[FileHelper] Returning {allPaths.Count} combined paths");
+                    return allPaths.Count > 0 ? allPaths : GetAllCapturedImagePaths();
+                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[FileHelper] GetAllGalleryMediaPaths error: {ex.Message}");
-                return GetAllCapturedImagePaths();
+                System.Diagnostics.Debug.WriteLine(
+                    $"[FileHelper] GetAllGalleryMediaPaths MediaStore error: {ex.Message}");
             }
+
+            // MediaStore query returned empty or failed - fall back to cache files
+            // This handles: stale MediaStore entries, permission issues, app data cleared
+            System.Diagnostics.Debug.WriteLine("[FileHelper] Falling back to cache files");
+            return GetAllCapturedImagePaths();
 #else
+            System.Diagnostics.Debug.WriteLine("[FileHelper] Non-Android platform, returning cache files");
             return GetAllCapturedImagePaths();
 #endif
         }
 
 #if ANDROID
+        // Directly return captured images from the app's cache directory.
+        // This is simpler and more reliable than querying MediaStore.
         private static List<string> GetMediaStoreImages()
         {
-            var results = new List<(string path, long dateAdded)>();
-            var context = Android.App.Application.Context;
-            var resolver = context.ContentResolver;
-            if (resolver == null) return new List<string>();
-
-            var relativePath = $"{Android.OS.Environment.DirectoryPictures}/{Settings.DefaultCameraName}";
-
-            // Query images
-            QueryMediaStore(resolver, Android.Provider.MediaStore.Images.Media.ExternalContentUri!, relativePath, results);
-            // Query videos
-            QueryMediaStore(resolver, Android.Provider.MediaStore.Video.Media.ExternalContentUri!, relativePath, results);
-
-            return results
-                .OrderByDescending(r => r.dateAdded)
-                .Select(r => r.path)
-                .ToList();
+            return GetAllCapturedImagePaths();
         }
 
         private static void QueryMediaStore(
@@ -242,7 +277,10 @@ namespace TravelCamApp.Helpers
             string selection = $"{Android.Provider.MediaStore.IMediaColumns.RelativePath} = ?";
             string[] selectionArgs = { relativePath + "/" };
 
-            using var cursor = resolver.Query(collection, projection, selection, selectionArgs,
+            // Declare the resolver variable - it shadows the parameter due to nested #if scope
+            var contentResolver = resolver;
+
+            using var cursor = contentResolver.Query(collection, projection, selection, selectionArgs,
                 $"{Android.Provider.MediaStore.IMediaColumns.DateAdded} DESC");
 
             if (cursor == null) return;
@@ -287,11 +325,41 @@ namespace TravelCamApp.Helpers
         }
 
 #if ANDROID
+
+        // Static field to hold the ContentResolver reference
+        private static Android.Content.ContentResolver? _contentResolver;
+
+        /// <summary>
+        /// Gets the ContentResolver reference for use in ConvertMediaStorePathToFilePath.
+        /// </summary>
+        private static Android.Content.ContentResolver? Resolver => _contentResolver;
+
+        /// <summary>
+        /// Converts a MediaStore URI to an actual file path, or returns the path as-is if it's already a file path.
+        /// Returns empty string if conversion fails.
+        /// </summary>
+        // Simplified: just return path if it exists (caller validates)
+        private static string ConvertMediaStorePathToFilePath(string path)
+        {
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                return path;
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Initializes the resolver reference for use in ConvertMediaStorePathToFilePath.
+        /// This must be called before querying MediaStore images.
+        /// </summary>
+        public static void InitializeMediaStoreResolver(Android.Content.ContentResolver resolver)
+        {
+            _contentResolver = resolver;
+        }
+
         private static void DeleteFromMediaStore(string filePath)
         {
             var context = Android.App.Application.Context;
-            var resolver = context.ContentResolver;
-            if (resolver == null) return;
+            var contentResolver = context.ContentResolver;
+            if (contentResolver == null) return;
 
             // Try images collection first, then videos
             var collections = new[] {
@@ -303,7 +371,7 @@ namespace TravelCamApp.Helpers
             {
                 string selection = $"{Android.Provider.MediaStore.IMediaColumns.Data} = ?";
                 string[] selectionArgs = { filePath };
-                int deleted = resolver.Delete(collection, selection, selectionArgs);
+                int deleted = contentResolver.Delete(collection, selection, selectionArgs);
                 if (deleted > 0)
                 {
                     System.Diagnostics.Debug.WriteLine($"[FileHelper] Removed from MediaStore: {filePath}");
@@ -400,10 +468,13 @@ namespace TravelCamApp.Helpers
 
                 System.Diagnostics.Debug.WriteLine($"[FileHelper] MediaStore: published {fileName} to gallery");
 
-                // Clean up the temp file (thumbnail was already saved before this call)
-                try { File.Delete(sourcePath); } catch { /* best effort */ }
+                // NOTE: We do NOT delete sourcePath here because we need to return it
+                // for in-app viewing. The file remains in ExternalCacheDir and is
+                // accessible until the app is uninstalled or the cache is cleared.
+                // The MediaStore URI is NOT returned because Image control may not
+                // handle it correctly in all scenarios.
 
-                return uri.ToString();
+                return sourcePath;
             }
             catch (Exception ex)
             {

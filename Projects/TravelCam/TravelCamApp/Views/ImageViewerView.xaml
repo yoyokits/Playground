@@ -2,8 +2,15 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:TravelCamApp.ViewModels"
+             xmlns:converters="clr-namespace:TravelCamApp.Converters"
+             xmlns:sys="clr-namespace:System;assembly=netstandard"
              x:Class="TravelCamApp.Views.ImageViewerView"
              x:DataType="vm:MainPageViewModel">
+
+    <ContentView.Resources>
+        <converters:FilePathToImageSourceConverter x:Key="FilePathToImageSourceConverter" />
+    </ContentView.Resources>
+
 
     <ContentView.Content>
         <Grid RowDefinitions="Auto,*,Auto,Auto" BackgroundColor="Black">
@@ -56,8 +63,9 @@
                           VerticalScrollBarVisibility="Never"
                           BackgroundColor="Black">
                 <CarouselView.ItemTemplate>
-                    <DataTemplate>
-                        <Image Source="{Binding .}"
+                    <DataTemplate x:DataType="sys:String">
+                        <!-- File paths - use converter for reliable loading from app cache -->
+                        <Image Source="{Binding ., Converter={StaticResource FilePathToImageSourceConverter}}"
                                Aspect="AspectFit"
                                HorizontalOptions="Fill"
                                VerticalOptions="Fill" />
@@ -77,13 +85,15 @@
                     <LinearItemsLayout Orientation="Horizontal" ItemSpacing="0" />
                 </CollectionView.ItemsLayout>
                 <CollectionView.ItemTemplate>
-                    <DataTemplate>
+                    <DataTemplate x:DataType="sys:String">
+                        <!-- Thumbnail displays the smallest preview -->
                         <Border StrokeShape="RoundRectangle 4"
                                 Stroke="Transparent"
                                 Padding="2" Margin="3,6"
                                 WidthRequest="60" HeightRequest="60"
                                 BackgroundColor="#333333">
-                            <Image Source="{Binding .}"
+                            <!-- File paths with converter for reliable loading -->
+                            <Image Source="{Binding ., Converter={StaticResource FilePathToImageSourceConverter}}"
                                    Aspect="AspectFill"
                                    WidthRequest="56" HeightRequest="56" />
                         </Border>

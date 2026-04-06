@@ -7,7 +7,24 @@
       "Bash(git commit -m ':*)",
       "Bash(gh repo:*)",
       "Bash(gh api:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(Select-String -Pattern \"error|warning|FileHelper\")",
+      "Bash(Select-Object -First 50)",
+      "Read(//^#endif$/**)",
+      "Bash(mv FileHelper_fixed.cs FileHelper.cs)",
+      "Bash(cp:*)",
+      "Bash(python3:*)",
+      "Bash(grep -n \"^        }$\")",
+      "Bash(sed -n '1,320p; 381,$p' FileHelper.cs.bak)",
+      "Bash(sed -n '315,330p' FileHelper.cs)",
+      "Bash(sed -n '380,385p' \"C:/Users/yoyok/Git/Playground/Projects/TravelCam/TravelCamApp/Helpers/FileHelper.cs.bak\")",
+      "Bash(sed -n '410,415p' \"C:/Users/yoyok/Git/Playground/Projects/TravelCam/TravelCamApp/Helpers/FileHelper.cs.bak\")",
+      "Bash(grep -n \"^        }$\" \"C:/Users/yoyok/Git/Playground/Projects/TravelCam/TravelCamApp/Helpers/FileHelper.cs.bak\")",
+      "Bash(sed -n '1,320p; 321,418d; 419,$p' FileHelper.cs.bak)",
+      "Bash(sed -n '315,335p' FileHelper.cs)",
+      "Bash(taskkill /F /IM mono.exe /IM dotnet.exe)",
+      "Bash(git:*)"
     ]
-  }
+  },
+  "ENABLE_TOOL_SEARCH": "true"
 }
