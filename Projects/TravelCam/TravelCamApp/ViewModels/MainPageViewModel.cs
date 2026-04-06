@@ -331,7 +331,7 @@ namespace TravelCamApp.ViewModels
 
         /// <summary>
         /// Restores the thumbnail of the last captured photo from persisted preferences.
-        /// Always uses a plain file path (ImageSource.FromFile) — never content://.
+        /// Uses ImageSource.FromStream() for reliable loading from app cache — never content://.
         /// </summary>
         private void LoadLastCaptureImage()
         {

@@ -155,7 +155,7 @@ namespace TravelCamApp.Helpers
             }
 
             // Save a private thumbnail copy BEFORE MediaStore deletes the temp file.
-            // Always use a plain file path (never content://) so ImageSource.FromFile works reliably.
+            // Always use a plain file path (never content://) so it can be loaded via ImageSource.FromStream().
             var thumbPath = ThumbPath;
             try
             {
