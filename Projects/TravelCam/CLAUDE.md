@@ -155,8 +155,9 @@ builder.Services.AddTransient<MainPage>();
 ### Storage Architecture (Android 10+ / API 29+)
 1. Photos/videos saved to app-private cache dir (`ExternalCacheDir/captures/`) first
 2. `CopyToMediaStore` copies file to MediaStore with `IsPending=1` flag
-3. After write completes, `IsPending=0` and temp file is deleted
-4. Gallery returns `content://` URI for viewing
+3. After write completes, `IsPending=0` — **temp file is retained** (not deleted) for in-app viewing
+4. Gallery uses file paths directly with `ImageSource.FromStream()` via `FilePathToImageSourceConverter`
+5. Thumbnail preview uses plain file path from `AppDataDirectory/last_thumb.jpg`
 
 ### Permissions Required
 - Camera + Microphone (runtime)
@@ -211,12 +212,72 @@ See `CodeStyle.txt` for full standards. Key rules:
 | `MainPage.xaml.cs` | OnAppearing camera init, MediaCaptured routing, settings overlay |
 | `CameraHelper.cs` | Static CommunityToolkit.Maui.Camera 6.0.0 wrapper |
 | `SensorHelper.cs` | GPS+Compass+Weather polling (10s), IDisposable |
-| `FileHelper.cs` | MediaStore gallery integration |
+| `FileHelper.cs` | MediaStore gallery publishing + cache management |
 | `SettingsHelper.cs` | JSON persistence for sensor settings |
 | `SensorData.cs` | Sensor data model (raw GPS/weather/compass data from SensorHelper) |
 | `OverlayItem.cs` | Observable display item (Name, Value, IsVisible) — shown in camera overlay |
 | `OverlaySettingsViewModel.cs` | Manages VisibleOverlayItems / AvailableOverlayItems lists |
 | `DataOverlayViewModel.cs` | Owns OverlayItems, subscribes to SensorHelper, LabelFontSize/ValueFontSize |
+| `ImageViewerView.xaml` | Full-screen gallery viewer with carousel + thumbnail strip |
+| `ImageViewerView.xaml.cs` | Gallery navigation, sharing, delete operations |
+| `FilePathToImageSourceConverter.cs` | Converts file paths to `ImageSource` using `FromStream()` for reliable loading from app cache |
+
+---
+
+## GALLERY IMAGE BINDING PATTERN
+
+### Loading Images from App Cache Directory
+
+The gallery (`ImageViewerView`) loads images from the app's private cache directory (`ExternalCacheDir/captures/`). Use this pattern:
+
+**1. XAML: Add converter resource and System namespace**
+```xml
+xmlns:sys="clr-namespace:System;assembly=netstandard"
+...
+<ContentView.Resources>
+    <converters:FilePathToImageSourceConverter x:Key="FilePathToImageSourceConverter" />
+</ContentView.Resources>
+```
+
+**2. DataTemplate: Override inherited x:DataType**
+```xml
+<!-- If parent has x:DataType="vm:MainPageViewModel", explicitly set item type -->
+<CarouselView.ItemTemplate>
+    <DataTemplate x:DataType="sys:String">
+        <Image Source="{Binding ., Converter={StaticResource FilePathToImageSourceConverter}}"
+               Aspect="AspectFit" />
+    </DataTemplate>
+</CarouselView.ItemTemplate>
+```
+
+**⚠️ Critical: Compiled Bindings Inheritance**
+- Root element's `x:DataType` is inherited by child `DataTemplate` elements
+- Without `x:DataType="sys:String"`, `{Binding .}` binds to the **ViewModel**, not the string item
+- Result: converter receives ViewModel object → returns null → blank images
+
+**3. Converter Implementation (FilePathToImageSourceConverter.cs)**
+```csharp
+public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+{
+    if (value is string filePath && File.Exists(filePath))
+    {
+        return ImageSource.FromStream(() =>
+            new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read));
+    }
+    return null;
+}
+```
+
+**Why not `file://{0}` URI or `ImageSource.FromFile()`?**
+- `file://` URIs don't reliably resolve to app-private `ExternalCacheDir` on Android
+- `FromFile()` has limited support for app-specific directories
+- `FromStream()` with direct file path is the most reliable approach
+
+**4. ViewModel: Populate GalleryImagePaths**
+```csharp
+public List<string> GalleryImagePaths { get; set; } = new();
+// Set to list of file paths from FileHelper.GetAllGalleryMediaPaths()
+```
 
 ---
 

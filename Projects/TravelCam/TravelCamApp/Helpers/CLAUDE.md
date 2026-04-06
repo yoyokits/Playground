@@ -27,9 +27,13 @@ CommunityToolkit.Maui.Camera 6.0.0 wrapper. **API verified from library docs.**
 
 ## FileHelper.cs
 File capture to MediaStore gallery publishing.
-- Flow: Write to `ExternalCacheDir/captures/` → Copy to MediaStore with `IsPending=1` → `IsPending=0` → delete temp → return `content://` URI
+- Flow: Write to `ExternalCacheDir/captures/` → Copy to MediaStore with `IsPending=1` → `IsPending=0` → **retain temp file** for in-app viewing
+- Returns `(GalleryPath, ThumbPath)` — both are plain file paths, not `content://` URIs
 - **Critical**: Close stream handles before MediaStore reads temp file
+- `SavePhotoAsync`: Saves photo, extracts thumbnail copy, returns both paths
+- `SaveVideoAsync`: Saves video, extracts first frame as thumbnail (Android only)
 - Sanitize filenames, handle same-second captures with `_2`, `_3` suffixes
+- `GetAllGalleryMediaPaths()`: Combines MediaStore query with cache files as fallback
 
 ## SensorHelper.cs
 Location + compass + weather polling (10s timer).

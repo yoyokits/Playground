@@ -10,8 +10,8 @@ using Microsoft.Maui.Controls;
 namespace TravelCamApp.Converters
 {
     /// <summary>
-    /// Converts a file path (string) to an ImageSource using ImageSource.FromFile().
-    /// This ensures MAUI can load local images correctly on all platforms.
+    /// Converts a file path (string) to an ImageSource using ImageSource.FromStream().
+    /// This reliably loads images from app-private cache directories on Android.
     /// </summary>
     public class FilePathToImageSourceConverter : IValueConverter
     {
