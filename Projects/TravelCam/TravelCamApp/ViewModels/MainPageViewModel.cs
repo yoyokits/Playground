@@ -651,6 +651,23 @@ namespace TravelCamApp.ViewModels
                     return;
                 }
 
+                // Initialize MediaStore resolver for path conversion
+#if ANDROID
+                try
+                {
+                    var context = Android.App.Application.Context;
+                    var resolver = context?.ContentResolver;
+                    if (resolver != null)
+                    {
+                        Helpers.FileHelper.InitializeMediaStoreResolver(resolver);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Failed to initialize MediaStore resolver: {ex.Message}");
+                }
+#endif
+
                 // Build zoom presets from actual hardware capabilities
                 UpdateZoomPresets(selected);
 
@@ -675,6 +692,23 @@ namespace TravelCamApp.ViewModels
 
                 CameraHelper.StopPreview(_cameraView);
                 IsPreviewRunning = false;
+
+                // Reinitialize MediaStore resolver after camera toggle
+#if ANDROID
+                try
+                {
+                    var context = Android.App.Application.Context;
+                    var resolver = context?.ContentResolver;
+                    if (resolver != null)
+                    {
+                        Helpers.FileHelper.InitializeMediaStoreResolver(resolver);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Failed to reinitialize MediaStore resolver: {ex.Message}");
+                }
+#endif
 
                 var newCamera = await CameraHelper.ToggleCameraDeviceAsync(_cameraView);
                 if (newCamera != null)
@@ -990,16 +1024,32 @@ namespace TravelCamApp.ViewModels
 
         private void OpenImageViewer()
         {
-            var images = FileHelper.GetAllGalleryMediaPaths();
+            System.Diagnostics.Debug.WriteLine("[MainPageViewModel] OpenImageViewer called");
+
+            var imagePaths = FileHelper.GetAllGalleryMediaPaths();
+            System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] GetAllGalleryMediaPaths returned {imagePaths.Count} paths");
+
             // Temp files are deleted after gallery copy — fall back to last thumbnail
-            if (images.Count == 0 && !string.IsNullOrEmpty(_lastThumbPath) && File.Exists(_lastThumbPath))
-                images = new List<string> { _lastThumbPath };
+            if (imagePaths.Count == 0 && !string.IsNullOrEmpty(_lastThumbPath) && File.Exists(_lastThumbPath))
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Using fallback thumb: {_lastThumbPath}");
+                imagePaths = new List<string> { _lastThumbPath };
+            }
 
-            if (images.Count == 0) return;
+            if (imagePaths.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] No images found, gallery not opening");
+                return;
+            }
 
-            GalleryImagePaths = images;
+            // Just use file paths directly - MAUI Image control will load them
+            System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Setting gallery paths: {imagePaths.Count} images");
+
+            GalleryImagePaths = imagePaths;
             CurrentImageIndex = 0; // newest first
             IsImageViewerVisible = true;
+
+            System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Gallery opened with paths bound to Image.Source");
         }
 
         private async Task ShareCurrentImageAsync()
@@ -1077,11 +1127,18 @@ namespace TravelCamApp.ViewModels
             _lastThumbPath = thumbPath;
             try { Preferences.Set(PrefLastThumbPath, thumbPath); } catch { /* best effort */ }
 
-            // Use FromStream to bypass MAUI image cache — always reads fresh bytes
+            // Load into memory and display on main thread
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                LastCaptureImage = ImageSource.FromStream(() =>
-                    new FileStream(thumbPath, FileMode.Open, FileAccess.Read, FileShare.Read));
+                try
+                {
+                    byte[] imageBytes = File.ReadAllBytes(thumbPath);
+                    LastCaptureImage = ImageSource.FromStream(() => new MemoryStream(imageBytes));
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Error loading thumbnail: {ex.Message}");
+                }
             });
         }
 
