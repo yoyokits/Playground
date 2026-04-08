@@ -4,11 +4,57 @@
              xmlns:vm="clr-namespace:TravelCamApp.ViewModels"
              xmlns:converters="clr-namespace:TravelCamApp.Converters"
              xmlns:sys="clr-namespace:System;assembly=netstandard"
+             xmlns:selectors="clr-namespace:TravelCamApp.Selectors"
              x:Class="TravelCamApp.Views.ImageViewerView"
              x:DataType="vm:MainPageViewModel">
 
     <ContentView.Resources>
         <converters:FilePathToImageSourceConverter x:Key="FilePathToImageSourceConverter" />
+        <converters:ThumbnailConverter x:Key="ThumbnailConverter" />
+        <converters:ExtensionEqualsConverter x:Key="ExtensionEqualsConverter" />
+
+        <!-- Boolean to Visibility converter for play icon overlay -->
+        <x:Boolean x:Key="True">true</x:Boolean>
+        <x:Boolean x:Key="False">false</x:Boolean>
+
+        <!-- Image template for photos -->
+        <DataTemplate x:Key="ImageTemplate" x:DataType="sys:String">
+            <Image Source="{Binding ., Converter={StaticResource FilePathToImageSourceConverter}}"
+                   Aspect="AspectFit"
+                   HorizontalOptions="Fill"
+                   VerticalOptions="Fill" />
+        </DataTemplate>
+
+        <!-- Video template with play button that opens system player -->
+        <DataTemplate x:Key="VideoTemplate" x:DataType="sys:String">
+            <Grid BackgroundColor="Black">
+                <!-- Video thumbnail -->
+                <Image Source="{Binding ., Converter={StaticResource ThumbnailConverter}}"
+                       Aspect="AspectFit"
+                       HorizontalOptions="Fill"
+                       VerticalOptions="Fill" />
+                <!-- Play button overlay -->
+                <Border BackgroundColor="#80000000"
+                        CornerRadius="40"
+                        WidthRequest="80" HeightRequest="80"
+                        HorizontalOptions="Center"
+                        VerticalOptions="Center">
+                    <Path Data="M20,16 L34,24 L20,32 Z"
+                          Fill="White"
+                          WidthRequest="32" HeightRequest="32"
+                          HorizontalOptions="Center"
+                          VerticalOptions="Center" />
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding PlayVideoCommand}" CommandParameter="{Binding .}" />
+                    </Border.GestureRecognizers>
+                </Border>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Selector that chooses template based on file extension -->
+        <selectors:MediaTemplateSelector x:Key="MediaTemplateSelector"
+                                         ImageTemplate="{StaticResource ImageTemplate}"
+                                         VideoTemplate="{StaticResource VideoTemplate}" />
     </ContentView.Resources>
 
 
@@ -53,23 +99,18 @@
                 </Border>
             </Grid>
 
-            <!-- ── Row 1: Main image (CarouselView) ── -->
+            <!-- ── Row 1: Main media viewer (CarouselView) ── -->
             <CarouselView Grid.Row="1"
                           x:Name="MainCarousel"
                           ItemsSource="{Binding GalleryImagePaths}"
                           Position="{Binding CurrentImageIndex, Mode=TwoWay}"
+                          PositionChanged="OnCarouselPositionChanged"
                           Loop="False"
                           HorizontalScrollBarVisibility="Never"
                           VerticalScrollBarVisibility="Never"
                           BackgroundColor="Black">
                 <CarouselView.ItemTemplate>
-                    <DataTemplate x:DataType="sys:String">
-                        <!-- File paths - use converter for reliable loading from app cache -->
-                        <Image Source="{Binding ., Converter={StaticResource FilePathToImageSourceConverter}}"
-                               Aspect="AspectFit"
-                               HorizontalOptions="Fill"
-                               VerticalOptions="Fill" />
-                    </DataTemplate>
+                    <StaticResource Key="MediaTemplateSelector" />
                 </CarouselView.ItemTemplate>
             </CarouselView>
 
@@ -92,10 +133,19 @@
                                 Padding="2" Margin="3,6"
                                 WidthRequest="60" HeightRequest="60"
                                 BackgroundColor="#333333">
-                            <!-- File paths with converter for reliable loading -->
-                            <Image Source="{Binding ., Converter={StaticResource FilePathToImageSourceConverter}}"
-                                   Aspect="AspectFill"
-                                   WidthRequest="56" HeightRequest="56" />
+                            <Grid WidthRequest="56" HeightRequest="56">
+                                <Image Source="{Binding ., Converter={StaticResource ThumbnailConverter}}"
+                                       Aspect="AspectFill"
+                                       WidthRequest="56" HeightRequest="56" />
+                                <!-- Play icon overlay for videos -->
+                                <Path Data="M20,16 L34,24 L20,32 Z"
+                                      Fill="White"
+                                      WidthRequest="24" HeightRequest="24"
+                                      HorizontalOptions="Center"
+                                      VerticalOptions="Center"
+                                      BackgroundColor="#66000000"
+                                      IsVisible="{Binding ., Converter={StaticResource ExtensionEqualsConverter}, ConverterParameter=.mp4}" />
+                            </Grid>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

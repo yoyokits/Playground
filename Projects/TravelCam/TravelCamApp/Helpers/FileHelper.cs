@@ -38,6 +38,15 @@ namespace TravelCamApp.Helpers
             var timePart = now.ToString("HHmmss", CultureInfo.InvariantCulture);
             var safeCity = SanitizeFileName(city);
 
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] SaveVideoAsync called: city={city}, stream.Length={stream.Length}, CanSeek={stream.CanSeek}");
+
+            // Guard against empty streams
+            if (stream.Length == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("[FileHelper] SaveVideoAsync: Stream is empty — aborting.");
+                return (null, null);
+            }
+
             var baseDir = GetAppCacheDir();
             Directory.CreateDirectory(baseDir);
 
@@ -52,8 +61,8 @@ namespace TravelCamApp.Helpers
 
             using (var fileStream = File.Open(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
             {
-                await stream.CopyToAsync(fileStream);
-                await fileStream.FlushAsync();
+                await stream.CopyToAsync(fileStream).ConfigureAwait(false);
+                await fileStream.FlushAsync().ConfigureAwait(false);
             }
 
             var fileInfo = new FileInfo(tempPath);
@@ -61,17 +70,23 @@ namespace TravelCamApp.Helpers
 
             if (fileInfo.Length == 0)
             {
-                System.Diagnostics.Debug.WriteLine("[FileHelper] SaveVideoAsync - WARNING: File is empty!");
-                return (tempPath, string.Empty);
+                System.Diagnostics.Debug.WriteLine("[FileHelper] SaveVideoAsync - WARNING: File is empty! Deleting and returning nulls.");
+                try { File.Delete(tempPath); } catch { /* ignore */ }
+                return (null, null);
             }
 
             // Extract first frame as thumbnail before publishing to MediaStore
             var thumbPath = string.Empty;
 #if ANDROID
-            thumbPath = ExtractVideoFirstFrame(tempPath);
+            var thumbFileName = Path.GetFileNameWithoutExtension(tempPath) + "_thumb.jpg";
+            var thumbPathFull = Path.Combine(baseDir, thumbFileName);
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] Thumbnail will be saved to: {thumbPathFull}");
+            thumbPath = await Task.Run(() => ExtractVideoFirstFrame(tempPath, thumbPathFull)).ConfigureAwait(false);
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] Thumbnail extraction returned: '{thumbPath}'");
 #endif
 
             var galleryPath = CopyToGallery(tempPath, "video/mp4");
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] SaveVideoAsync returning: galleryPath='{galleryPath}', thumbPath='{thumbPath}'");
             return (galleryPath ?? tempPath, thumbPath);
         }
 
@@ -80,31 +95,105 @@ namespace TravelCamApp.Helpers
         /// Extracts the first frame of a video file and saves it as a JPEG thumbnail.
         /// Returns the thumb file path, or empty string on failure.
         /// </summary>
-        private static string ExtractVideoFirstFrame(string videoPath)
+        private static string ExtractVideoFirstFrame(string videoPath, string outputThumbPath)
         {
+            Android.Graphics.Bitmap? bitmap = null;
             try
             {
-                using var retriever = new Android.Media.MediaMetadataRetriever();
-                retriever.SetDataSource(videoPath);
-                using var bitmap = retriever.GetFrameAtTime(0,
-                    Android.Media.Option.ClosestSync);
-                if (bitmap == null)
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] ExtractVideoFirstFrame START: video='{videoPath}', thumb='{outputThumbPath}'");
+
+                if (!File.Exists(videoPath))
                 {
-                    System.Diagnostics.Debug.WriteLine("[FileHelper] Video first frame is null");
+                    System.Diagnostics.Debug.WriteLine("[FileHelper] ERROR: Video file does not exist!");
                     return string.Empty;
                 }
 
-                var thumbPath = ThumbPath;
+                var videoSize = new FileInfo(videoPath).Length;
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] Video file size: {videoSize} bytes");
+                if (videoSize == 0)
+                {
+                    System.Diagnostics.Debug.WriteLine("[FileHelper] ERROR: Video file is empty!");
+                    return string.Empty;
+                }
+
+                System.Diagnostics.Debug.WriteLine("[FileHelper] Creating MediaMetadataRetriever...");
+                using var retriever = new Android.Media.MediaMetadataRetriever();
+                System.Diagnostics.Debug.WriteLine("[FileHelper] Setting data source...");
+                retriever.SetDataSource(videoPath);
+                System.Diagnostics.Debug.WriteLine("[FileHelper] Attempting to get frame with ClosestSync...");
+                bitmap = retriever.GetFrameAtTime(0, Android.Media.Option.ClosestSync);
+                if (bitmap == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("[FileHelper] ClosestSync returned null, trying Closest...");
+                    // Try again with Option.Closest (any frame)
+                    bitmap = retriever.GetFrameAtTime(0, Android.Media.Option.Closest);
+                    if (bitmap == null)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[FileHelper] Closest also returned null! Video may have no video track or unsupported codec.");
+                        return string.Empty;
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] Got bitmap: {bitmap.Width}x{bitmap.Height}");
+
+                var thumbPath = outputThumbPath;
+                var thumbDir = Path.GetDirectoryName(thumbPath);
+                if (!string.IsNullOrEmpty(thumbDir))
+                    Directory.CreateDirectory(thumbDir);
+
+                // Scale down the bitmap to a reasonable thumbnail size (e.g., 120x120) to reduce memory and file size
+                const int maxDim = 120;
+                Android.Graphics.Bitmap scaledBitmap;
+                if (bitmap.Width > maxDim || bitmap.Height > maxDim)
+                {
+                    float scale = Math.Min((float)maxDim / bitmap.Width, (float)maxDim / bitmap.Height);
+                    int newWidth = (int)(bitmap.Width * scale);
+                    int newHeight = (int)(bitmap.Height * scale);
+                    scaledBitmap = Android.Graphics.Bitmap.CreateScaledBitmap(bitmap, newWidth, newHeight, true);
+                    if (scaledBitmap != bitmap)
+                        bitmap.Recycle(); // free original if scaled
+                }
+                else
+                {
+                    scaledBitmap = bitmap;
+                }
+
                 using var outStream = new FileStream(thumbPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                bitmap.Compress(Android.Graphics.Bitmap.CompressFormat.Jpeg!, 90, outStream);
+                bool compressed = scaledBitmap.Compress(Android.Graphics.Bitmap.CompressFormat.Jpeg!, 85, outStream);
                 outStream.Flush();
-                System.Diagnostics.Debug.WriteLine($"[FileHelper] Video thumbnail saved: {thumbPath}");
+                if (scaledBitmap != bitmap)
+                    scaledBitmap.Recycle();
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] Video thumbnail saved: {thumbPath} (scaled to {scaledBitmap.Width}x{scaledBitmap.Height}), compressed={compressed}");
+
+                // Verify the thumbnail file
+                if (File.Exists(thumbPath))
+                {
+                    var thumbSize = new FileInfo(thumbPath).Length;
+                    System.Diagnostics.Debug.WriteLine($"[FileHelper] Thumbnail file exists, size: {thumbSize} bytes");
+                    if (thumbSize == 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[FileHelper] WARNING: Thumbnail file is empty!");
+                        try { File.Delete(thumbPath); } catch { }
+                        return string.Empty;
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("[FileHelper] ERROR: Thumbnail file was not created!");
+                    return string.Empty;
+                }
+
                 return thumbPath;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[FileHelper] ExtractVideoFirstFrame error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] ExtractVideoFirstFrame EXCEPTION: {ex.GetType().Name}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[FileHelper] StackTrace: {ex.StackTrace}");
                 return string.Empty;
+            }
+            finally
+            {
+                try { bitmap?.Dispose(); } catch { }
             }
         }
 #endif
@@ -177,7 +266,7 @@ namespace TravelCamApp.Helpers
         }
 
         /// <summary>
-        /// Returns all captured image file paths from the captures cache directory,
+        /// Returns all captured media (images and videos) from the captures cache directory,
         /// sorted newest first.
         /// </summary>
         public static List<string> GetAllCapturedImagePaths()
@@ -191,11 +280,17 @@ namespace TravelCamApp.Helpers
                 return new List<string>();
             }
 
-            var files = Directory.GetFiles(dir, "*.jpg")
+            var jpgFiles = Directory.GetFiles(dir, "*.jpg")
+                .Where(f => !f.EndsWith("_thumb.jpg", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var mp4Files = Directory.GetFiles(dir, "*.mp4").ToList();
+            var allFiles = jpgFiles.Concat(mp4Files).ToList();
+
+            var files = allFiles
                 .OrderByDescending(File.GetLastWriteTime)
                 .ToList();
 
-            System.Diagnostics.Debug.WriteLine($"[FileHelper] GetAllCapturedImagePaths - found {files.Count} files");
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] GetAllCapturedImagePaths - found {files.Count} files ({jpgFiles.Count} jpg, {mp4Files.Count} mp4)");
             foreach (var f in files)
             {
                 System.Diagnostics.Debug.WriteLine($"  - {f} ({new FileInfo(f).Length} bytes)");

@@ -23,7 +23,9 @@
       "Bash(sed -n '1,320p; 321,418d; 419,$p' FileHelper.cs.bak)",
       "Bash(sed -n '315,335p' FileHelper.cs)",
       "Bash(taskkill /F /IM mono.exe /IM dotnet.exe)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "WebSearch",
+      "Bash(taskkill /F /IM \"Microsoft.VisualStudio.exe\")"
     ]
   },
   "ENABLE_TOOL_SEARCH": "true"
