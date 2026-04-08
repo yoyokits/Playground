@@ -28,5 +28,18 @@ namespace TravelCamApp.Views
                     vm.CurrentImageIndex = index;
             }
         }
+
+        private void OnCarouselPositionChanged(object? sender, EventArgs e)
+        {
+            // Sync thumbnail scroll position when carousel position changes (user swipes)
+            if (BindingContext is MainPageViewModel vm && MainCarousel != null && ThumbnailStrip != null)
+            {
+                var newIndex = MainCarousel.Position;
+                if (newIndex >= 0 && newIndex < vm.GalleryImagePaths.Count)
+                {
+                    ThumbnailStrip.ScrollTo(newIndex, position: ScrollToPosition.Center, animate: true);
+                }
+            }
+        }
     }
 }

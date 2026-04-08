@@ -38,6 +38,12 @@ namespace TravelCamApp.Helpers
                     return null;
                 }
 
+                LogDebug("[CameraHelper] Available cameras ({0}):", cameras.Count);
+                foreach (var cam in cameras)
+                {
+                    LogDebug("  - {0} (Position={1})", cam.Name, cam.Position);
+                }
+
                 // Prefer rear camera by position
                 CameraInfo? rearCamera = cameras.FirstOrDefault(c => c.Position == CameraPosition.Rear);
                 CameraInfo selected = rearCamera ?? cameras[0];
@@ -48,7 +54,7 @@ namespace TravelCamApp.Helpers
             }
             catch (Exception ex)
             {
-                LogDebug("[CameraHelper] Exception selecting camera: {0}", ex.Message);
+                LogDebug("[CameraHelper] Exception selecting camera: {0}", ex.ToString());
                 return null;
             }
         }
@@ -180,13 +186,25 @@ namespace TravelCamApp.Helpers
                     return false;
                 }
 
-                await cameraView.StartVideoRecording(CancellationToken.None);
-                LogDebug("[CameraHelper] Video recording started");
-                return true;
+                LogDebug("[CameraHelper] Starting video recording on camera: {0}", cameraView.SelectedCamera.Name);
+
+                // Add timeout to prevent hang
+                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                try
+                {
+                    await cameraView.StartVideoRecording(cts.Token).ConfigureAwait(false);
+                    LogDebug("[CameraHelper] Video recording started successfully");
+                    return true;
+                }
+                catch (OperationCanceledException)
+                {
+                    LogDebug("[CameraHelper] StartVideoRecording TIMED OUT after 5 seconds");
+                    return false;
+                }
             }
             catch (Exception ex)
             {
-                LogDebug("[CameraHelper] Exception starting recording: {0}", ex.Message);
+                LogDebug("[CameraHelper] Exception starting recording: {0}", ex.ToString());
                 return false;
             }
         }
@@ -197,16 +215,35 @@ namespace TravelCamApp.Helpers
         /// </summary>
         public static async Task<Stream?> StopVideoRecordingAsync(CameraView cameraView)
         {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                var videoStream = await cameraView.StopVideoRecording(CancellationToken.None);
-                LogDebug("[CameraHelper] Video recording stopped, stream: {0} bytes",
-                    videoStream?.Length.ToString() ?? "null");
-                return videoStream;
+                LogDebug("[CameraHelper] Calling StopVideoRecording on camera: {0}, IsBusy={1}", cameraView.SelectedCamera?.Name ?? "null", cameraView.IsBusy);
+
+                // Add timeout to prevent indefinite hang (some devices/codecs cause deadlock)
+                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                try
+                {
+                    var videoStream = await cameraView.StopVideoRecording(cts.Token).ConfigureAwait(false);
+                    stopwatch.Stop();
+                    LogDebug("[CameraHelper] StopVideoRecording completed in {0} ms, stream: {1} bytes, stream type: {2}, CanSeek={3}",
+                        stopwatch.ElapsedMilliseconds,
+                        videoStream?.Length.ToString() ?? "null",
+                        videoStream?.GetType().FullName ?? "null",
+                        videoStream?.CanSeek.ToString() ?? "n/a");
+                    return videoStream;
+                }
+                catch (OperationCanceledException)
+                {
+                    stopwatch.Stop();
+                    LogDebug("[CameraHelper] StopVideoRecording TIMED OUT after {0} ms — camera may be stuck", stopwatch.ElapsedMilliseconds);
+                    return null;
+                }
             }
             catch (Exception ex)
             {
-                LogDebug("[CameraHelper] Exception stopping recording: {0}", ex.Message);
+                stopwatch.Stop();
+                LogDebug("[CameraHelper] Exception stopping recording after {0} ms: {1}", stopwatch.ElapsedMilliseconds, ex.ToString());
                 return null;
             }
         }

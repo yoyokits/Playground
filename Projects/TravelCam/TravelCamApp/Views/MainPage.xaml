@@ -36,7 +36,7 @@
                          WidthRequest="0.5" HorizontalOptions="Start"
                          Color="{Binding CameraSettings.GridLineColor}" />
                 <!-- Vertical line 2 -->
-                <BoxView Grid.Column="2" Grid.RowSpan="3"
+                <BoxView Grid.Column="2" Grid.RowSpan="3" 
                          WidthRequest="0.5" HorizontalOptions="Start"
                          Color="{Binding CameraSettings.GridLineColor}" />
                 <!-- Horizontal line 1 -->
@@ -59,7 +59,7 @@
                     Spacing="16">
                     <ActivityIndicator IsRunning="True" Color="White"
                                        WidthRequest="48" HeightRequest="48" />
-                    <Label Text="{Binding PermissionStatus}"
+                    <Label Text="{Binding PermissionStatus}" 
                            FontSize="15" TextColor="White"
                            HorizontalTextAlignment="Center" />
                 </VerticalStackLayout>

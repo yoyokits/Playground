@@ -74,7 +74,7 @@ namespace TravelCamApp.ViewModels
         private int _currentImageIndex;
 
         // Lifecycle guards
-        private bool _lifecycleSubscribed;
+        private static bool _lifecycleSubscribed;
         private bool _isDestroyed;
 
         // Concurrency guard — serializes camera start/stop/toggle to prevent crashes
@@ -221,6 +221,7 @@ namespace TravelCamApp.ViewModels
         public ICommand CloseImageViewerCommand { get; }
         public ICommand ShareImageCommand { get; }
         public ICommand DeleteImageCommand { get; }
+        public ICommand PlayVideoCommand { get; }
 
         #endregion
 
@@ -247,6 +248,7 @@ namespace TravelCamApp.ViewModels
             CloseImageViewerCommand = new Command(() => IsImageViewerVisible = false);
             ShareImageCommand = new Command(async () => await SafeExecuteAsync(ShareCurrentImageAsync));
             DeleteImageCommand = new Command(async () => await SafeExecuteAsync(DeleteCurrentImageAsync));
+            PlayVideoCommand = new Command<string>(async (filePath) => await SafeExecuteAsync(() => PlayVideoAsync(filePath)));
 
             _ = SafeInitializeAsync();
 
@@ -282,6 +284,8 @@ namespace TravelCamApp.ViewModels
 
             // Restore last thumbnail immediately so it's never blank at startup
             LoadLastCaptureImage();
+
+            if (_isDestroyed) return;
 
             PermissionStatus = "Requesting permissions...";
 
@@ -447,7 +451,9 @@ namespace TravelCamApp.ViewModels
 
         private void EnsureWindowLifecycle()
         {
+            // Already subscribed or destroyed - skip
             if (_lifecycleSubscribed || _isDestroyed) return;
+
             var window = Application.Current?.Windows.FirstOrDefault();
             if (window == null) return;
 
@@ -785,7 +791,9 @@ namespace TravelCamApp.ViewModels
 
         private async Task CaptureAsync()
         {
-            if (_isDestroyed || _cameraView == null || !IsPreviewRunning) return;
+            // Allow video stop even if preview is not running (preview stops during recording)
+            if (_isDestroyed || _cameraView == null) return;
+            if (SelectedMode == CaptureMode.Photo && !IsPreviewRunning) return;
 
             if (SelectedMode == CaptureMode.Photo)
                 await CapturePhotoAsync();
@@ -860,7 +868,9 @@ namespace TravelCamApp.ViewModels
 
         private async Task ToggleRecordingAsync()
         {
-            if (_isDestroyed || _cameraView == null || !IsPreviewRunning) return;
+            // Allow stopping even if preview is not running (preview stops during recording)
+            if (_isDestroyed || _cameraView == null) return;
+            if (!IsRecording && !IsPreviewRunning) return; // Only start requires preview running
             if (_isTogglingRecording) return;
             _isTogglingRecording = true;
 
@@ -879,9 +889,47 @@ namespace TravelCamApp.ViewModels
 
         private async Task StartRecordingAsync()
         {
-            if (_cameraView == null) return;
+            if (_cameraView == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] StartRecordingAsync: _cameraView is null!");
+                return;
+            }
 
-            System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Starting video recording...");
+            if (!IsPreviewRunning)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] StartRecordingAsync: Preview is NOT running! Cannot record.");
+                return;
+            }
+
+            // Check microphone permission (required for video)
+            var micStatus = await Permissions.CheckStatusAsync<Permissions.Microphone>();
+            if (micStatus != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Microphone permission NOT granted — requesting...");
+                await RequestCameraPermissionAsync(); // requests both camera and mic
+                micStatus = await Permissions.CheckStatusAsync<Permissions.Microphone>();
+                if (micStatus != Microsoft.Maui.ApplicationModel.PermissionStatus.Granted)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Microphone permission denied — cannot record video");
+                    // Optionally show alert to user
+                    return;
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Starting video recording... Camera.SelectedCamera={_cameraView.SelectedCamera?.Name}, IsAvailable={_cameraView.IsAvailable}, IsBusy={_cameraView.IsBusy}");
+
+            if (_cameraView.IsBusy)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Camera is busy — cannot start recording now");
+                return;
+            }
+
+            // Some Android devices require stopping preview to free camera for MediaRecorder
+            System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Stopping preview before recording...");
+            CameraHelper.StopPreview(_cameraView);
+            IsPreviewRunning = false;
+            await Task.Delay(150);
+
             bool ok = await CameraHelper.StartVideoRecordingAsync(_cameraView);
             if (ok)
             {
@@ -893,41 +941,62 @@ namespace TravelCamApp.ViewModels
             else
             {
                 System.Diagnostics.Debug.WriteLine(
-                    "[MainPageViewModel] StartVideoRecording returned false — check permissions");
+                    "[MainPageViewModel] StartVideoRecording returned false — check camera state and permissions");
             }
         }
 
         private async Task StopRecordingAsync()
         {
-            if (_cameraView == null) return;
+            if (_cameraView == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] StopRecordingAsync: _cameraView is null!");
+                return;
+            }
 
             StopRecordingTimer();
 
+            System.Diagnostics.Debug.WriteLine("[MainPageViewModel] StopRecordingAsync: Starting stop operation...");
             Stream? videoStream = null;
             try
             {
-                videoStream = await CameraHelper.StopVideoRecordingAsync(_cameraView);
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Calling CameraHelper.StopVideoRecordingAsync...");
+                var stopTask = CameraHelper.StopVideoRecordingAsync(_cameraView);
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Waiting for stopTask to complete...");
+                videoStream = await stopTask;
+                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] StopVideoRecordingAsync returned. Stream exists: {videoStream != null}, CanSeek: {videoStream?.CanSeek}, Length: {videoStream?.Length}");
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
-                    $"[MainPageViewModel] StopVideoRecording error: {ex.Message}");
+                    $"[MainPageViewModel] StopVideoRecording exception: {ex.GetType().Name}: {ex.Message}");
             }
             finally
             {
                 IsRecording = false;
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] IsRecording set to false");
             }
 
-            // Save video if we got a stream
-            if (videoStream != null)
+            // Force stop preview if camera is still busy (reset) - DO THIS BEFORE saving to avoid locks
+            if (_cameraView != null && _cameraView.IsBusy)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Camera still busy — forcing StopPreview");
+                CameraHelper.StopPreview(_cameraView);
+                await Task.Delay(200);
+            }
+
+            // Save video if we got a non-empty stream
+            if (videoStream != null && videoStream.Length > 0)
             {
                 try
                 {
-                    var city = GetCityForFileName();
-                    var (galleryPath, thumbPath) = await FileHelper.SaveVideoAsync(videoStream, city);
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[MainPageViewModel] Video published: {galleryPath}");
-                    UpdateLastCapture(thumbPath);
+                    using (videoStream) // Ensure the stream is disposed after saving to release file lock
+                    {
+                        var city = GetCityForFileName();
+                        var (galleryPath, thumbPath) = await FileHelper.SaveVideoAsync(videoStream, city);
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[MainPageViewModel] Video published: {galleryPath}");
+                        UpdateLastCapture(thumbPath);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -935,22 +1004,32 @@ namespace TravelCamApp.ViewModels
                         $"[MainPageViewModel] SaveVideoAsync error: {ex.Message}");
                 }
             }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Video stream is null or empty — not saving.");
+                videoStream?.Dispose();
+            }
 
-            // Always restart preview after stopping recording
+            // Restart preview
             if (!_isDestroyed && _cameraView != null)
             {
                 try
                 {
+                    System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Attempting to restart preview...");
                     IsPreviewRunning = await CameraHelper.StartPreviewAsync(_cameraView);
                     System.Diagnostics.Debug.WriteLine(
-                        $"[MainPageViewModel] Preview restarted after stop: {IsPreviewRunning}");
+                        $"[MainPageViewModel] Preview restarted: {IsPreviewRunning}");
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine(
-                        $"[MainPageViewModel] Restart preview after stop error: {ex.Message}");
+                        $"[MainPageViewModel] Restart preview error: {ex.Message}");
                     IsPreviewRunning = false;
                 }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Skipping preview restart: _isDestroyed={0}, _cameraView={1}", _isDestroyed, _cameraView != null);
             }
         }
 
@@ -1062,11 +1141,16 @@ namespace TravelCamApp.ViewModels
             var path = _galleryImagePaths[_currentImageIndex];
             if (!File.Exists(path)) return;
 
+            // Determine media type from file extension
+            var extension = System.IO.Path.GetExtension(path).ToLowerInvariant();
+            var isVideo = extension == ".mp4";
+            var title = isVideo ? "Share Video" : "Share Photo";
+
             try
             {
                 await Share.RequestAsync(new ShareFileRequest
                 {
-                    Title = "Share Photo",
+                    Title = title,
                     File = new ShareFile(path)
                 });
             }
@@ -1086,11 +1170,16 @@ namespace TravelCamApp.ViewModels
 
             var path = _galleryImagePaths[_currentImageIndex];
 
+            // Determine media type from file extension
+            var extension = System.IO.Path.GetExtension(path).ToLowerInvariant();
+            var isVideo = extension == ".mp4";
+            var message = isVideo ? "Delete this video?" : "Delete this photo?";
+
             // Confirm deletion
             var page = Shell.Current ?? Application.Current?.Windows.FirstOrDefault()?.Page;
             if (page != null)
             {
-                bool confirm = await page.DisplayAlertAsync("Delete", "Delete this photo?", "Delete", "Cancel");
+                bool confirm = await page.DisplayAlertAsync("Delete", message, "Delete", "Cancel");
                 if (!confirm) return;
             }
 
@@ -1110,6 +1199,46 @@ namespace TravelCamApp.ViewModels
             var newIndex = _currentImageIndex >= updated.Count ? updated.Count - 1 : _currentImageIndex;
             GalleryImagePaths = updated;
             CurrentImageIndex = newIndex;
+        }
+
+        private async Task PlayVideoAsync(string? filePath)
+        {
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] PlayVideoAsync: invalid path");
+                return;
+            }
+
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Playing video: {filePath}");
+
+#if ANDROID
+                // On Android, use direct intent for better video player support
+                try
+                {
+                    var uri = Android.Net.Uri.FromFile(new Java.IO.File(filePath));
+                    var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
+                    intent.SetDataAndType(uri, "video/mp4");
+                    intent.AddFlags(Android.Content.ActivityFlags.NewTask);
+                    Android.App.Application.Context.StartActivity(intent);
+                    return;
+                }
+                catch (Exception andEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Android intent failed: {andEx.Message}");
+                }
+#endif
+                // Fallback: use MAUI Launcher (cross-platform)
+                await Launcher.OpenAsync(new OpenFileRequest
+                {
+                    File = new ReadOnlyFile(filePath)
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] PlayVideoAsync error: {ex.Message}");
+            }
         }
 
         #endregion
