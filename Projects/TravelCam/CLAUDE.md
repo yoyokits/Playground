@@ -5,6 +5,27 @@
 
 ---
 
+## REQUIRED SKILLS — Load Before Every Task
+
+The following skills from `~/.claude/commands/` apply to this project. Always consult them before writing or modifying code.
+
+| Skill | When to use |
+|---|---|
+| `/maui-current-apis` | **Always first** — deprecated API guardrail |
+| `/maui-app-lifecycle` | Any camera/sensor lifecycle, Window events, ANR prevention |
+| `/maui-data-binding` | Any XAML binding, `x:DataType`, `ObservableCollection` |
+| `/maui-collectionview` | Gallery thumbnail strip, any `CollectionView` changes |
+| `/maui-permissions` | Camera, mic, location, storage permission flows |
+| `/maui-geolocation` | GPS calls — always pass `CancellationToken` |
+| `/maui-file-handling` | MediaStore, file paths, `content://` URIs |
+| `/maui-platform-invoke` | `#if ANDROID`, partial classes, `Platform.CurrentActivity` |
+| `/maui-performance` | Compiled bindings, layout nesting, image sizing |
+| `/maui-safe-area` | `.NET 10` edge-to-edge, `SafeAreaEdges` |
+| `/maui-dependency-injection` | DI lifetimes, singleton vs transient, registration |
+| `/maui-gestures` | Tap/swipe/pan recognizers, `.NET 10` deprecations |
+
+---
+
 ## PROJECT OVERVIEW
 
 TravelCam is a .NET MAUI camera application for Android (API 29+) that captures photos and video with real-time sensor data overlays (location, temperature, compass). It follows MVVM architecture with dependency injection.
@@ -13,12 +34,13 @@ TravelCam is a .NET MAUI camera application for Android (API 29+) that captures 
 
 | Component | Version |
 |---|---|
-| .NET MAUI | 10.0.30 |
+| .NET MAUI | 10.0.41 |
 | Target Framework | `net10.0-android` (also `net10.0-windows10.0.19041.0`) |
 | Android Min SDK | API 29 (Android 10) |
-| Android Target SDK | API 35 (Android 15) |
-| CommunityToolkit.Maui | 14.0.0 |
-| CommunityToolkit.Maui.Camera | 6.0.0 |
+| Android Target SDK | API 36 (Android 16) |
+| CommunityToolkit.Maui | 14.1.0 |
+| CommunityToolkit.Maui.Camera | 6.0.1 |
+| CommunityToolkit.Maui.MediaElement | 8.0.1 |
 
 ### Source
 
@@ -130,19 +152,20 @@ string FailureReason { get; }
 
 ### Dependency Injection (MauiProgram.cs)
 ```csharp
-// Singletons — shared across app
+// Singletons — shared across app lifetime
 builder.Services.AddSingleton<SensorHelper>();
+builder.Services.AddSingleton<CameraSettingsViewModel>();
+builder.Services.AddSingleton<DataOverlayViewModel>();
 
 // Transient — new instance per injection
-builder.Services.AddTransient<DataOverlayViewModel>();
 builder.Services.AddTransient<OverlaySettingsViewModel>();
 builder.Services.AddTransient<MainPageViewModel>();
 builder.Services.AddTransient<MainPage>();
 ```
 
 ### Camera Lifecycle
-1. `CamerasLoaded` event fires → ViewModel receives CameraView reference
-2. ViewModel calls `CameraHelper.SelectFirstAvailableCamera()` then `StartPreviewAsync()`
+1. `OnAppearing()` → `await ViewModel.OnViewReady(CameraView)` initializes camera
+2. ViewModel calls `CameraHelper.SelectFirstAvailableCamera()` then `StartCameraPreview()`
 3. `Window.Stopped` → stop camera, stop sensors
 4. `Window.Resumed` → restart sensors, restart camera preview
 
@@ -285,7 +308,7 @@ public List<string> GalleryImagePaths { get; set; } = new();
 
 When asked to build or fix, run:
 ```bash
-cd C:\Git\Playground\Projects\TravelCam\TravelCamApp
+cd C:\Users\yoyok\Git\Playground\Projects\TravelCam\TravelCamApp
 dotnet build -f net10.0-android
 ```
 

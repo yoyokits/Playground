@@ -75,5 +75,5 @@ Used for: sharing captured photos with gallery apps via `FileProvider.GetUriForF
 
 ## Build Configuration
 
-`MainActivity.cs` — `LaunchMode = LaunchMode.SingleTop` to avoid multiple instances
+`MainActivity.cs` — `LaunchMode = LaunchMode.SingleTask`, `ResizeableActivity = true` (required for MediaElement)
 `MainApplication.cs` — Standard MAUI entry point, delegates to `MauiProgram.CreateMauiApp()`

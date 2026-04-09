@@ -182,8 +182,11 @@ class MediaCaptureFailedEventArgs {
 ```csharp
 // SavePhotoAsync returns a TUPLE — not just a string
 Task<(string GalleryPath, string ThumbPath)> SavePhotoAsync(Stream, string city)
+// SaveVideoAsync saves video and returns (GalleryPath, ThumbPath) where ThumbPath is first frame
+Task<(string GalleryPath, string ThumbPath)> SaveVideoAsync(Stream, string city)
 // Usage:
 var (galleryPath, thumbPath) = await FileHelper.SavePhotoAsync(stream, city);
+var (videoGalleryPath, videoThumbPath) = await FileHelper.SaveVideoAsync(videoStream, city);
 ```
 
 ---

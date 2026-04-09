@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:vm="clr-namespace:TravelCamApp.ViewModels"
              xmlns:converters="clr-namespace:TravelCamApp.Converters"
              xmlns:sys="clr-namespace:System;assembly=netstandard"
@@ -13,10 +14,6 @@
         <converters:ThumbnailConverter x:Key="ThumbnailConverter" />
         <converters:ExtensionEqualsConverter x:Key="ExtensionEqualsConverter" />
 
-        <!-- Boolean to Visibility converter for play icon overlay -->
-        <x:Boolean x:Key="True">true</x:Boolean>
-        <x:Boolean x:Key="False">false</x:Boolean>
-
         <!-- Image template for photos -->
         <DataTemplate x:Key="ImageTemplate" x:DataType="sys:String">
             <Image Source="{Binding ., Converter={StaticResource FilePathToImageSourceConverter}}"
@@ -25,27 +22,28 @@
                    VerticalOptions="Fill" />
         </DataTemplate>
 
-        <!-- Video template with play button that opens system player -->
+        <!-- Video template: poster image + tap-to-play overlay only.
+             NO MediaElement here — a single shared MediaElement lives outside the
+             CarouselView so only one ExoPlayer instance ever exists. Having a
+             MediaElement per carousel item exhausts ExoPlayer on rapid swipes. -->
         <DataTemplate x:Key="VideoTemplate" x:DataType="sys:String">
             <Grid BackgroundColor="Black">
-                <!-- Video thumbnail -->
+                <!-- Poster thumbnail -->
                 <Image Source="{Binding ., Converter={StaticResource ThumbnailConverter}}"
                        Aspect="AspectFit"
                        HorizontalOptions="Fill"
                        VerticalOptions="Fill" />
-                <!-- Play button overlay -->
-                <Border BackgroundColor="#80000000"
-                        CornerRadius="40"
-                        WidthRequest="80" HeightRequest="80"
-                        HorizontalOptions="Center"
-                        VerticalOptions="Center">
-                    <Path Data="M20,16 L34,24 L20,32 Z"
-                          Fill="White"
-                          WidthRequest="32" HeightRequest="32"
-                          HorizontalOptions="Center"
-                          VerticalOptions="Center" />
+                <!-- Tap-to-play overlay -->
+                <Border BackgroundColor="#88000000" Stroke="Transparent"
+                        StrokeShape="Ellipse"
+                        WidthRequest="72" HeightRequest="72"
+                        HorizontalOptions="Center" VerticalOptions="Center">
+                    <Path Data="M10,8 L26,17 L10,26 Z"
+                          Fill="White" Aspect="Uniform"
+                          WidthRequest="28" HeightRequest="28"
+                          HorizontalOptions="Center" VerticalOptions="Center" />
                     <Border.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding PlayVideoCommand}" CommandParameter="{Binding .}" />
+                        <TapGestureRecognizer Tapped="OnVideoPlayTapped" />
                     </Border.GestureRecognizers>
                 </Border>
             </Grid>
@@ -99,31 +97,47 @@
                 </Border>
             </Grid>
 
-            <!-- ── Row 1: Main media viewer (CarouselView) ── -->
-            <CarouselView Grid.Row="1"
-                          x:Name="MainCarousel"
-                          ItemsSource="{Binding GalleryImagePaths}"
-                          Position="{Binding CurrentImageIndex, Mode=TwoWay}"
-                          PositionChanged="OnCarouselPositionChanged"
-                          Loop="False"
-                          HorizontalScrollBarVisibility="Never"
-                          VerticalScrollBarVisibility="Never"
-                          BackgroundColor="Black">
-                <CarouselView.ItemTemplate>
-                    <StaticResource Key="MediaTemplateSelector" />
-                </CarouselView.ItemTemplate>
-            </CarouselView>
+            <!-- ── Row 1: CarouselView + shared video player overlay ── -->
+            <Grid Grid.Row="1" BackgroundColor="Black">
+
+                <CarouselView x:Name="MainCarousel"
+                              ItemsSource="{Binding GalleryImagePaths}"
+                              Position="{Binding CurrentImageIndex, Mode=TwoWay}"
+                              PositionChanged="OnCarouselPositionChanged"
+                              Loop="False"
+                              HorizontalScrollBarVisibility="Never"
+                              VerticalScrollBarVisibility="Never"
+                              BackgroundColor="Black">
+                    <CarouselView.ItemTemplate>
+                        <StaticResource Key="MediaTemplateSelector" />
+                    </CarouselView.ItemTemplate>
+                </CarouselView>
+
+                <!-- Single shared MediaElement: only ONE ExoPlayer instance ever exists.
+                     Hidden by default; shown when user taps play on a video item.
+                     Stopped and hidden again when swiping or closing gallery. -->
+                <toolkit:MediaElement x:Name="SharedVideoPlayer"
+                                      IsVisible="False"
+                                      Aspect="AspectFit"
+                                      HorizontalOptions="Fill"
+                                      VerticalOptions="Fill"
+                                      BackgroundColor="Black"
+                                      ShouldShowPlaybackControls="True"
+                                      ShouldAutoPlay="True" />
+            </Grid>
 
             <!-- ── Row 2: Thumbnail strip ── -->
             <CollectionView Grid.Row="2"
                             x:Name="ThumbnailStrip"
                             ItemsSource="{Binding GalleryImagePaths}"
+                            SelectedItem="{Binding CurrentImageItem, Mode=TwoWay}"
                             HeightRequest="72"
                             BackgroundColor="#1A1A1A"
                             SelectionMode="Single"
                             SelectionChanged="OnThumbnailSelected">
                 <CollectionView.ItemsLayout>
-                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="0" />
+                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="0"
+                                       ItemSizingStrategy="MeasureFirstItem" />
                 </CollectionView.ItemsLayout>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="sys:String">
@@ -137,14 +151,17 @@
                                 <Image Source="{Binding ., Converter={StaticResource ThumbnailConverter}}"
                                        Aspect="AspectFill"
                                        WidthRequest="56" HeightRequest="56" />
-                                <!-- Play icon overlay for videos -->
-                                <Path Data="M20,16 L34,24 L20,32 Z"
-                                      Fill="White"
-                                      WidthRequest="24" HeightRequest="24"
-                                      HorizontalOptions="Center"
-                                      VerticalOptions="Center"
-                                      BackgroundColor="#66000000"
-                                      IsVisible="{Binding ., Converter={StaticResource ExtensionEqualsConverter}, ConverterParameter=.mp4}" />
+                                <!-- Circular play icon overlay for videos -->
+                                <Border BackgroundColor="#99000000" Stroke="Transparent"
+                                        StrokeShape="Ellipse"
+                                        WidthRequest="24" HeightRequest="24"
+                                        HorizontalOptions="Center" VerticalOptions="Center"
+                                        IsVisible="{Binding ., Converter={StaticResource ExtensionEqualsConverter}, ConverterParameter=.mp4}">
+                                    <Path Data="M6,4 L18,12 L6,20 Z"
+                                          Fill="White" Aspect="Uniform"
+                                          WidthRequest="10" HeightRequest="10"
+                                          HorizontalOptions="Center" VerticalOptions="Center" />
+                                </Border>
                             </Grid>
                         </Border>
                     </DataTemplate>

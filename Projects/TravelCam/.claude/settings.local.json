@@ -25,7 +25,13 @@
       "Bash(taskkill /F /IM mono.exe /IM dotnet.exe)",
       "Bash(git:*)",
       "WebSearch",
-      "Bash(taskkill /F /IM \"Microsoft.VisualStudio.exe\")"
+      "Bash(taskkill /F /IM \"Microsoft.VisualStudio.exe\")",
+      "Read(//tmp/**)",
+      "WebFetch(domain:www.nuget.org)",
+      "Bash(dotnet restore:*)",
+      "Bash(powershell:*)",
+      "Bash(ls \"C:/Users/yoyok/Git/Playground/Projects/TravelCam/\"*.bak)",
+      "Bash(ls \"C:/Users/yoyok/Git/Playground/Projects/TravelCam/TravelCamApp/Helpers/\"*.bak)"
     ]
   },
   "ENABLE_TOOL_SEARCH": "true"
