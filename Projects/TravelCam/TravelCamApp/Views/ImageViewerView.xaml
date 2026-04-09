@@ -123,7 +123,7 @@
                                       VerticalOptions="Fill"
                                       BackgroundColor="Black"
                                       ShouldShowPlaybackControls="True"
-                                      ShouldAutoPlay="True" />
+                                      ShouldAutoPlay="False" />
             </Grid>
 
             <!-- ── Row 2: Thumbnail strip ── -->

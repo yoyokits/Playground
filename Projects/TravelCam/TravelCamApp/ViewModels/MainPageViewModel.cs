@@ -73,8 +73,8 @@ namespace TravelCamApp.ViewModels
         private ObservableCollection<string> _galleryImagePaths = new();
         private int _currentImageIndex;
 
-        // Lifecycle guards
-        private static bool _lifecycleSubscribed;
+        // Lifecycle guards — instance-level only (no static flag)
+        private bool _windowSubscribed;
         private bool _isDestroyed;
 
         // Concurrency guard — serializes camera start/stop/toggle to prevent crashes
@@ -269,12 +269,6 @@ namespace TravelCamApp.ViewModels
             PlayVideoCommand = new Command<string>(async (filePath) => await SafeExecuteAsync(() => PlayVideoAsync(filePath)));
 
             _ = SafeInitializeAsync();
-
-            if (Application.Current is Application app)
-            {
-                app.PageAppearing += OnPageAppearing;
-                app.PageDisappearing += OnPageDisappearing;
-            }
         }
 
         #endregion
@@ -467,18 +461,18 @@ namespace TravelCamApp.ViewModels
 
         #region Lifecycle
 
-        private void EnsureWindowLifecycle()
+        private void SubscribeWindowLifecycle(CameraView cameraView)
         {
-            // Already subscribed or destroyed - skip
-            if (_lifecycleSubscribed || _isDestroyed) return;
+            if (_windowSubscribed || _isDestroyed) return;
 
-            var window = Application.Current?.Windows.FirstOrDefault();
+            // Prefer the visual-tree Window (reliable), fall back to first window in list.
+            var window = cameraView.Window ?? Application.Current?.Windows.FirstOrDefault();
             if (window == null) return;
 
             window.Resumed += OnWindowResumed;
             window.Stopped += OnWindowStopped;
             window.Destroying += OnWindowDestroying;
-            _lifecycleSubscribed = true;
+            _windowSubscribed = true;
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window lifecycle subscribed");
         }
 
@@ -489,7 +483,8 @@ namespace TravelCamApp.ViewModels
 
             try
             {
-                // Brief pause so the Activity fully re-enters foreground before touching camera
+                // Brief pause so the Activity fully re-enters foreground before touching camera.
+                // During this delay, OnAppearing → OnViewReady may already start the camera.
                 await Task.Delay(400);
                 if (_isDestroyed) return;
 
@@ -502,14 +497,23 @@ namespace TravelCamApp.ViewModels
                     {
                         if (_isDestroyed || _cameraView == null) return;
 
-                        IsPreviewRunning = false;
+                        // OnViewReady (from OnAppearing) may have already started the camera
+                        // during the 400 ms delay above. Skip restart to avoid a double-start
+                        // which can crash Camera2 on some devices.
+                        if (IsPreviewRunning)
+                        {
+                            System.Diagnostics.Debug.WriteLine(
+                                "[MainPageViewModel] Camera already running on resume — skipping restart");
+                            return;
+                        }
+
                         bool ok = false;
                         try { ok = await CameraHelper.StartPreviewAsync(_cameraView); }
                         catch (Exception cex)
                         {
                             System.Diagnostics.Debug.WriteLine(
                                 $"[MainPageViewModel] Camera resume (attempt 1) error: {cex.Message}");
-                            await Task.Delay(800);
+                            await Task.Delay(500);
                             if (!_isDestroyed && _cameraView != null)
                             {
                                 try { ok = await CameraHelper.StartPreviewAsync(_cameraView); }
@@ -541,8 +545,9 @@ namespace TravelCamApp.ViewModels
 
             try
             {
+                // Do NOT restart the preview here — we're going to background.
                 if (_isRecording && _cameraView != null)
-                    await StopRecordingAsync();
+                    await StopRecordingAsync(restartPreview: false);
             }
             catch (Exception ex)
             {
@@ -552,15 +557,36 @@ namespace TravelCamApp.ViewModels
 
             _sensorHelper.Stop();
 
+            // Stop the preview under the camera lock so it doesn't race with
+            // any in-flight start operation (e.g. a late OnWindowResumed retry).
             if (_cameraView != null)
             {
-                try { CameraHelper.StopPreview(_cameraView); }
+                if (!await TryAcquireCameraLockAsync(timeoutMs: 2000))
+                {
+                    // Lock held too long — try stopping without the lock as last resort
+                    System.Diagnostics.Debug.WriteLine("[MainPageViewModel] OnWindowStopped: lock timeout, forcing StopPreview");
+                    try { CameraHelper.StopPreview(_cameraView); } catch { }
+                    IsPreviewRunning = false;
+                    return;
+                }
+                try
+                {
+                    if (_cameraView != null)
+                    {
+                        CameraHelper.StopPreview(_cameraView);
+                        IsPreviewRunning = false;
+                    }
+                }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine(
                         $"[MainPageViewModel] StopPreview error: {ex.Message}");
+                    IsPreviewRunning = false;
                 }
-                IsPreviewRunning = false;
+                finally
+                {
+                    ReleaseCameraLock();
+                }
             }
         }
 
@@ -568,33 +594,18 @@ namespace TravelCamApp.ViewModels
         {
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window Destroying");
 
-            // Set destroyed flag FIRST to prevent new operations from starting
+            // Set destroyed flag FIRST to prevent new operations from starting.
             _isDestroyed = true;
 
-            // Stop recording before disposing resources.
-            // Use Task.Run to avoid deadlocking the main thread (StopVideoRecordingAsync
-            // may marshal back to UI thread which .Wait() would block).
-            if (_isRecording && _cameraView != null)
-            {
-                try
-                {
-                    Task.Run(async () =>
-                    {
-                        try { await StopRecordingAsync(); }
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine(
-                                $"[MainPageViewModel] Destroy stop-recording error: {ex.Message}");
-                        }
-                    }).Wait(TimeSpan.FromSeconds(3));
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[MainPageViewModel] Destroy stop-recording wait error: {ex.Message}");
-                }
-            }
+            // Clear recording/capture state so the VM is in a clean state.
+            // Do NOT await StopRecordingAsync here — it would block the main thread (ANR risk).
+            // StopPreview below will abort any active MediaRecorder session on Camera2.
+            IsRecording = false;
+            _isCapturing = false;
+            StopRecordingTimer();
 
+            // Best-effort preview stop — sync, does not block.
+            // If recording was active, Camera2 aborts the session as a side-effect.
             if (_cameraView != null)
             {
                 try { CameraHelper.StopPreview(_cameraView); }
@@ -608,31 +619,12 @@ namespace TravelCamApp.ViewModels
                 window.Destroying -= OnWindowDestroying;
             }
 
-            if (Application.Current is Application app)
-            {
-                app.PageAppearing -= OnPageAppearing;
-                app.PageDisappearing -= OnPageDisappearing;
-            }
-
-            // Reset static flag so new instance can subscribe to lifecycle events
-            _lifecycleSubscribed = false;
-
+            _windowSubscribed = false;
             _sensorHelper.Stop();
-            StopRecordingTimer();
             _cameraView = null;
 
-            // Dispose lock LAST — after all operations that use it are guaranteed done
+            // Dispose lock LAST — after all operations that use it are guaranteed done.
             try { _cameraLock.Dispose(); } catch { }
-        }
-
-        private void OnPageAppearing(object? sender, Page page)
-        {
-            EnsureWindowLifecycle();
-        }
-
-        private void OnPageDisappearing(object? sender, Page page)
-        {
-            // Window.Stopped handles background transitions
         }
 
         #endregion
@@ -647,6 +639,11 @@ namespace TravelCamApp.ViewModels
         {
             if (_isDestroyed) return;
             _cameraView = cameraView;
+
+            // Subscribe to window lifecycle events now that the view is attached.
+            // Uses the visual-tree Window so we get the correct instance even during
+            // activity recreation in the same process.
+            SubscribeWindowLifecycle(cameraView);
 
             if (!HasCameraPermission)
             {
@@ -965,7 +962,13 @@ namespace TravelCamApp.ViewModels
             }
         }
 
-        private async Task StopRecordingAsync()
+        /// <param name="restartPreview">
+        /// Pass <c>false</c> when stopping because the app is going to background
+        /// (OnWindowStopped). The camera will be stopped by the caller immediately
+        /// after, so restarting preview only to stop it again is wasteful and can
+        /// cause Camera2 instability on some devices.
+        /// </param>
+        private async Task StopRecordingAsync(bool restartPreview = true)
         {
             if (_cameraView == null)
             {
@@ -1030,8 +1033,8 @@ namespace TravelCamApp.ViewModels
                 videoStream?.Dispose();
             }
 
-            // Restart preview
-            if (!_isDestroyed && _cameraView != null)
+            // Restart preview only when appropriate (not when going to background).
+            if (restartPreview && !_isDestroyed && _cameraView != null)
             {
                 try
                 {
@@ -1049,7 +1052,8 @@ namespace TravelCamApp.ViewModels
             }
             else
             {
-                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Skipping preview restart: _isDestroyed={0}, _cameraView={1}", _isDestroyed, _cameraView != null);
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] Skipping preview restart: restartPreview={restartPreview}, _isDestroyed={_isDestroyed}, _cameraView={_cameraView != null}");
             }
         }
 
@@ -1234,19 +1238,23 @@ namespace TravelCamApp.ViewModels
                 System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Playing video: {filePath}");
 
 #if ANDROID
-                // On Android, use direct intent for better video player support
+                // On Android 7+ (API 24+), Uri.FromFile() for app-private files throws
+                // FileUriExposedException. Use FileProvider to get a shareable content:// URI.
                 try
                 {
-                    var uri = Android.Net.Uri.FromFile(new Java.IO.File(filePath));
+                    var context = Android.App.Application.Context;
+                    var javaFile = new Java.IO.File(filePath);
+                    var authority = context.PackageName + ".fileprovider";
+                    var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(context, authority, javaFile);
                     var intent = new Android.Content.Intent(Android.Content.Intent.ActionView);
                     intent.SetDataAndType(uri, "video/mp4");
-                    intent.AddFlags(Android.Content.ActivityFlags.NewTask);
-                    Android.App.Application.Context.StartActivity(intent);
+                    intent.AddFlags(Android.Content.ActivityFlags.NewTask | Android.Content.ActivityFlags.GrantReadUriPermission);
+                    context.StartActivity(intent);
                     return;
                 }
                 catch (Exception andEx)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Android intent failed: {andEx.Message}");
+                    System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Android FileProvider intent failed: {andEx.Message}");
                 }
 #endif
                 // Fallback: use MAUI Launcher (cross-platform)

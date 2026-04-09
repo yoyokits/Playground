@@ -46,9 +46,21 @@ set ANTHROPIC_AUTH_TOKEN=ollama
 set ANTHROPIC_API_KEY=
 goto START_EXECUTION
 
-:: 3. Oobabooga (fixed)
+:: 3. Oobabooga (now with model selector)
 :OOBA_REMOTE
-set MODEL_NAME=Qwen3-14B-DeepSeek-v3.2-Speciale-Distill.q5_k_m.gguf
+echo.
+echo Available Oobabooga models:
+echo 1. Qwen3-14B-DeepSeek-v3.2-Speciale-Distill.q5_k_m.gguf (default)
+echo 2. Qwen3.5-9B.Q6_K.gguf   ← NEW
+echo.
+choice /c 12 /n /m "Select Model (1-2): "
+
+if errorlevel 2 (
+    set MODEL_NAME=Qwen3.5-9B.Q6_K.gguf
+) else (
+    set MODEL_NAME=Qwen3-14B-DeepSeek-v3.2-Speciale-Distill.q5_k_m.gguf
+)
+
 set ANTHROPIC_BASE_URL=http://192.168.0.104:5000
 set ANTHROPIC_AUTH_TOKEN=oobabooga
 set ANTHROPIC_API_KEY=
@@ -62,7 +74,7 @@ echo.
 
 echo 1. Step-3.5-Flash (Free)
 echo 2. Minimax-M2.5 (stronger)
-echo 3. Qwen 3.6 Plus (Free)   ← NEW
+echo 3. Qwen 3.6 Plus (Free)
 echo.
 choice /c 123 /n /m "Choice (1-3): "
 
