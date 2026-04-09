@@ -15,6 +15,7 @@ namespace TravelCamApp
                 .UseMauiApp<App>()
                 .UseMauiCommunityToolkit()
                 .UseMauiCommunityToolkitCamera()
+                .UseMauiCommunityToolkitMediaElement(isAndroidForegroundServiceEnabled: false)
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");

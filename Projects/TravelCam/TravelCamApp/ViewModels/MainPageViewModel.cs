@@ -70,7 +70,7 @@ namespace TravelCamApp.ViewModels
         private DateTime _recordingStart;
 
         // Gallery viewer
-        private List<string> _galleryImagePaths = new();
+        private ObservableCollection<string> _galleryImagePaths = new();
         private int _currentImageIndex;
 
         // Lifecycle guards
@@ -161,7 +161,7 @@ namespace TravelCamApp.ViewModels
             set { _isImageViewerVisible = value; OnPropertyChanged(); }
         }
 
-        public List<string> GalleryImagePaths
+        public ObservableCollection<string> GalleryImagePaths
         {
             get => _galleryImagePaths;
             set { _galleryImagePaths = value; OnPropertyChanged(); OnPropertyChanged(nameof(ImagePositionText)); }
@@ -176,6 +176,24 @@ namespace TravelCamApp.ViewModels
                 _currentImageIndex = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(ImagePositionText));
+                OnPropertyChanged(nameof(CurrentImageItem));
+            }
+        }
+
+        // For two-way binding with CollectionView SelectedItem
+        public string? CurrentImageItem
+        {
+            get => _galleryImagePaths.Count > 0 && _currentImageIndex >= 0 && _currentImageIndex < _galleryImagePaths.Count
+                ? _galleryImagePaths[_currentImageIndex]
+                : null;
+            set
+            {
+                if (value != null && _galleryImagePaths.Contains(value))
+                {
+                    var index = _galleryImagePaths.IndexOf(value);
+                    if (index != _currentImageIndex)
+                        CurrentImageIndex = index;
+                }
             }
         }
 
@@ -596,8 +614,10 @@ namespace TravelCamApp.ViewModels
                 app.PageDisappearing -= OnPageDisappearing;
             }
 
+            // Reset static flag so new instance can subscribe to lifecycle events
+            _lifecycleSubscribed = false;
+
             _sensorHelper.Stop();
-            _sensorValueViewModel.Dispose();
             StopRecordingTimer();
             _cameraView = null;
 
@@ -1112,7 +1132,7 @@ namespace TravelCamApp.ViewModels
             if (imagePaths.Count == 0 && !string.IsNullOrEmpty(_lastThumbPath) && File.Exists(_lastThumbPath))
             {
                 System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Using fallback thumb: {_lastThumbPath}");
-                imagePaths = new List<string> { _lastThumbPath };
+                imagePaths = new List<string> { _lastThumbPath! };
             }
 
             if (imagePaths.Count == 0)
@@ -1124,7 +1144,7 @@ namespace TravelCamApp.ViewModels
             // Just use file paths directly - MAUI Image control will load them
             System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Setting gallery paths: {imagePaths.Count} images");
 
-            GalleryImagePaths = imagePaths;
+            GalleryImagePaths = new ObservableCollection<string>(imagePaths);
             CurrentImageIndex = 0; // newest first
             IsImageViewerVisible = true;
 
@@ -1191,13 +1211,13 @@ namespace TravelCamApp.ViewModels
             if (updated.Count == 0)
             {
                 IsImageViewerVisible = false;
-                GalleryImagePaths = new List<string>();
+                GalleryImagePaths = new ObservableCollection<string>();
                 return;
             }
 
             // Adjust index if we deleted the last item
             var newIndex = _currentImageIndex >= updated.Count ? updated.Count - 1 : _currentImageIndex;
-            GalleryImagePaths = updated;
+            GalleryImagePaths = new ObservableCollection<string>(updated);
             CurrentImageIndex = newIndex;
         }
 

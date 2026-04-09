@@ -19,6 +19,10 @@
 - `_isDestroyed` flag prevents callbacks after window cleanup.
 - Camera initialized only after `CamerasLoaded` event from the view.
 
+- **Video Recording Support**: The MainPageViewModel handles video recording with proper state management, including preview stopping/restarting, recording timers, and thumbnail generation.
+- **Video Lifecycle**: Manages IsRecording state, recording timer for display, and ensures proper camera preview restart after video recording ends.
+- **Thumbnail Handling**: Video thumbnails are extracted as the first frame and saved alongside the video file in the gallery.
+
 ## DataOverlayViewModel.cs
 - Bridge ViewModel for the DataOverlayView overlay.
 - Subscribes to SensorHelper updates (legacy — some logic merged into MainPageViewModel now).
