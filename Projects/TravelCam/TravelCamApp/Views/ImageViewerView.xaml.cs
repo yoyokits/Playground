@@ -65,6 +65,7 @@ namespace TravelCamApp.Views
 
             try
             {
+                SharedVideoPlayer.ShouldAutoPlay = true;
                 SharedVideoPlayer.Source = new FileMediaSource { Path = filePath };
                 SharedVideoPlayer.IsVisible = true;
             }
