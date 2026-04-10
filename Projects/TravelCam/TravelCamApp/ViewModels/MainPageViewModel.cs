@@ -76,6 +76,7 @@ namespace TravelCamApp.ViewModels
         // Lifecycle guards — instance-level only (no static flag)
         private bool _windowSubscribed;
         private bool _isDestroyed;
+        private Window? _subscribedWindow; // stored so unsubscription is guaranteed
 
         // Concurrency guard — serializes camera start/stop/toggle to prevent crashes
         private readonly SemaphoreSlim _cameraLock = new(1, 1);
@@ -463,15 +464,29 @@ namespace TravelCamApp.ViewModels
 
         private void SubscribeWindowLifecycle(CameraView cameraView)
         {
-            if (_windowSubscribed || _isDestroyed) return;
+            if (_isDestroyed) return;
 
             // Prefer the visual-tree Window (reliable), fall back to first window in list.
             var window = cameraView.Window ?? Application.Current?.Windows.FirstOrDefault();
             if (window == null) return;
 
+            // If already subscribed to this exact window instance, nothing to do.
+            if (_windowSubscribed && ReferenceEquals(_subscribedWindow, window)) return;
+
+            // Unsubscribe from any previous window before subscribing to the new one.
+            // This handles the edge case where the Window object is replaced (e.g. activity recreation).
+            if (_windowSubscribed && _subscribedWindow != null)
+            {
+                _subscribedWindow.Resumed -= OnWindowResumed;
+                _subscribedWindow.Stopped -= OnWindowStopped;
+                _subscribedWindow.Destroying -= OnWindowDestroying;
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window lifecycle re-subscribing (window changed)");
+            }
+
             window.Resumed += OnWindowResumed;
             window.Stopped += OnWindowStopped;
             window.Destroying += OnWindowDestroying;
+            _subscribedWindow = window;
             _windowSubscribed = true;
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window lifecycle subscribed");
         }
@@ -483,12 +498,14 @@ namespace TravelCamApp.ViewModels
 
             try
             {
+                // Start sensors immediately — they don't need hardware warm-up time.
+                await _sensorHelper.StartAsync();
+                if (_isDestroyed) return;
+
                 // Brief pause so the Activity fully re-enters foreground before touching camera.
                 // During this delay, OnAppearing → OnViewReady may already start the camera.
                 await Task.Delay(400);
                 if (_isDestroyed) return;
-
-                await _sensorHelper.StartAsync();
 
                 if (_cameraView != null && HasCameraPermission && !_isDestroyed)
                 {
@@ -555,38 +572,48 @@ namespace TravelCamApp.ViewModels
                     $"[MainPageViewModel] Stop recording on pause error: {ex.Message}");
             }
 
+            // If OnWindowDestroying fired during the awaits above, bail out — Destroying
+            // already stopped the camera and cleaned up state.
+            if (_isDestroyed) return;
+
             _sensorHelper.Stop();
+
+            // Capture _cameraView before any await; OnWindowDestroying may null it concurrently.
+            var cameraView = _cameraView;
+            if (cameraView == null) return;
 
             // Stop the preview under the camera lock so it doesn't race with
             // any in-flight start operation (e.g. a late OnWindowResumed retry).
-            if (_cameraView != null)
+            if (!await TryAcquireCameraLockAsync(timeoutMs: 2000))
             {
-                if (!await TryAcquireCameraLockAsync(timeoutMs: 2000))
+                // Lock held too long — try stopping without the lock as last resort.
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] OnWindowStopped: lock timeout, forcing StopPreview");
+                // Re-check; Destroying may have nulled _cameraView while we waited.
+                var cv = _cameraView;
+                if (cv != null)
+                    try { CameraHelper.StopPreview(cv); } catch { }
+                IsPreviewRunning = false;
+                return;
+            }
+            try
+            {
+                // Double-check after acquiring the lock.
+                var cv = _cameraView;
+                if (cv != null)
                 {
-                    // Lock held too long — try stopping without the lock as last resort
-                    System.Diagnostics.Debug.WriteLine("[MainPageViewModel] OnWindowStopped: lock timeout, forcing StopPreview");
-                    try { CameraHelper.StopPreview(_cameraView); } catch { }
-                    IsPreviewRunning = false;
-                    return;
-                }
-                try
-                {
-                    if (_cameraView != null)
-                    {
-                        CameraHelper.StopPreview(_cameraView);
-                        IsPreviewRunning = false;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[MainPageViewModel] StopPreview error: {ex.Message}");
+                    CameraHelper.StopPreview(cv);
                     IsPreviewRunning = false;
                 }
-                finally
-                {
-                    ReleaseCameraLock();
-                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] StopPreview error: {ex.Message}");
+                IsPreviewRunning = false;
+            }
+            finally
+            {
+                ReleaseCameraLock();
             }
         }
 
@@ -594,7 +621,7 @@ namespace TravelCamApp.ViewModels
         {
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window Destroying");
 
-            // Set destroyed flag FIRST to prevent new operations from starting.
+            // Set destroyed flag FIRST to prevent any new operations from starting.
             _isDestroyed = true;
 
             // Clear recording/capture state so the VM is in a clean state.
@@ -602,6 +629,8 @@ namespace TravelCamApp.ViewModels
             // StopPreview below will abort any active MediaRecorder session on Camera2.
             IsRecording = false;
             _isCapturing = false;
+            _isTogglingRecording = false;
+            IsPreviewRunning = false;
             StopRecordingTimer();
 
             // Best-effort preview stop — sync, does not block.
@@ -612,11 +641,15 @@ namespace TravelCamApp.ViewModels
                 catch { /* best effort */ }
             }
 
-            if (sender is Window window)
+            // Use the stored window reference for guaranteed unsubscription — the sender
+            // cast is unreliable if the event fires from a different source.
+            var window = _subscribedWindow;
+            if (window != null)
             {
                 window.Resumed -= OnWindowResumed;
                 window.Stopped -= OnWindowStopped;
                 window.Destroying -= OnWindowDestroying;
+                _subscribedWindow = null;
             }
 
             _windowSubscribed = false;
@@ -666,37 +699,49 @@ namespace TravelCamApp.ViewModels
             {
                 if (_isDestroyed || _cameraView == null || IsPreviewRunning) return;
 
-                var selected = await CameraHelper.SelectFirstAvailableCameraAsync(_cameraView);
-                if (selected == null)
+                // Only enumerate and select cameras when none is selected yet.
+                // Re-running GetAvailableCameras() on every resume is an extra failure
+                // point (hardware may not be ready), resets front/rear selection, and
+                // is simply unnecessary when the camera was already chosen.
+                if (_cameraView.SelectedCamera == null)
                 {
-                    PermissionStatus = "No camera device found";
-                    IsPreviewRunning = false;
-                    return;
-                }
-
-                // Initialize MediaStore resolver for path conversion
-#if ANDROID
-                try
-                {
-                    var context = Android.App.Application.Context;
-                    var resolver = context?.ContentResolver;
-                    if (resolver != null)
+                    var selected = await CameraHelper.SelectFirstAvailableCameraAsync(_cameraView);
+                    if (selected == null)
                     {
-                        Helpers.FileHelper.InitializeMediaStoreResolver(resolver);
+                        PermissionStatus = "No camera device found";
+                        IsPreviewRunning = false;
+                        return;
                     }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Failed to initialize MediaStore resolver: {ex.Message}");
-                }
+
+                    // Initialize MediaStore resolver the first time only
+#if ANDROID
+                    try
+                    {
+                        var context = Android.App.Application.Context;
+                        var resolver = context?.ContentResolver;
+                        if (resolver != null)
+                            Helpers.FileHelper.InitializeMediaStoreResolver(resolver);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[MainPageViewModel] Failed to initialize MediaStore resolver: {ex.Message}");
+                    }
 #endif
 
-                // Build zoom presets from actual hardware capabilities
-                UpdateZoomPresets(selected);
+                    // Build zoom presets from actual hardware capabilities
+                    UpdateZoomPresets(selected);
+                }
+
+                if (_isDestroyed || _cameraView == null) return;
 
                 bool ok = await CameraHelper.StartPreviewAsync(_cameraView);
                 IsPreviewRunning = ok;
                 PermissionStatus = ok ? "Camera ready" : "Failed to start camera";
+
+                // Re-apply flash state — StopCameraPreview resets hardware to Off.
+                if (ok && _cameraView != null)
+                    _cameraView.CameraFlashMode = _isFlashOn ? CameraFlashMode.On : CameraFlashMode.Off;
             }
             finally
             {
@@ -739,6 +784,10 @@ namespace TravelCamApp.ViewModels
 
                 bool ok = await CameraHelper.StartPreviewAsync(_cameraView);
                 IsPreviewRunning = ok;
+
+                // Re-apply flash state after toggle — hardware resets to Off on each open.
+                if (ok && _cameraView != null)
+                    _cameraView.CameraFlashMode = _isFlashOn ? CameraFlashMode.On : CameraFlashMode.Off;
             }
             finally
             {
