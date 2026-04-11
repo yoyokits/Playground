@@ -25,6 +25,7 @@ namespace TravelCamApp.Helpers
         private System.Timers.Timer? _updateTimer;
         private CancellationTokenSource? _cts;
         private int _isUpdating; // 0 = idle, 1 = updating (atomic via Interlocked)
+        private bool _isRunning = false; // Guards idempotent Start calls
 
         public SensorData CurrentData { get; private set; } = new()
         {
@@ -46,9 +47,19 @@ namespace TravelCamApp.Helpers
 
         public async Task StartAsync()
         {
-            // Stop any existing timer before starting a new one
+            // Idempotent guard: if already running, skip reinitialization
+            // This prevents duplicate timers/callbacks when called multiple times in quick succession
+            // (e.g., from OnViewReady → OnWindowResumed → background task all firing at once)
+            if (_isRunning)
+            {
+                System.Diagnostics.Debug.WriteLine("[SensorHelper] Already running — skipping redundant start");
+                return;
+            }
+
+            // Stop any existing timer before starting a new one (cleanup old state)
             Stop();
 
+            _isRunning = true;
             _cts = new CancellationTokenSource();
 
             // Fire-and-forget initial sensor poll on a background thread so the
@@ -75,6 +86,8 @@ namespace TravelCamApp.Helpers
 
         public void Stop()
         {
+            _isRunning = false;
+
             // Capture and null-out references before disposing to prevent double-dispose
             var cts = _cts;
             _cts = null;
