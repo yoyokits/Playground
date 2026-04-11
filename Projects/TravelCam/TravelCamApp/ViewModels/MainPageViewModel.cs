@@ -751,19 +751,19 @@ namespace TravelCamApp.ViewModels
             if (needsFullReinit)
             {
                 System.Diagnostics.Debug.WriteLine(
-                    "[MainPageViewModel] OnViewReady: Full initialization NOT complete yet — waiting for SafeInitializeAsync");
+                    "[MainPageViewModel] OnViewReady: Full initialization NOT complete yet — SafeInitializeAsync is running");
 
-                // Just set the camera view and return.
+                // Just set the camera view and return immediately — DO NOT WAIT!
+                // Waiting blocks the UI thread and causes frame lag/hangs.
                 // SafeInitializeAsync() from constructor is running in background and will handle:
                 // - Permission requests
                 // - Sensor startup
-                // - Camera preview start
-                // This prevents race conditions and permission issues.
+                // - Camera preview start (when _cameraView is set and permissions granted)
 
-                // But do reset the destroyed flag since we have a fresh view
+                // Reset the destroyed flag since we have a fresh view
                 _isDestroyed = false;
 
-                // And clear any stale camera selection from previous session
+                // Clear any stale camera selection from previous session
                 if (_cameraView.SelectedCamera != null)
                 {
                     System.Diagnostics.Debug.WriteLine(
@@ -774,25 +774,9 @@ namespace TravelCamApp.ViewModels
                 // Subscribe to window lifecycle — this is needed immediately
                 SubscribeWindowLifecycle(cameraView);
 
-                // Wait briefly then check if permissions are available
-                // This handles the case where SafeInitializeAsync completes while we're waiting
-                int maxWaitAttempts = 50; // 5 seconds (50 * 100ms)
-                while (!_isAppInitialized && maxWaitAttempts > 0)
-                {
-                    await Task.Delay(100);
-                    maxWaitAttempts--;
-                }
-
-                if (!_isAppInitialized)
-                {
-                    System.Diagnostics.Debug.WriteLine(
-                        "[MainPageViewModel] OnViewReady: Still waiting for initialization after 5s — will continue once ready");
-                    return;
-                }
-
-                // Initialization completed — fall through to camera startup
-                System.Diagnostics.Debug.WriteLine(
-                    "[MainPageViewModel] OnViewReady: Initialization complete, proceeding with camera preview");
+                // ✅ RETURN IMMEDIATELY — do not wait!
+                // InitializeAsync will start the preview when it detects _cameraView is set
+                return;
             }
 
             // ============================================================
