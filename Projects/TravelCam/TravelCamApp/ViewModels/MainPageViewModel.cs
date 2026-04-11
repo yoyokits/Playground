@@ -86,9 +86,12 @@ namespace TravelCamApp.ViewModels
 
         /// <summary>
         /// Static flag tracking whether the app has been fully initialized at least once.
-        /// When false (app just opened), all resources must be reinitialized.
+        /// Initialized to false: on first app launch, full initialization MUST happen.
+        /// Set to true only after successful initialization completes.
+        /// Reset to false in OnWindowDestroying so that after Activity recreation,
+        /// the next OnViewReady call triggers full reinitialization.
         /// </summary>
-        private static bool _isAppInitialized = true;
+        private static bool _isAppInitialized = false;
 
         /// <summary>
         /// Static log file path for detailed crash diagnostics.
@@ -260,17 +263,6 @@ namespace TravelCamApp.ViewModels
 
         #endregion
 
-        /// <summary>
-        /// Static constructor — resets initialization flag when ViewModel is created.
-        /// This ensures that even if the app was previously initialized, it will be
-        /// reinitialized on next launch after being swiped away (since OnWindowDestroying
-        /// sets _isAppInitialized = false).
-        /// </summary>
-        static MainPageViewModel()
-        {
-            // Reset flag to ensure clean state for first-time or fresh app launch
-            _isAppInitialized = true;
-        }
 
         #region Constructor
 
@@ -391,6 +383,10 @@ namespace TravelCamApp.ViewModels
             if (_isDestroyed) return;
 
             await _sensorHelper.StartAsync();
+
+            // Mark app as successfully initialized — required for proper Activity recreation recovery
+            _isAppInitialized = true;
+            System.Diagnostics.Debug.WriteLine("[MainPageViewModel] App fully initialized successfully");
         }
 
         /// <summary>
@@ -714,6 +710,11 @@ namespace TravelCamApp.ViewModels
                 catch { /* best effort */ }
             }
             _cameraView = null;
+
+            // Reset the app initialization flag so next app launch performs full reinitialization.
+            // This is critical for Activity recreation scenarios where the process survives.
+            _isAppInitialized = false;
+            System.Diagnostics.Debug.WriteLine("[MainPageViewModel] App initialization flag reset (will reinitialize on next launch)");
 
             // NOTE: Do NOT dispose _cameraLock here.
             // SemaphoreSlim(1,1) holds no native resources — the GC reclaims it if this
