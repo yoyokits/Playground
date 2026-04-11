@@ -656,8 +656,11 @@ namespace TravelCamApp.ViewModels
             _sensorHelper.Stop();
             _cameraView = null;
 
-            // Dispose lock LAST — after all operations that use it are guaranteed done.
-            try { _cameraLock.Dispose(); } catch { }
+            // NOTE: Do NOT dispose _cameraLock here.
+            // SemaphoreSlim(1,1) holds no native resources — the GC reclaims it if this
+            // ViewModel is truly freed, and if the process survives Activity recreation
+            // (Shell page cache keeps the ViewModel alive), OnViewReady will reuse the
+            // same semaphore safely after resetting _isDestroyed = false.
         }
 
         #endregion
@@ -670,7 +673,42 @@ namespace TravelCamApp.ViewModels
         /// </summary>
         public async Task OnViewReady(CameraView cameraView)
         {
-            if (_isDestroyed) return;
+            // Recover from a previous Window.Destroying call.
+            //
+            // When the user swipes the app away from recents, Android destroys the Activity
+            // and MAUI fires Window.Destroying on this ViewModel. Shell's page cache keeps
+            // the MainPage (and this ViewModel) alive in memory. When the user reopens the
+            // app, Android creates a new Activity, MAUI reconnects to the same Window/Page,
+            // and OnAppearing → OnViewReady fires again on this same instance.
+            //
+            // On this "Created → Activated" lifecycle path, Window.Resumed is NEVER fired
+            // (Resumed only fires when returning from the Stopped state), so sensors and
+            // camera must be restarted here — this is the only guaranteed re-entry point.
+            if (_isDestroyed)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    "[MainPageViewModel] OnViewReady: recovering after Activity recreation");
+                _isDestroyed = false;
+                IsPreviewRunning = false;
+                IsRecording = false;
+                _isCapturing = false;
+                _isTogglingRecording = false;
+                _windowSubscribed = false;
+                _subscribedWindow = null;
+                StopRecordingTimer();
+
+                // Restart sensors — they were stopped in OnWindowDestroying and
+                // OnWindowResumed will not fire on the Created→Activated path.
+                try { await _sensorHelper.StartAsync(); }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MainPageViewModel] Sensor restart on recovery error: {ex.Message}");
+                }
+
+                if (_isDestroyed) return; // guard against concurrent destroy during sensor await
+            }
+
             _cameraView = cameraView;
 
             // Subscribe to window lifecycle events now that the view is attached.
