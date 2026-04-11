@@ -74,12 +74,28 @@ namespace TravelCamApp.ViewModels
         private int _currentImageIndex;
 
         // Lifecycle guards — instance-level only (no static flag)
+        private List<Window> _trackedWindows = new();  // track all windows for proper cleanup
         private bool _windowSubscribed;
         private bool _isDestroyed;
         private Window? _subscribedWindow; // stored so unsubscription is guaranteed
 
         // Concurrency guard — serializes camera start/stop/toggle to prevent crashes
         private readonly SemaphoreSlim _cameraLock = new(1, 1);
+
+        #region Static State Management
+
+        /// <summary>
+        /// Static flag tracking whether the app has been fully initialized at least once.
+        /// When false (app just opened), all resources must be reinitialized.
+        /// </summary>
+        private static bool _isAppInitialized = true;
+
+        /// <summary>
+        /// Static log file path for detailed crash diagnostics.
+        /// </summary>
+        private const string CrashLogPath = "crash_diagnostics.log";
+
+        #endregion
 
         // Preference keys
         private const string PrefLastThumbPath = "LastThumbPath";
@@ -244,6 +260,18 @@ namespace TravelCamApp.ViewModels
 
         #endregion
 
+        /// <summary>
+        /// Static constructor — resets initialization flag when ViewModel is created.
+        /// This ensures that even if the app was previously initialized, it will be
+        /// reinitialized on next launch after being swiped away (since OnWindowDestroying
+        /// sets _isAppInitialized = false).
+        /// </summary>
+        static MainPageViewModel()
+        {
+            // Reset flag to ensure clean state for first-time or fresh app launch
+            _isAppInitialized = true;
+        }
+
         #region Constructor
 
         public MainPageViewModel(
@@ -275,6 +303,25 @@ namespace TravelCamApp.ViewModels
         #endregion
 
         #region Initialization
+
+        /// <summary>
+        /// Checks if the app needs full reinitialization (first launch or after being swiped away).
+        /// Returns true if resources need to be recreated.
+        /// </summary>
+        public static bool NeedsReinitialization()
+        {
+            return !_isAppInitialized;
+        }
+
+        /// <summary>
+        /// Resets the app initialization state, forcing full reinitialization on next launch.
+        /// Called after successful camera setup or when explicitly requested for clean restart.
+        /// </summary>
+        public static void ResetInitializationState()
+        {
+            _isAppInitialized = false;
+            System.Diagnostics.Debug.WriteLine("[MainPageViewModel] App initialization state reset (needs reinitialization)");
+        }
 
         private async Task SafeInitializeAsync()
         {
@@ -473,6 +520,9 @@ namespace TravelCamApp.ViewModels
             // If already subscribed to this exact window instance, nothing to do.
             if (_windowSubscribed && ReferenceEquals(_subscribedWindow, window)) return;
 
+            // Track this window for proper cleanup on app close/restart
+            _trackedWindows.Add(window);
+
             // Unsubscribe from any previous window before subscribing to the new one.
             // This handles the edge case where the Window object is replaced (e.g. activity recreation).
             if (_windowSubscribed && _subscribedWindow != null)
@@ -619,8 +669,6 @@ namespace TravelCamApp.ViewModels
 
         private void OnWindowDestroying(object? sender, EventArgs e)
         {
-            System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Window Destroying");
-
             // Set destroyed flag FIRST to prevent any new operations from starting.
             _isDestroyed = true;
 
@@ -633,27 +681,38 @@ namespace TravelCamApp.ViewModels
             IsPreviewRunning = false;
             StopRecordingTimer();
 
-            // Best-effort preview stop — sync, does not block.
-            // If recording was active, Camera2 aborts the session as a side-effect.
+            // Unsubscribe from ALL tracked windows — critical for force-close scenario.
+            // The sender cast is unreliable if the event fires from a different source,
+            // so we use our stored list of window references.
+            foreach (var window in _trackedWindows)
+            {
+                try
+                {
+                    window.Resumed -= OnWindowResumed;
+                    window.Stopped -= OnWindowStopped;
+                    window.Destroying -= OnWindowDestroying;
+                }
+                catch { /* ignore unsubscription errors */ }
+            }
+            _trackedWindows.Clear();
+
+            // Clear the single tracked reference as well.
+            if (_subscribedWindow != null)
+            {
+                _subscribedWindow.Resumed -= OnWindowResumed;
+                _subscribedWindow.Stopped -= OnWindowStopped;
+                _subscribedWindow.Destroying -= OnWindowDestroying;
+            }
+
+            _windowSubscribed = false;
+
+            // Stop sensors and camera view.
+            _sensorHelper.Stop();
             if (_cameraView != null)
             {
                 try { CameraHelper.StopPreview(_cameraView); }
                 catch { /* best effort */ }
             }
-
-            // Use the stored window reference for guaranteed unsubscription — the sender
-            // cast is unreliable if the event fires from a different source.
-            var window = _subscribedWindow;
-            if (window != null)
-            {
-                window.Resumed -= OnWindowResumed;
-                window.Stopped -= OnWindowStopped;
-                window.Destroying -= OnWindowDestroying;
-                _subscribedWindow = null;
-            }
-
-            _windowSubscribed = false;
-            _sensorHelper.Stop();
             _cameraView = null;
 
             // NOTE: Do NOT dispose _cameraLock here.
@@ -673,18 +732,54 @@ namespace TravelCamApp.ViewModels
         /// </summary>
         public async Task OnViewReady(CameraView cameraView)
         {
-            // Recover from a previous Window.Destroying call.
-            //
-            // When the user swipes the app away from recents, Android destroys the Activity
-            // and MAUI fires Window.Destroying on this ViewModel. Shell's page cache keeps
-            // the MainPage (and this ViewModel) alive in memory. When the user reopens the
-            // app, Android creates a new Activity, MAUI reconnects to the same Window/Page,
-            // and OnAppearing → OnViewReady fires again on this same instance.
-            //
-            // On this "Created → Activated" lifecycle path, Window.Resumed is NEVER fired
-            // (Resumed only fires when returning from the Stopped state), so sensors and
-            // camera must be restarted here — this is the only guaranteed re-entry point.
-            if (_isDestroyed)
+            // ============================================================
+            // CRITICAL: Check for full reinitialization needed
+            // ============================================================
+            bool needsFullReinit = NeedsReinitialization();
+            if (needsFullReinit)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    "[MainPageViewModel] OnViewReady: FULL REINITIALIZATION REQUIRED");
+                LogState("OnViewReady", "Needs full reinitialization - app just opened or after swipe away");
+
+                // Reset all instance state to clean slate
+                _isDestroyed = false;
+                IsPreviewRunning = false;
+                IsRecording = false;
+                _isCapturing = false;
+                _isTogglingRecording = false;
+                _windowSubscribed = false;
+                _subscribedWindow = null;
+                StopRecordingTimer();
+
+                // Clear camera view reference - will be set by caller after reinit
+                var oldCameraView = _cameraView;
+                _cameraView = null;
+
+                // Restart sensors first (they don't depend on camera)
+                try { await _sensorHelper.StartAsync(); }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MainPageViewModel] Sensor restart error: {ex.Message}");
+                }
+
+                // Clear stale camera selection if present
+                if (oldCameraView != null && oldCameraView.SelectedCamera != null)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        "[MainPageViewModel] OnViewReady: clearing stale SelectedCamera after full reinit");
+                    oldCameraView.SelectedCamera = null;
+                }
+
+                // Now set the new camera view and continue with normal initialization
+            }
+
+            // ============================================================
+            // Normal recovery from Window.Destroying (not full reinit)
+            // ============================================================
+            bool wasDestroyed = _isDestroyed;
+            if (_isDestroyed && !needsFullReinit)
             {
                 System.Diagnostics.Debug.WriteLine(
                     "[MainPageViewModel] OnViewReady: recovering after Activity recreation");
@@ -710,6 +805,17 @@ namespace TravelCamApp.ViewModels
             }
 
             _cameraView = cameraView;
+
+            // After Activity recreation the CameraView.SelectedCamera property still holds
+            // the CameraInfo from the previous session, but the underlying Camera2 session
+            // has been torn down. Calling StartCameraPreview with a stale CameraInfo causes
+            // a native crash. Force fresh enumeration by clearing the selection here.
+            if ((wasDestroyed || needsFullReinit) && _cameraView.SelectedCamera != null)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    "[MainPageViewModel] OnViewReady: clearing stale SelectedCamera after recreation/reinit");
+                _cameraView.SelectedCamera = null;
+            }
 
             // Subscribe to window lifecycle events now that the view is attached.
             // Uses the visual-tree Window so we get the correct instance even during
@@ -1434,6 +1540,35 @@ namespace TravelCamApp.ViewModels
         {
             try { _cameraLock.Release(); }
             catch (ObjectDisposedException) { }
+        }
+
+        /// <summary>
+        /// Logs detailed state information for crash diagnostics.
+        /// </summary>
+        private void LogState(string operation, string message)
+        {
+            try
+            {
+                // Use app-private cache directory (same as FileHelper.GetAppCacheDir)
+                var logPath = Path.Combine(FileSystem.CacheDirectory, CrashLogPath);
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                var logEntry = $"[{timestamp}] {operation}: {message}\n";
+
+                // Append to existing log file
+                if (File.Exists(logPath))
+                {
+                    File.AppendAllText(logPath, logEntry);
+                }
+                else
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+                    File.WriteAllText(logPath, logEntry);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Failed to write crash log: {ex.Message}");
+            }
         }
 
         protected void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? name = null)

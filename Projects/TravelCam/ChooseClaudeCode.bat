@@ -52,12 +52,15 @@ echo.
 echo Available LM Studio models:
 echo 1. google/gemma-4-e4b:3
 echo 2. Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2-GGUF
-echo 3. unsloth/gemma-4-26B-A4B-it-GGUF
+echo 3. unsloth/gemma-4-26b-a4b-it@iq3_s
+echo 4. unsloth/gemma-4-26b-a4b-it@iq4_nl
 echo.
-choice /c 123 /n /m "Select Model (1-3): "
+choice /c 1234 /n /m "Select Model (1-4): "
 
-if errorlevel 3 (
-    set MODEL_NAME=unsloth/gemma-4-26B-A4B-it-GGUF
+if errorlevel 4 (
+    set MODEL_NAME=unsloth/gemma-4-26b-a4b-it@iq4_nl
+) else if errorlevel 3 (
+    set MODEL_NAME=unsloth/gemma-4-26b-a4b-it@iq3_s
 ) else if errorlevel 2 (
     set MODEL_NAME=Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2-GGUF
 ) else (
