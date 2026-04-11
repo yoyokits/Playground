@@ -12,7 +12,7 @@ echo.
 :MAIN_CHOICE
 echo 1. Claude (Anthropic Cloud - Sonnet)
 echo 2. Ollama (Remote: 192.168.0.104)
-echo 3. Oobabooga (Remote: 192.168.0.104)
+echo 3. LM Studio (Remote: 192.168.0.104)
 echo 4. OpenRouter (Cloud Gateway)
 echo.
 choice /c 1234 /n /m "Select Provider (1-4): "
@@ -28,7 +28,7 @@ set ANTHROPIC_DEFAULT_HAIKU_MODEL=
 set MODEL_NAME=
 
 if errorlevel 4 goto OPENROUTER
-if errorlevel 3 goto OOBA_REMOTE
+if errorlevel 3 goto LMSTUDIO_REMOTE
 if errorlevel 2 goto OLLAMA_REMOTE
 if errorlevel 1 goto CLAUDE
 
@@ -46,24 +46,28 @@ set ANTHROPIC_AUTH_TOKEN=ollama
 set ANTHROPIC_API_KEY=
 goto START_EXECUTION
 
-:: 3. Oobabooga (now with model selector)
-:OOBA_REMOTE
+:: 3. LM Studio
+:LMSTUDIO_REMOTE
 echo.
-echo Available Oobabooga models:
-echo 1. Qwen3-14B-DeepSeek-v3.2-Speciale-Distill.q5_k_m.gguf (default)
-echo 2. Qwen3.5-9B.Q6_K.gguf   ← NEW
+echo Available LM Studio models:
+echo 1. google/gemma-4-e4b:3
+echo 2. Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2-GGUF
+echo 3. unsloth/gemma-4-26B-A4B-it-GGUF
 echo.
-choice /c 12 /n /m "Select Model (1-2): "
+choice /c 123 /n /m "Select Model (1-3): "
 
-if errorlevel 2 (
-    set MODEL_NAME=Qwen3.5-9B.Q6_K.gguf
+if errorlevel 3 (
+    set MODEL_NAME=unsloth/gemma-4-26B-A4B-it-GGUF
+) else if errorlevel 2 (
+    set MODEL_NAME=Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-v2-GGUF
 ) else (
-    set MODEL_NAME=Qwen3-14B-DeepSeek-v3.2-Speciale-Distill.q5_k_m.gguf
+    set MODEL_NAME=google/gemma-4-e4b:3
 )
 
-set ANTHROPIC_BASE_URL=http://192.168.0.104:5000
-set ANTHROPIC_AUTH_TOKEN=oobabooga
-set ANTHROPIC_API_KEY=
+set ANTHROPIC_MODEL=%MODEL_NAME%
+set ANTHROPIC_BASE_URL=http://192.168.0.104:1234/
+set ANTHROPIC_AUTH_TOKEN=lm-studio
+set ANTHROPIC_API_KEY=lm-studio
 goto START_EXECUTION
 
 :: 4. OpenRouter
