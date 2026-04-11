@@ -387,6 +387,15 @@ namespace TravelCamApp.ViewModels
             // Mark app as successfully initialized — required for proper Activity recreation recovery
             _isAppInitialized = true;
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] App fully initialized successfully");
+
+            // If the camera view is already ready (OnAppearing → OnViewReady → waiting for init),
+            // start the preview now. Otherwise, OnViewReady will start it when it detects initialization complete.
+            if (!_isDestroyed && _cameraView != null && !IsPreviewRunning)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    "[MainPageViewModel] InitializeAsync complete: camera view ready, starting preview");
+                await StartCameraPreviewAsync();
+            }
         }
 
         /// <summary>
@@ -733,54 +742,64 @@ namespace TravelCamApp.ViewModels
         /// </summary>
         public async Task OnViewReady(CameraView cameraView)
         {
+            _cameraView = cameraView;
+
             // ============================================================
-            // CRITICAL: Check for full reinitialization needed
+            // CRITICAL: Check if full app initialization is complete
             // ============================================================
             bool needsFullReinit = NeedsReinitialization();
             if (needsFullReinit)
             {
                 System.Diagnostics.Debug.WriteLine(
-                    "[MainPageViewModel] OnViewReady: FULL REINITIALIZATION REQUIRED");
-                LogState("OnViewReady", "Needs full reinitialization - app just opened or after swipe away");
+                    "[MainPageViewModel] OnViewReady: Full initialization NOT complete yet — waiting for SafeInitializeAsync");
 
-                // Reset all instance state to clean slate
+                // Just set the camera view and return.
+                // SafeInitializeAsync() from constructor is running in background and will handle:
+                // - Permission requests
+                // - Sensor startup
+                // - Camera preview start
+                // This prevents race conditions and permission issues.
+
+                // But do reset the destroyed flag since we have a fresh view
                 _isDestroyed = false;
-                IsPreviewRunning = false;
-                IsRecording = false;
-                _isCapturing = false;
-                _isTogglingRecording = false;
-                _windowSubscribed = false;
-                _subscribedWindow = null;
-                StopRecordingTimer();
 
-                // Clear camera view reference - will be set by caller after reinit
-                var oldCameraView = _cameraView;
-                _cameraView = null;
-
-                // Restart sensors first (they don't depend on camera)
-                try { await _sensorHelper.StartAsync(); }
-                catch (Exception ex)
+                // And clear any stale camera selection from previous session
+                if (_cameraView.SelectedCamera != null)
                 {
                     System.Diagnostics.Debug.WriteLine(
-                        $"[MainPageViewModel] Sensor restart error: {ex.Message}");
+                        "[MainPageViewModel] OnViewReady: clearing stale SelectedCamera (full reinit pending)");
+                    _cameraView.SelectedCamera = null;
                 }
 
-                // Clear stale camera selection if present
-                if (oldCameraView != null && oldCameraView.SelectedCamera != null)
+                // Subscribe to window lifecycle — this is needed immediately
+                SubscribeWindowLifecycle(cameraView);
+
+                // Wait briefly then check if permissions are available
+                // This handles the case where SafeInitializeAsync completes while we're waiting
+                int maxWaitAttempts = 50; // 5 seconds (50 * 100ms)
+                while (!_isAppInitialized && maxWaitAttempts > 0)
+                {
+                    await Task.Delay(100);
+                    maxWaitAttempts--;
+                }
+
+                if (!_isAppInitialized)
                 {
                     System.Diagnostics.Debug.WriteLine(
-                        "[MainPageViewModel] OnViewReady: clearing stale SelectedCamera after full reinit");
-                    oldCameraView.SelectedCamera = null;
+                        "[MainPageViewModel] OnViewReady: Still waiting for initialization after 5s — will continue once ready");
+                    return;
                 }
 
-                // Now set the new camera view and continue with normal initialization
+                // Initialization completed — fall through to camera startup
+                System.Diagnostics.Debug.WriteLine(
+                    "[MainPageViewModel] OnViewReady: Initialization complete, proceeding with camera preview");
             }
 
             // ============================================================
-            // Normal recovery from Window.Destroying (not full reinit)
+            // Handle Activity recreation recovery (not full reinit)
             // ============================================================
             bool wasDestroyed = _isDestroyed;
-            if (_isDestroyed && !needsFullReinit)
+            if (wasDestroyed && !needsFullReinit)
             {
                 System.Diagnostics.Debug.WriteLine(
                     "[MainPageViewModel] OnViewReady: recovering after Activity recreation");
@@ -794,7 +813,7 @@ namespace TravelCamApp.ViewModels
                 StopRecordingTimer();
 
                 // Restart sensors — they were stopped in OnWindowDestroying and
-                // OnWindowResumed will not fire on the Created→Activated path.
+                // OnWindowResumed may not fire on the Created→Activated path.
                 try { await _sensorHelper.StartAsync(); }
                 catch (Exception ex)
                 {
@@ -805,16 +824,12 @@ namespace TravelCamApp.ViewModels
                 if (_isDestroyed) return; // guard against concurrent destroy during sensor await
             }
 
-            _cameraView = cameraView;
-
-            // After Activity recreation the CameraView.SelectedCamera property still holds
-            // the CameraInfo from the previous session, but the underlying Camera2 session
-            // has been torn down. Calling StartCameraPreview with a stale CameraInfo causes
-            // a native crash. Force fresh enumeration by clearing the selection here.
+            // Clear stale camera selection after activity recreation
+            // (The CameraView.SelectedCamera might hold a reference to a destroyed Camera2 session)
             if ((wasDestroyed || needsFullReinit) && _cameraView.SelectedCamera != null)
             {
                 System.Diagnostics.Debug.WriteLine(
-                    "[MainPageViewModel] OnViewReady: clearing stale SelectedCamera after recreation/reinit");
+                    "[MainPageViewModel] OnViewReady: clearing stale SelectedCamera after recreation");
                 _cameraView.SelectedCamera = null;
             }
 
@@ -823,14 +838,25 @@ namespace TravelCamApp.ViewModels
             // activity recreation in the same process.
             SubscribeWindowLifecycle(cameraView);
 
+            // At this point, full initialization must be complete (either from SafeInitializeAsync
+            // or this is Activity recreation recovery). Permissions should be granted.
             if (!HasCameraPermission)
             {
                 System.Diagnostics.Debug.WriteLine(
                     "[MainPageViewModel] No camera permission, skipping preview");
+                PermissionStatus = "Camera permission not granted";
                 return;
             }
 
-            if (IsPreviewRunning) return;
+            if (IsPreviewRunning)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    "[MainPageViewModel] OnViewReady: Camera preview already running");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine(
+                "[MainPageViewModel] OnViewReady: Starting camera preview");
             await StartCameraPreviewAsync();
         }
 
