@@ -18,8 +18,10 @@ namespace TravelCamApp
                 .UseMauiCommunityToolkitMediaElement(isAndroidForegroundServiceEnabled: false)
                 .ConfigureFonts(fonts =>
                 {
-                    fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                    fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+                    // TODO: Font deployment issue on Android — fonts in Resources/Fonts/ not reaching assets
+                    // Temporarily disabled to allow app to start. Re-enable after fixing asset deployment.
+                    // fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+                    // fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
 
             // Singletons — one instance shared across the entire app lifetime
