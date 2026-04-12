@@ -122,10 +122,10 @@
                 </Border>
             </Grid>
 
-            <!-- ── Sensor overlay (right-center) ── -->
+            <!-- ── Sensor overlay (bottom-right) ── -->
             <views:DataOverlayView
-                HorizontalOptions="End" VerticalOptions="Center"
-                Margin="0,0,12,0"
+                HorizontalOptions="End" VerticalOptions="End"
+                Margin="0,0,12,12"
                 IsVisible="{Binding CameraSettings.ShowSensorOverlay}" />
 
             <!-- ── Zoom pills strip (BindableLayout, dynamic presets) ── -->
