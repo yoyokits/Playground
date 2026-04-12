@@ -85,9 +85,10 @@
                           WidthRequest="22" HeightRequest="22"
                           HorizontalOptions="Center" VerticalOptions="Center" />
                     <!-- Slash line — visible only when flash is OFF -->
-                    <Path Data="M8,8 L36,36"
+                    <Path Data="M10,10 L34,34"
                           Stroke="White" StrokeThickness="2"
-                          HorizontalOptions="Fill" VerticalOptions="Fill"
+                          HorizontalOptions="Center" VerticalOptions="Center"
+                          WidthRequest="24" HeightRequest="24"
                           IsVisible="{Binding IsFlashOn,
                                       Converter={StaticResource InvertedBoolConverter}}" />
                     <Grid.GestureRecognizers>
@@ -126,6 +127,7 @@
             <views:DataOverlayView
                 HorizontalOptions="End" VerticalOptions="End"
                 Margin="0,0,12,12"
+                MaximumHeightRequest="300"
                 IsVisible="{Binding CameraSettings.ShowSensorOverlay}" />
 
             <!-- ── Zoom pills strip (BindableLayout, dynamic presets) ── -->
