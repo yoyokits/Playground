@@ -30,6 +30,7 @@ namespace TravelCamApp.ViewModels
 
         private readonly SensorHelper _sensorHelper;
         private ObservableCollection<OverlayItem> _sensorItems = new();
+        private ObservableCollection<OverlayItem> _visibleItems = new();
         private float _fontSize = 12f;
         private bool _isMapOverlayVisible;
         private bool _isDisposed;
@@ -44,6 +45,12 @@ namespace TravelCamApp.ViewModels
         {
             get => _sensorItems;
             private set { _sensorItems = value; OnPropertyChanged(); }
+        }
+
+        public ObservableCollection<OverlayItem> VisibleOverlayItems
+        {
+            get => _visibleItems;
+            private set { _visibleItems = value; OnPropertyChanged(); }
         }
 
         /// <summary>Base font size from the Label Size slider (8–24 pt).</summary>
@@ -118,6 +125,21 @@ namespace TravelCamApp.ViewModels
 
         #endregion
 
+        #region Overlay Item Event Handling
+
+        private void OnOverlayItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not OverlayItem item || e.PropertyName != nameof(OverlayItem.IsVisible))
+                return;
+
+            if (item.IsVisible && !_visibleItems.Contains(item))
+                _visibleItems.Add(item);
+            else if (!item.IsVisible && _visibleItems.Contains(item))
+                _visibleItems.Remove(item);
+        }
+
+        #endregion
+
         #region Sensor Data Updates
 
         private void OnSensorDataUpdated(Models.SensorData data)
@@ -166,6 +188,14 @@ namespace TravelCamApp.ViewModels
                 new OverlayItem("Heading",     "",                                  isVisible: false),
                 new OverlayItem("Speed",       "",                                  isVisible: false),
             };
+
+            // Subscribe to visibility changes and populate visible items
+            foreach (var item in _sensorItems)
+            {
+                item.PropertyChanged += OnOverlayItemPropertyChanged;
+                if (item.IsVisible)
+                    _visibleItems.Add(item);
+            }
         }
 
         #endregion
@@ -194,6 +224,10 @@ namespace TravelCamApp.ViewModels
             if (_isDisposed) return;
             _isDisposed = true;
             _sensorHelper.SensorDataUpdated -= OnSensorDataUpdated;
+            foreach (var item in _sensorItems)
+            {
+                item.PropertyChanged -= OnOverlayItemPropertyChanged;
+            }
         }
 
         #endregion

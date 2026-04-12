@@ -22,13 +22,12 @@
                 <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
             </VerticalStackLayout.GestureRecognizers>
 
-            <CollectionView ItemsSource="{Binding OverlayItems}"
+            <CollectionView ItemsSource="{Binding VisibleOverlayItems}"
                             SelectionMode="None">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:OverlayItem">
                         <!-- Each sensor entry: label line + value line -->
-                        <VerticalStackLayout IsVisible="{Binding IsVisible}"
-                                            Spacing="0"
+                        <VerticalStackLayout Spacing="0"
                                             Margin="0,0,0,4">
                             <!-- Sensor label (muted gray, uppercase) — size from DataOverlayViewModel.LabelFontSize -->
                             <Label Text="{Binding Name}"
