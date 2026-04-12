@@ -10,6 +10,9 @@ namespace TravelCamApp.Views
 {
     public partial class ImageViewerView : ContentView
     {
+        private bool _isScrollingFromCarousel = false;
+        private CancellationTokenSource? _scrollDebounceCancel;
+
         public ImageViewerView()
         {
             InitializeComponent();
@@ -37,14 +40,31 @@ namespace TravelCamApp.Views
             }
         }
 
-        private void OnCarouselPositionChanged(object? sender, EventArgs e)
+        private async void OnCarouselPositionChanged(object? sender, EventArgs e)
         {
-            // Scroll the thumbnail strip to keep it in sync
-            if (BindingContext is MainPageViewModel vm && MainCarousel != null && ThumbnailStrip != null)
+            // Mark that scroll is happening from carousel (not user thumbnail tap)
+            _isScrollingFromCarousel = true;
+
+            // Debounce: cancel previous timer and start new one
+            _scrollDebounceCancel?.Cancel();
+            _scrollDebounceCancel = new CancellationTokenSource();
+
+            try
             {
-                var newIndex = MainCarousel.Position;
-                if (newIndex >= 0 && newIndex < vm.GalleryImagePaths.Count)
-                    ThumbnailStrip.ScrollTo(newIndex, position: ScrollToPosition.Center, animate: true);
+                // Wait 50ms before scrolling to allow carousel animation to settle
+                await Task.Delay(50, _scrollDebounceCancel.Token);
+
+                // Scroll the thumbnail strip to keep it in sync (no animation to avoid conflict)
+                if (BindingContext is MainPageViewModel vm && MainCarousel != null && ThumbnailStrip != null && !_scrollDebounceCancel.Token.IsCancellationRequested)
+                {
+                    var newIndex = MainCarousel.Position;
+                    if (newIndex >= 0 && newIndex < vm.GalleryImagePaths.Count)
+                        ThumbnailStrip.ScrollTo(newIndex, position: ScrollToPosition.Center, animate: false);
+                }
+            }
+            finally
+            {
+                _isScrollingFromCarousel = false;
             }
 
             // Hide the shared video player when navigating to another item
