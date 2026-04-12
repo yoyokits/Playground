@@ -9,8 +9,7 @@
              x:DataType="vm:MainPageViewModel"
              x:Name="ThisPage"
              BackgroundColor="Black"
-             Shell.NavBarIsVisible="False"
-             SafeAreaEdges="None">
+             Shell.NavBarIsVisible="False">
 
     <!-- Root: two rows — camera preview (fills) + fixed black bottom panel -->
     <Grid RowDefinitions="*,Auto">
@@ -166,8 +165,7 @@
              ROW 1 — Bottom control panel (solid black)
         ═══════════════════════════════════════════════════════════════════ -->
         <VerticalStackLayout Grid.Row="1" BackgroundColor="Black"
-                             Padding="0,16,0,8" Spacing="12"
-                             SafeAreaEdges="Bottom">
+                             Padding="0,16,0,8" Spacing="12">
 
             <!-- Sensor-settings icon row (above main controls) -->
             <HorizontalStackLayout HorizontalOptions="Center" Spacing="0">
