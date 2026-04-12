@@ -15,7 +15,7 @@
     <Border BackgroundColor="#99000000"
             StrokeShape="RoundRectangle 10"
             Stroke="Transparent"
-            Padding="10,8"
+            Padding="10,10"
             MaximumWidthRequest="160">
         <VerticalStackLayout Spacing="4">
             <VerticalStackLayout.GestureRecognizers>
