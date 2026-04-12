@@ -78,17 +78,17 @@
                     <Border StrokeShape="RoundRectangle 22"
                             BackgroundColor="#55000000" Stroke="Transparent"
                             WidthRequest="44" HeightRequest="44" />
-                    <!-- Lightning bolt; always white. State shown by slash line visibility. -->
-                    <Path Data="M11 1L5 13H10L8 23L19 9H14Z"
+                    <!-- Lightning bolt: clean, centered Samsung-style design -->
+                    <Path Data="M10,2 L6,9 L10.5,9 L5,18 L15,6 L10.5,6 Z"
                           Fill="White"
                           Aspect="Uniform"
-                          WidthRequest="22" HeightRequest="22"
+                          WidthRequest="18" HeightRequest="18"
                           HorizontalOptions="Center" VerticalOptions="Center" />
-                    <!-- Slash line — visible only when flash is OFF -->
-                    <Path Data="M10,10 L34,34"
-                          Stroke="White" StrokeThickness="2"
+                    <!-- Slash line — visible only when flash is OFF (clean diagonal) -->
+                    <Path Data="M5,13 L18,5"
+                          Stroke="White" StrokeThickness="2.5" StrokeLineCap="Round"
                           HorizontalOptions="Center" VerticalOptions="Center"
-                          WidthRequest="24" HeightRequest="24"
+                          WidthRequest="18" HeightRequest="18"
                           IsVisible="{Binding IsFlashOn,
                                       Converter={StaticResource InvertedBoolConverter}}" />
                     <Grid.GestureRecognizers>
@@ -127,7 +127,8 @@
             <views:DataOverlayView
                 HorizontalOptions="End" VerticalOptions="End"
                 Margin="0,0,12,12"
-                MaximumHeightRequest="300"
+                MaximumWidthRequest="160"
+                MaximumHeightRequest="150"
                 IsVisible="{Binding CameraSettings.ShowSensorOverlay}" />
 
             <!-- ── Zoom pills strip (BindableLayout, dynamic presets) ── -->
