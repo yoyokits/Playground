@@ -109,6 +109,12 @@ namespace TravelCamApp.ViewModels
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        /// <summary>
+        /// Event fired when the camera is selected and ready for overlay container positioning.
+        /// Subscribed to by MainPage to trigger CameraViewChildrenContainer sizing calculation.
+        /// </summary>
+        public event EventHandler? CameraReady;
+
         public CameraView? CameraView
         {
             get => _cameraView;
@@ -941,6 +947,14 @@ namespace TravelCamApp.ViewModels
                 // Re-apply flash state — StopCameraPreview resets hardware to Off.
                 if (ok && _cameraView != null)
                     _cameraView.CameraFlashMode = _isFlashOn ? CameraFlashMode.On : CameraFlashMode.Off;
+
+                // Fire CameraReady event so MainPage can size the CameraViewChildrenContainer
+                if (ok && _cameraView?.SelectedCamera != null)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        "[MainPageViewModel] Camera ready, firing CameraReady event");
+                    CameraReady?.Invoke(this, EventArgs.Empty);
+                }
             }
             finally
             {

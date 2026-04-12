@@ -15,21 +15,19 @@
     <Border BackgroundColor="#99000000"
             StrokeShape="RoundRectangle 10"
             Stroke="Transparent"
-            Padding="10,8"
+            Padding="10,10"
             MaximumWidthRequest="160">
         <VerticalStackLayout Spacing="4">
             <VerticalStackLayout.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
             </VerticalStackLayout.GestureRecognizers>
 
-            <CollectionView ItemsSource="{Binding OverlayItems}"
+            <CollectionView ItemsSource="{Binding DataOverlayViewModel.VisibleOverlayItems}"
                             SelectionMode="None">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:OverlayItem">
                         <!-- Each sensor entry: label line + value line -->
-                        <VerticalStackLayout IsVisible="{Binding IsVisible}"
-                                            Spacing="0"
-                                            Margin="0,0,0,4">
+                        <VerticalStackLayout Spacing="0">
                             <!-- Sensor label (muted gray, uppercase) — size from DataOverlayViewModel.LabelFontSize -->
                             <Label Text="{Binding Name}"
                                    FontSize="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DataOverlayViewModel.LabelFontSize}"

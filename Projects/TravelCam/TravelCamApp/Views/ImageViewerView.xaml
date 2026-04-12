@@ -102,7 +102,7 @@
 
                 <CarouselView x:Name="MainCarousel"
                               ItemsSource="{Binding GalleryImagePaths}"
-                              Position="{Binding CurrentImageIndex, Mode=TwoWay}"
+                              Position="{Binding CurrentImageIndex, Mode=OneWayToSource}"
                               PositionChanged="OnCarouselPositionChanged"
                               Loop="False"
                               HorizontalScrollBarVisibility="Never"
