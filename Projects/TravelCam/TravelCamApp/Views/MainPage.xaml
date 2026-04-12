@@ -71,7 +71,6 @@
             ══════════════════════════════════════════════════════════════ -->
             <Grid VerticalOptions="Start"
                   Padding="16,8,16,0"
-                  SafeAreaEdges="Top"
                   ColumnDefinitions="Auto,*,Auto"
                   IsVisible="{Binding HasCameraPermission}">
 
