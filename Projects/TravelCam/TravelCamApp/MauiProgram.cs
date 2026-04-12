@@ -45,6 +45,10 @@ namespace TravelCamApp
             builder.Logging.AddDebug();
 #endif
 
+            // ✅ Window lifecycle cleanup is handled in App.xaml.cs CreateWindow()
+            // which calls StopCameraAndSensorsAsync() on Window.Stopped and Window.Destroying
+            // This is the core fix for the .NET 10 ObjectDisposedException on reopen (Grox solution)
+
             return builder.Build();
         }
     }

@@ -86,6 +86,41 @@ namespace TravelCamApp.Views
             }
         }
 
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            System.Diagnostics.Debug.WriteLine("[MainPage] OnDisappearing — cleaning up camera (SYNC/BLOCKING)");
+            try
+            {
+                // CRITICAL: Stop preview SYNCHRONOUSLY and BLOCKING to prevent race conditions
+                // Do NOT use MainThread.BeginInvokeOnMainThread — it's async and won't block page destruction
+                if (CameraView != null)
+                {
+                    try
+                    {
+                        System.Diagnostics.Debug.WriteLine("[MainPage] Stopping camera preview on page disappear (SYNC)");
+                        CameraView.StopCameraPreview();
+                        System.Diagnostics.Debug.WriteLine("[MainPage] Camera preview stopped on page disappear (SYNC)");
+
+                        // Force garbage collection to release camera resources
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                        System.Diagnostics.Debug.WriteLine("[MainPage] GC after camera stop");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[MainPage] Error stopping preview on disappear: {ex.GetType().Name} — {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPage] OnDisappearing error: {ex.GetType().Name} — {ex.Message}");
+            }
+        }
+
         // ── Shutter button ─────────────────────────────────────────────────────
 
         private async void OnShutterTapped(object? sender, TappedEventArgs e)

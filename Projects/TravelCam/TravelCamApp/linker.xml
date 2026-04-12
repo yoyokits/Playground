@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<linker>
+  <!-- Preserve CommunityToolkit.Maui.Camera to prevent linker stripping in Release mode -->
+  <assembly fullname="CommunityToolkit.Maui.Camera">
+    <type fullname="*" preserve="all" />
+  </assembly>
+
+  <!-- Preserve CommunityToolkit.Maui MediaElement support -->
+  <assembly fullname="CommunityToolkit.Maui.MediaElement">
+    <type fullname="*" preserve="all" />
+  </assembly>
+
+  <!-- Preserve core CommunityToolkit types -->
+  <assembly fullname="CommunityToolkit.Maui">
+    <type fullname="*" preserve="all" />
+  </assembly>
+
+  <!-- Preserve Android camera interop if any -->
+  <assembly fullname="Android.Hardware.Camera2">
+    <type fullname="*" preserve="all" />
+  </assembly>
+</linker>

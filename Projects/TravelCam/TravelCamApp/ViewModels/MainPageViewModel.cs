@@ -732,6 +732,50 @@ namespace TravelCamApp.ViewModels
             // same semaphore safely after resetting _isDestroyed = false.
         }
 
+        /// <summary>
+        /// SYNCHRONOUS camera preview stop.
+        /// Called from App.xaml.cs during shutdown to ensure cleanup blocks process termination.
+        /// Must NOT be async to prevent thread pool scheduling delays.
+        /// </summary>
+        public void StopCameraPreviewSync()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] StopCameraPreviewSync called");
+
+                // Stop sensors synchronously
+                _sensorHelper.Stop();
+
+                // Stop camera preview synchronously
+                var cameraView = _cameraView;
+                if (cameraView != null)
+                {
+                    try
+                    {
+                        CameraHelper.StopPreview(cameraView);
+                        System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Camera preview stopped (SYNC)");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[MainPageViewModel] StopPreview error (SYNC): {ex.GetType().Name}");
+                    }
+                    finally
+                    {
+                        IsPreviewRunning = false;
+                        _cameraView = null;
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine("[MainPageViewModel] StopCameraPreviewSync complete");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] StopCameraPreviewSync error: {ex.GetType().Name} — {ex.Message}");
+            }
+        }
+
         #endregion
 
         #region Camera Operations
