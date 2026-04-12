@@ -26,6 +26,7 @@ namespace TravelCamApp.Helpers
         /// <summary>
         /// Selects the first available camera (prefers rear camera).
         /// Returns the selected CameraInfo, or null if none found.
+        /// Runs on MainThread to prevent conflicts with Android lifecycle.
         /// </summary>
         public static async Task<CameraInfo?> SelectFirstAvailableCameraAsync(CameraView cameraView)
         {
@@ -48,8 +49,13 @@ namespace TravelCamApp.Helpers
                 CameraInfo? rearCamera = cameras.FirstOrDefault(c => c.Position == CameraPosition.Rear);
                 CameraInfo selected = rearCamera ?? cameras[0];
 
-                cameraView.SelectedCamera = selected;
-                LogDebug("[CameraHelper] Selected camera: {0}", selected.Name);
+                // ✅ Set camera on MainThread to prevent lifecycle conflicts
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    cameraView.SelectedCamera = selected;
+                    LogDebug("[CameraHelper] Selected camera: {0}", selected.Name);
+                });
+
                 return selected;
             }
             catch (Exception ex)
@@ -61,6 +67,7 @@ namespace TravelCamApp.Helpers
 
         /// <summary>
         /// Switches to the next available camera device (front/rear toggle).
+        /// Runs on MainThread to prevent lifecycle conflicts.
         /// </summary>
         public static async Task<CameraInfo?> ToggleCameraDeviceAsync(CameraView cameraView)
         {
@@ -82,9 +89,16 @@ namespace TravelCamApp.Helpers
                 }
 
                 int nextIndex = (currentIndex + 1) % cameraList.Count;
-                cameraView.SelectedCamera = cameraList[nextIndex];
-                LogDebug("[CameraHelper] Toggled to camera: {0}", cameraList[nextIndex].Name);
-                return cameraList[nextIndex];
+                var nextCamera = cameraList[nextIndex];
+
+                // ✅ Set camera on MainThread to prevent lifecycle conflicts
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    cameraView.SelectedCamera = nextCamera;
+                    LogDebug("[CameraHelper] Toggled to camera: {0}", nextCamera.Name);
+                });
+
+                return nextCamera;
             }
             catch (Exception ex)
             {
@@ -100,6 +114,7 @@ namespace TravelCamApp.Helpers
         /// <summary>
         /// Starts the camera preview. Selects a camera first if none is selected.
         /// Returns true if preview started successfully.
+        /// Runs on MainThread to prevent lifecycle conflicts.
         /// </summary>
         public static async Task<bool> StartPreviewAsync(CameraView cameraView)
         {
@@ -114,9 +129,23 @@ namespace TravelCamApp.Helpers
                     return false;
                 }
 
-                await cameraView.StartCameraPreview(CancellationToken.None);
-                LogDebug("[CameraHelper] StartCameraPreview completed");
-                return true;
+                // ✅ Start preview on MainThread to prevent lifecycle conflicts
+                bool success = false;
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    try
+                    {
+                        await cameraView.StartCameraPreview(CancellationToken.None);
+                        success = true;
+                        LogDebug("[CameraHelper] StartCameraPreview completed");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogDebug("[CameraHelper] MainThread preview start error: {0}", ex.Message);
+                    }
+                });
+
+                return success;
             }
             catch (Exception ex)
             {
@@ -127,13 +156,25 @@ namespace TravelCamApp.Helpers
 
         /// <summary>
         /// Stops the camera preview gracefully.
+        /// Runs on MainThread to prevent lifecycle conflicts.
         /// </summary>
         public static void StopPreview(CameraView cameraView)
         {
             try
             {
-                cameraView.StopCameraPreview();
-                LogDebug("[CameraHelper] Camera preview stopped");
+                // ✅ Stop preview on MainThread to prevent lifecycle conflicts
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    try
+                    {
+                        cameraView.StopCameraPreview();
+                        LogDebug("[CameraHelper] Camera preview stopped");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogDebug("[CameraHelper] MainThread preview stop error: {0}", ex.Message);
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -148,6 +189,7 @@ namespace TravelCamApp.Helpers
         /// <summary>
         /// Triggers a photo capture. The result is returned via the CameraView.MediaCaptured event.
         /// Subscribe to MediaCaptured on the CameraView before calling this.
+        /// Runs on MainThread to prevent lifecycle conflicts.
         /// </summary>
         public static async Task TriggerCaptureAsync(CameraView cameraView)
         {
@@ -159,8 +201,19 @@ namespace TravelCamApp.Helpers
                     return;
                 }
 
-                await cameraView.CaptureImage(CancellationToken.None);
-                LogDebug("[CameraHelper] CaptureImage triggered");
+                // ✅ Trigger capture on MainThread to prevent lifecycle conflicts
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    try
+                    {
+                        await cameraView.CaptureImage(CancellationToken.None);
+                        LogDebug("[CameraHelper] CaptureImage triggered");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogDebug("[CameraHelper] MainThread capture error: {0}", ex.Message);
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -175,6 +228,7 @@ namespace TravelCamApp.Helpers
         /// <summary>
         /// Starts video recording.
         /// Returns true if recording started successfully.
+        /// Runs on MainThread to prevent lifecycle conflicts.
         /// </summary>
         public static async Task<bool> StartVideoRecordingAsync(CameraView cameraView)
         {
@@ -188,19 +242,36 @@ namespace TravelCamApp.Helpers
 
                 LogDebug("[CameraHelper] Starting video recording on camera: {0}", cameraView.SelectedCamera.Name);
 
-                // Add timeout to prevent hang
-                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                try
+                // ✅ Start recording on MainThread to prevent lifecycle conflicts
+                bool success = false;
+                var tcs = new TaskCompletionSource<bool>();
+
+                MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    await cameraView.StartVideoRecording(cts.Token).ConfigureAwait(false);
-                    LogDebug("[CameraHelper] Video recording started successfully");
-                    return true;
-                }
-                catch (OperationCanceledException)
-                {
-                    LogDebug("[CameraHelper] StartVideoRecording TIMED OUT after 5 seconds");
-                    return false;
-                }
+                    try
+                    {
+                        // Add timeout to prevent hang
+                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        try
+                        {
+                            await cameraView.StartVideoRecording(cts.Token).ConfigureAwait(false);
+                            LogDebug("[CameraHelper] Video recording started successfully");
+                            tcs.SetResult(true);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            LogDebug("[CameraHelper] StartVideoRecording TIMED OUT after 5 seconds");
+                            tcs.SetResult(false);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogDebug("[CameraHelper] MainThread recording start error: {0}", ex.Message);
+                        tcs.SetResult(false);
+                    }
+                });
+
+                return await tcs.Task;
             }
             catch (Exception ex)
             {
@@ -212,6 +283,7 @@ namespace TravelCamApp.Helpers
         /// <summary>
         /// Stops video recording and returns the recorded video as a Stream.
         /// Returns null on failure.
+        /// Runs on MainThread to prevent lifecycle conflicts.
         /// </summary>
         public static async Task<Stream?> StopVideoRecordingAsync(CameraView cameraView)
         {
@@ -220,25 +292,42 @@ namespace TravelCamApp.Helpers
             {
                 LogDebug("[CameraHelper] Calling StopVideoRecording on camera: {0}, IsBusy={1}", cameraView.SelectedCamera?.Name ?? "null", cameraView.IsBusy);
 
-                // Add timeout to prevent indefinite hang (some devices/codecs cause deadlock)
-                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                try
+                // ✅ Stop recording on MainThread to prevent lifecycle conflicts
+                var tcs = new TaskCompletionSource<Stream?>();
+
+                MainThread.BeginInvokeOnMainThread(async () =>
                 {
-                    var videoStream = await cameraView.StopVideoRecording(cts.Token).ConfigureAwait(false);
-                    stopwatch.Stop();
-                    LogDebug("[CameraHelper] StopVideoRecording completed in {0} ms, stream: {1} bytes, stream type: {2}, CanSeek={3}",
-                        stopwatch.ElapsedMilliseconds,
-                        videoStream?.Length.ToString() ?? "null",
-                        videoStream?.GetType().FullName ?? "null",
-                        videoStream?.CanSeek.ToString() ?? "n/a");
-                    return videoStream;
-                }
-                catch (OperationCanceledException)
-                {
-                    stopwatch.Stop();
-                    LogDebug("[CameraHelper] StopVideoRecording TIMED OUT after {0} ms — camera may be stuck", stopwatch.ElapsedMilliseconds);
-                    return null;
-                }
+                    try
+                    {
+                        // Add timeout to prevent indefinite hang (some devices/codecs cause deadlock)
+                        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        try
+                        {
+                            var videoStream = await cameraView.StopVideoRecording(cts.Token).ConfigureAwait(false);
+                            stopwatch.Stop();
+                            LogDebug("[CameraHelper] StopVideoRecording completed in {0} ms, stream: {1} bytes, stream type: {2}, CanSeek={3}",
+                                stopwatch.ElapsedMilliseconds,
+                                videoStream?.Length.ToString() ?? "null",
+                                videoStream?.GetType().FullName ?? "null",
+                                videoStream?.CanSeek.ToString() ?? "n/a");
+                            tcs.SetResult(videoStream);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            stopwatch.Stop();
+                            LogDebug("[CameraHelper] StopVideoRecording TIMED OUT after {0} ms — camera may be stuck", stopwatch.ElapsedMilliseconds);
+                            tcs.SetResult(null);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        stopwatch.Stop();
+                        LogDebug("[CameraHelper] MainThread recording stop error after {0} ms: {1}", stopwatch.ElapsedMilliseconds, ex.Message);
+                        tcs.SetResult(null);
+                    }
+                });
+
+                return await tcs.Task;
             }
             catch (Exception ex)
             {
@@ -255,6 +344,7 @@ namespace TravelCamApp.Helpers
         /// <summary>
         /// Toggles the camera flash mode: Off → On → Off.
         /// Returns the new flash mode.
+        /// Runs on MainThread to prevent lifecycle conflicts.
         /// </summary>
         public static CameraFlashMode CycleFlashMode(CameraView cameraView)
         {
@@ -262,8 +352,13 @@ namespace TravelCamApp.Helpers
                 ? CameraFlashMode.On
                 : CameraFlashMode.Off;
 
-            cameraView.CameraFlashMode = next;
-            LogDebug("[CameraHelper] Flash mode set to: {0}", next);
+            // ✅ Update flash mode on MainThread to prevent lifecycle conflicts
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                cameraView.CameraFlashMode = next;
+                LogDebug("[CameraHelper] Flash mode set to: {0}", next);
+            });
+
             return next;
         }
 
@@ -275,11 +370,16 @@ namespace TravelCamApp.Helpers
         /// Applies zoom to the camera.
         /// <paramref name="zoomFactor"/> is passed directly to <see cref="CameraView.ZoomFactor"/>.
         /// The ViewModel is responsible for ensuring the value is within the camera's supported range.
+        /// Runs on MainThread to prevent lifecycle conflicts.
         /// </summary>
         public static void SetZoom(CameraView cameraView, float zoomFactor)
         {
-            cameraView.ZoomFactor = zoomFactor;
-            LogDebug("[CameraHelper] ZoomFactor set to: {0}", zoomFactor);
+            // ✅ Update zoom on MainThread to prevent lifecycle conflicts
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                cameraView.ZoomFactor = zoomFactor;
+                LogDebug("[CameraHelper] ZoomFactor set to: {0}", zoomFactor);
+            });
         }
 
         #endregion

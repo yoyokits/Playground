@@ -58,6 +58,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- Linker configuration for Release mode: preserve CameraView and related libraries -->
+		<AndroidLinkDescription Include="linker.xml" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Maui" Version="14.1.0" />
 		<PackageReference Include="CommunityToolkit.Maui.Camera" Version="6.0.1" />
 		<PackageReference Include="CommunityToolkit.Maui.MediaElement" Version="8.0.1" />

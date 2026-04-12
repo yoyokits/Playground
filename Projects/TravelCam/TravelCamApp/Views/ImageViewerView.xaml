@@ -136,8 +136,7 @@
                             SelectionMode="Single"
                             SelectionChanged="OnThumbnailSelected">
                 <CollectionView.ItemsLayout>
-                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="0"
-                                       ItemSizingStrategy="MeasureFirstItem" />
+                    <LinearItemsLayout Orientation="Horizontal" ItemSpacing="0" />
                 </CollectionView.ItemsLayout>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="sys:String">
