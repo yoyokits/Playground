@@ -67,6 +67,14 @@ namespace TravelCamApp.Views
             // ── Camera media events ──────────────────────────────────────────
             CameraView.MediaCaptured += OnMediaCaptured;
             CameraView.MediaCaptureFailed += OnMediaCaptureFailed;
+
+            // ── Camera ready event ───────────────────────────────────────────
+            // Subscribe to ViewModel's CameraReady event to trigger overlay container sizing
+            viewModel.CameraReady += (s, e) =>
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPage] CameraReady event received, calling OnCameraReady()");
+                OnCameraReady();
+            };
         }
 
         // ── Lifecycle ──────────────────────────────────────────────────────────
@@ -118,6 +126,144 @@ namespace TravelCamApp.Views
             {
                 System.Diagnostics.Debug.WriteLine(
                     $"[MainPage] OnDisappearing error: {ex.GetType().Name} — {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Public method called by ViewModel when camera is selected and ready.
+        /// Triggers container sizing calculation with the selected camera.
+        /// </summary>
+        public void OnCameraReady()
+        {
+            System.Diagnostics.Debug.WriteLine("[MainPage] OnCameraReady called");
+
+            if (CameraView == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[MainPage] OnCameraReady: CameraView is null");
+                return;
+            }
+
+            CalculateAndPositionCameraViewChildrenContainer(
+                CameraView.Width,
+                CameraView.Height,
+                CameraView.SelectedCamera);
+        }
+
+        // ── Camera view alignment ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// Event handler called when CameraView size changes or camera is selected.
+        /// Recalculates CameraViewChildrenContainer to align with visible camera feed.
+        /// </summary>
+        private void OnCameraViewSizeChanged(object? sender, EventArgs e)
+        {
+            if (sender is not CameraView cameraView) return;
+
+            try
+            {
+                CalculateAndPositionCameraViewChildrenContainer(
+                    cameraView.Width,
+                    cameraView.Height,
+                    cameraView.SelectedCamera);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPage] OnCameraViewSizeChanged error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Calculates the visible camera feed bounds (accounting for AspectFit letterboxing/pillarboxing)
+        /// and sizes/positions CameraViewChildrenContainer to match.
+        ///
+        /// Logic:
+        /// 1. Get camera view dimensions and selected camera resolution
+        /// 2. Handle orientation by swapping resolution dimensions for portrait
+        /// 3. Calculate aspect ratios (camera vs viewport)
+        /// 4. Determine visible dimensions based on AspectFit scaling
+        /// 5. Set CameraViewChildrenContainer size
+        /// 6. HorizontalOptions/VerticalOptions="Center" automatically centers it
+        /// </summary>
+        private void CalculateAndPositionCameraViewChildrenContainer(
+            double cameraViewWidth,
+            double cameraViewHeight,
+            CameraInfo? selectedCamera)
+        {
+            // 1. SAFETY CHECKS
+            if (cameraViewWidth <= 0 || cameraViewHeight <= 0)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    "[MainPage] CameraView has invalid dimensions, skipping container calculation");
+                return;
+            }
+
+            if (selectedCamera == null)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    "[MainPage] No camera selected, skipping container calculation");
+                return;
+            }
+
+            if (selectedCamera.SupportedResolutions == null || selectedCamera.SupportedResolutions.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    "[MainPage] Camera has no supported resolutions, skipping container calculation");
+                return;
+            }
+
+            if (CameraViewChildrenContainer == null)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    "[MainPage] CameraViewChildrenContainer not found, skipping calculation");
+                return;
+            }
+
+            try
+            {
+                // 2. GET CAMERA RESOLUTION
+                // Use highest resolution (most likely what's being rendered)
+                var cameraResolution = selectedCamera.SupportedResolutions[selectedCamera.SupportedResolutions.Count - 1];
+                double cameraWidth = cameraResolution.Width;
+                double cameraHeight = cameraResolution.Height;
+
+                // 3. HANDLE ORIENTATION
+                // Device is in portrait, so swap camera dimensions to match portrait coordinate system
+                var displayInfo = DeviceDisplay.Current.MainDisplayInfo;
+                if (displayInfo.Orientation == DisplayOrientation.Portrait)
+                {
+                    (cameraWidth, cameraHeight) = (cameraHeight, cameraWidth);
+                }
+
+                // 4. CALCULATE ASPECT RATIOS
+                double cameraAspect = cameraWidth / cameraHeight;
+                double viewAspect = cameraViewWidth / cameraViewHeight;
+
+                // 5. CALCULATE VISIBLE DIMENSIONS (with AspectFit scaling)
+                double visibleWidth, visibleHeight;
+
+                if (cameraAspect > viewAspect)
+                {
+                    // Camera is wider relative to view → letterbox top/bottom
+                    visibleWidth = cameraViewWidth;
+                    visibleHeight = cameraViewWidth / cameraAspect;
+                }
+                else
+                {
+                    // Camera is taller relative to view → pillarbox left/right
+                    visibleHeight = cameraViewHeight;
+                    visibleWidth = cameraViewHeight * cameraAspect;
+                }
+
+                // 6. SET CONTAINER SIZE
+                // HorizontalOptions="Center" and VerticalOptions="Center" automatically center it
+                CameraViewChildrenContainer.WidthRequest = visibleWidth;
+                CameraViewChildrenContainer.HeightRequest = visibleHeight;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPage] CalculateAndPositionCameraViewChildrenContainer error: {ex.Message}");
             }
         }
 
