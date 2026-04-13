@@ -3,12 +3,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:vm="clr-namespace:TravelCamApp.ViewModels"
+             xmlns:converters="clr-namespace:TravelCamApp.Converters"
              x:Class="TravelCamApp.Views.CameraSettingsView"
              x:DataType="vm:CameraSettingsViewModel"
              x:Name="CamSettingsRoot">
 
     <ContentView.Resources>
         <toolkit:InvertedBoolConverter x:Key="InvBool" />
+        <converters:AspectRatioToBackgroundConverter x:Key="AspectRatioToBgConverter" />
+        <converters:AspectRatioToTextColorConverter  x:Key="AspectRatioToTextConverter" />
     </ContentView.Resources>
 
     <ContentView.Content>
@@ -160,20 +163,81 @@
                                 <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E"
                                          Margin="16,0" />
 
-                                <!-- Aspect ratio placeholder -->
-                                <Grid ColumnDefinitions="*,Auto"
-                                      Padding="16,14" HeightRequest="52">
-                                    <VerticalStackLayout Grid.Column="0" Spacing="2"
-                                                          VerticalOptions="Center">
-                                        <Label Text="Aspect Ratio" FontSize="14"
-                                               TextColor="#636366" />
-                                        <Label Text="Coming soon"
-                                               FontSize="11" TextColor="#48484A" />
-                                    </VerticalStackLayout>
-                                    <Label Grid.Column="1" Text="4:3"
-                                           FontSize="13" TextColor="#636366"
-                                           VerticalOptions="Center" />
-                                </Grid>
+                                <!-- Aspect Ratio selector -->
+                                <VerticalStackLayout Padding="16,14,16,14" Spacing="10">
+                                    <Label Text="Aspect Ratio" FontSize="14"
+                                           TextColor="#FFFFFF" />
+                                    <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="6">
+                                        <!-- Full -->
+                                        <Border Grid.Column="0"
+                                                StrokeShape="RoundRectangle 8" Stroke="Transparent"
+                                                Padding="0,6"
+                                                BackgroundColor="{Binding SelectedAspectRatio,
+                                                    Converter={StaticResource AspectRatioToBgConverter},
+                                                    ConverterParameter=FullScreen}">
+                                            <Label Text="Full" FontSize="12" FontAttributes="Bold"
+                                                   TextColor="{Binding SelectedAspectRatio,
+                                                       Converter={StaticResource AspectRatioToTextConverter},
+                                                       ConverterParameter=FullScreen}"
+                                                   HorizontalOptions="Center" />
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding SetAspectRatioCommand}"
+                                                                      CommandParameter="FullScreen" />
+                                            </Border.GestureRecognizers>
+                                        </Border>
+                                        <!-- 4:3 -->
+                                        <Border Grid.Column="1"
+                                                StrokeShape="RoundRectangle 8" Stroke="Transparent"
+                                                Padding="0,6"
+                                                BackgroundColor="{Binding SelectedAspectRatio,
+                                                    Converter={StaticResource AspectRatioToBgConverter},
+                                                    ConverterParameter=FourThree}">
+                                            <Label Text="4:3" FontSize="12" FontAttributes="Bold"
+                                                   TextColor="{Binding SelectedAspectRatio,
+                                                       Converter={StaticResource AspectRatioToTextConverter},
+                                                       ConverterParameter=FourThree}"
+                                                   HorizontalOptions="Center" />
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding SetAspectRatioCommand}"
+                                                                      CommandParameter="FourThree" />
+                                            </Border.GestureRecognizers>
+                                        </Border>
+                                        <!-- 16:9 -->
+                                        <Border Grid.Column="2"
+                                                StrokeShape="RoundRectangle 8" Stroke="Transparent"
+                                                Padding="0,6"
+                                                BackgroundColor="{Binding SelectedAspectRatio,
+                                                    Converter={StaticResource AspectRatioToBgConverter},
+                                                    ConverterParameter=SixteenNine}">
+                                            <Label Text="16:9" FontSize="12" FontAttributes="Bold"
+                                                   TextColor="{Binding SelectedAspectRatio,
+                                                       Converter={StaticResource AspectRatioToTextConverter},
+                                                       ConverterParameter=SixteenNine}"
+                                                   HorizontalOptions="Center" />
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding SetAspectRatioCommand}"
+                                                                      CommandParameter="SixteenNine" />
+                                            </Border.GestureRecognizers>
+                                        </Border>
+                                        <!-- 1:1 -->
+                                        <Border Grid.Column="3"
+                                                StrokeShape="RoundRectangle 8" Stroke="Transparent"
+                                                Padding="0,6"
+                                                BackgroundColor="{Binding SelectedAspectRatio,
+                                                    Converter={StaticResource AspectRatioToBgConverter},
+                                                    ConverterParameter=OneOne}">
+                                            <Label Text="1:1" FontSize="12" FontAttributes="Bold"
+                                                   TextColor="{Binding SelectedAspectRatio,
+                                                       Converter={StaticResource AspectRatioToTextConverter},
+                                                       ConverterParameter=OneOne}"
+                                                   HorizontalOptions="Center" />
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding SetAspectRatioCommand}"
+                                                                      CommandParameter="OneOne" />
+                                            </Border.GestureRecognizers>
+                                        </Border>
+                                    </Grid>
+                                </VerticalStackLayout>
 
                             </VerticalStackLayout>
                         </Border>

@@ -31,7 +31,13 @@
       "Bash(dotnet restore:*)",
       "Bash(powershell:*)",
       "Bash(ls \"C:/Users/yoyok/Git/Playground/Projects/TravelCam/\"*.bak)",
-      "Bash(dotnet workload:*)"
+      "Bash(dotnet workload:*)",
+      "WebFetch(domain:pictogrammers.com)",
+      "WebFetch(domain:materialui.co)",
+      "WebFetch(domain:www.mdisvg.com)",
+      "WebFetch(domain:icon-sets.iconify.design)",
+      "WebFetch(domain:fonts.google.com)",
+      "WebFetch(domain:github.com)"
     ]
   },
   "ENABLE_TOOL_SEARCH": "true"
