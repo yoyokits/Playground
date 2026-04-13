@@ -65,6 +65,13 @@ namespace TravelCamApp.ViewModels
         // Flash
         private bool _isFlashOn;
 
+        // Camera count — used to show/hide zoom strip
+        private int _cameraCount;
+
+        // Aspect ratio crop bars
+        private double _aspectTopBarHeight;
+        private double _aspectBottomBarHeight;
+
         // Recording display timer
         private System.Timers.Timer? _recordingTimer;
         private DateTime _recordingStart;
@@ -232,6 +239,37 @@ namespace TravelCamApp.ViewModels
             get => _isFlashOn;
             set { _isFlashOn = value; OnPropertyChanged(); }
         }
+
+        /// <summary>True when the device has more than one camera (shows zoom preset strip).</summary>
+        public bool ShowZoomPresets => _cameraCount > 1;
+
+        /// <summary>Height of the top black letterbox bar for the selected aspect ratio.</summary>
+        public double AspectTopBarHeight
+        {
+            get => _aspectTopBarHeight;
+            set
+            {
+                if (Math.Abs(_aspectTopBarHeight - value) < 0.5) return;
+                _aspectTopBarHeight = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasAspectBars));
+            }
+        }
+
+        /// <summary>Height of the bottom black letterbox bar for the selected aspect ratio.</summary>
+        public double AspectBottomBarHeight
+        {
+            get => _aspectBottomBarHeight;
+            set
+            {
+                if (Math.Abs(_aspectBottomBarHeight - value) < 0.5) return;
+                _aspectBottomBarHeight = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>True when letterbox bars should be shown (any non-FullScreen aspect ratio with non-zero bars).</summary>
+        public bool HasAspectBars => _aspectTopBarHeight > 1;
 
         /// <summary>
         /// Dynamic zoom presets generated from the active camera's min/max zoom range.
@@ -934,8 +972,12 @@ namespace TravelCamApp.ViewModels
                     }
 #endif
 
+                    // Get total camera count to decide whether to show zoom strip
+                    _cameraCount = await CameraHelper.GetCameraCountAsync(_cameraView);
+                    OnPropertyChanged(nameof(ShowZoomPresets));
+
                     // Build zoom presets from actual hardware capabilities
-                    UpdateZoomPresets(selected);
+                    UpdateZoomPresets(_cameraCount);
                 }
 
                 if (_isDestroyed || _cameraView == null) return;
@@ -993,7 +1035,7 @@ namespace TravelCamApp.ViewModels
 
                 var newCamera = await CameraHelper.ToggleCameraDeviceAsync(_cameraView);
                 if (newCamera != null)
-                    UpdateZoomPresets(newCamera);
+                    UpdateZoomPresets(_cameraCount);
 
                 bool ok = await CameraHelper.StartPreviewAsync(_cameraView);
                 IsPreviewRunning = ok;
@@ -1013,18 +1055,21 @@ namespace TravelCamApp.ViewModels
         #region Zoom
 
         /// <summary>
-        /// Rebuilds <see cref="ZoomPresets"/> with standard zoom stops.
+        /// Rebuilds <see cref="ZoomPresets"/> with standard zoom stops based on camera count.
+        /// CommunityToolkit.Maui ZoomFactor is an absolute multiplier (1.0 = 1× optical).
         /// </summary>
-        private void UpdateZoomPresets(CameraInfo camera)
+        private void UpdateZoomPresets(int cameraCount)
         {
-            // CommunityToolkit.Maui CameraInfo doesn't expose min/max zoom bounds.
-            // Use standard preset stops (1×, 2×, 3×, 5×) normalized to 0.0–1.0 range.
-            float[] presetZooms = { 0.2f, 0.5f, 1.0f };
+            // Choose presets based on how many camera devices the hardware reports.
+            // Single-camera devices have ShowZoomPresets=false so this list is never shown,
+            // but we populate it anyway in case the count updates later.
+            float[] presetZooms = cameraCount >= 3
+                ? new[] { 0.6f, 1.0f, 2.0f, 5.0f }   // ultra-wide + main + tele
+                : new[] { 1.0f, 2.0f, 5.0f };          // main + tele (2-camera or fallback)
 
             System.Diagnostics.Debug.WriteLine(
-                "[MainPageViewModel] Camera zoom presets: 0.2×, 0.5×, 1.0×");
+                $"[MainPageViewModel] Building zoom presets for {cameraCount} cameras");
 
-            // Build collection — each ZoomPreset stores the normalized camera zoom factor
             ZoomPresets.Clear();
             foreach (var zoom in presetZooms)
             {
@@ -1033,7 +1078,7 @@ namespace TravelCamApp.ViewModels
                 ZoomPresets.Add(preset);
             }
 
-            // Select 1.0 by default
+            // Select 1× by default
             var defaultPreset = ZoomPresets
                 .FirstOrDefault(p => Math.Abs(p.AbsoluteZoom - 1.0f) < 0.01f);
             if (defaultPreset != null)

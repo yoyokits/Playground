@@ -12,40 +12,45 @@
         FontSize is driven by DataOverlayViewModel.LabelFontSize / ValueFontSize (slider-controlled).
         Tap the overlay to open sensor settings.
     -->
+    <!--
+        Border wraps a VerticalStackLayout with BindableLayout (not CollectionView).
+        CollectionView always stretches to fill its container width;
+        VerticalStackLayout + BindableLayout sizes to the widest child label naturally.
+        HorizontalOptions="Start" on the inner layout prevents it from expanding.
+        The ContentView in MainPage.xaml has HorizontalOptions="End", so the
+        Grid measures this view with unconstrained width → it returns its natural
+        label width → the Border and ContentView shrink-wrap accordingly.
+    -->
     <Border BackgroundColor="#99000000"
             StrokeShape="RoundRectangle 10"
             Stroke="Transparent"
-            Padding="10,10"
-            MaximumWidthRequest="160">
-        <VerticalStackLayout Spacing="4">
+            Padding="10,10">
+        <VerticalStackLayout Spacing="4"
+                             HorizontalOptions="Start"
+                             BindableLayout.ItemsSource="{Binding DataOverlayViewModel.VisibleOverlayItems}">
             <VerticalStackLayout.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
             </VerticalStackLayout.GestureRecognizers>
-
-            <CollectionView ItemsSource="{Binding DataOverlayViewModel.VisibleOverlayItems}"
-                            SelectionMode="None">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="models:OverlayItem">
-                        <!-- Each sensor entry: label line + value line -->
-                        <VerticalStackLayout Spacing="0">
-                            <!-- Sensor label (muted gray, uppercase) — size from DataOverlayViewModel.LabelFontSize -->
-                            <Label Text="{Binding Name}"
-                                   FontSize="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DataOverlayViewModel.LabelFontSize}"
-                                   CharacterSpacing="0.6"
-                                   TextColor="#9E9E9E"
-                                   LineBreakMode="NoWrap"
-                                   TextTransform="Uppercase" />
-                            <!-- Sensor value (white, bold) — size from DataOverlayViewModel.ValueFontSize -->
-                            <Label Text="{Binding Value}"
-                                   FontSize="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DataOverlayViewModel.ValueFontSize}"
-                                   FontAttributes="Bold"
-                                   TextColor="#FFFFFF"
-                                   LineBreakMode="NoWrap" />
-                        </VerticalStackLayout>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="models:OverlayItem">
+                    <!-- Each sensor entry: label line + value line -->
+                    <VerticalStackLayout Spacing="0" HorizontalOptions="Start">
+                        <!-- Sensor label (muted gray, uppercase) -->
+                        <Label Text="{Binding Name}"
+                               FontSize="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DataOverlayViewModel.LabelFontSize}"
+                               CharacterSpacing="0.6"
+                               TextColor="#9E9E9E"
+                               LineBreakMode="NoWrap"
+                               TextTransform="Uppercase" />
+                        <!-- Sensor value (white, bold) -->
+                        <Label Text="{Binding Value}"
+                               FontSize="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DataOverlayViewModel.ValueFontSize}"
+                               FontAttributes="Bold"
+                               TextColor="#FFFFFF"
+                               LineBreakMode="NoWrap" />
+                    </VerticalStackLayout>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
         </VerticalStackLayout>
     </Border>
 

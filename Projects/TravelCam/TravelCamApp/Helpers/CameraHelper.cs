@@ -367,6 +367,24 @@ namespace TravelCamApp.Helpers
         #region Zoom
 
         /// <summary>
+        /// Returns the total number of camera devices available on the current hardware.
+        /// Used by the ViewModel to decide whether to show the zoom preset strip.
+        /// </summary>
+        public static async Task<int> GetCameraCountAsync(CameraView cameraView)
+        {
+            try
+            {
+                var cameras = await cameraView.GetAvailableCameras(CancellationToken.None);
+                return cameras?.Count ?? 0;
+            }
+            catch (Exception ex)
+            {
+                LogDebug("[CameraHelper] GetCameraCountAsync exception: {0}", ex.Message);
+                return 0;
+            }
+        }
+
+        /// <summary>
         /// Applies zoom to the camera.
         /// <paramref name="zoomFactor"/> is passed directly to <see cref="CameraView.ZoomFactor"/>.
         /// The ViewModel is responsible for ensuring the value is within the camera's supported range.

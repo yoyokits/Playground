@@ -75,6 +75,13 @@ namespace TravelCamApp.Views
                 System.Diagnostics.Debug.WriteLine("[MainPage] CameraReady event received, calling OnCameraReady()");
                 OnCameraReady();
             };
+
+            // ── Aspect ratio changes → recompute letterbox bars ──────────────
+            _cameraSettingsVm.PropertyChanged += (s, e) =>
+            {
+                if (e.PropertyName == nameof(TravelCamApp.ViewModels.CameraSettingsViewModel.SelectedAspectRatio))
+                    UpdateAspectRatioBars(CameraView.Width, CameraView.Height);
+            };
         }
 
         // ── Lifecycle ──────────────────────────────────────────────────────────
@@ -136,134 +143,123 @@ namespace TravelCamApp.Views
         public void OnCameraReady()
         {
             System.Diagnostics.Debug.WriteLine("[MainPage] OnCameraReady called");
-
-            if (CameraView == null)
-            {
-                System.Diagnostics.Debug.WriteLine("[MainPage] OnCameraReady: CameraView is null");
-                return;
-            }
-
-            CalculateAndPositionCameraViewChildrenContainer(
-                CameraView.Width,
-                CameraView.Height,
-                CameraView.SelectedCamera);
+            if (CameraView == null) return;
+            ApplyCameraLayout(CameraView.Width, CameraView.Height, CameraView.SelectedCamera);
         }
 
         // ── Camera view alignment ──────────────────────────────────────────────────
 
-        /// <summary>
-        /// Event handler called when CameraView size changes or camera is selected.
-        /// Recalculates CameraViewChildrenContainer to align with visible camera feed.
-        /// </summary>
         private void OnCameraViewSizeChanged(object? sender, EventArgs e)
         {
             if (sender is not CameraView cameraView) return;
+            try { ApplyCameraLayout(cameraView.Width, cameraView.Height, cameraView.SelectedCamera); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[MainPage] OnCameraViewSizeChanged error: {ex.Message}"); }
+        }
 
-            try
-            {
-                CalculateAndPositionCameraViewChildrenContainer(
-                    cameraView.Width,
-                    cameraView.Height,
-                    cameraView.SelectedCamera);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[MainPage] OnCameraViewSizeChanged error: {ex.Message}");
-            }
+        // Called when aspect ratio setting changes — recalculate without a new camera size event.
+        private void UpdateAspectRatioBars(double _w, double _h)
+        {
+            if (CameraView != null)
+                ApplyCameraLayout(CameraView.Width, CameraView.Height, CameraView.SelectedCamera);
         }
 
         /// <summary>
-        /// Calculates the visible camera feed bounds (accounting for AspectFit letterboxing/pillarboxing)
-        /// and sizes/positions CameraViewChildrenContainer to match.
+        /// Single unified method that:
+        ///   1. Calculates the natural visible container size (AspectFit of camera native resolution)
+        ///   2. Applies the selected aspect ratio crop:
+        ///      - "Full"  → no additional crop (container = natural size)
+        ///      - "4:3"   → portrait preview h/w = 4/3  (landscape 4:3 output, portrait shows 3:4)
+        ///      - "16:9"  → portrait preview h/w = 9/16 (landscape 16:9 output, preview is a horizontal band)
+        ///      - "1:1"   → portrait preview h/w = 1
+        ///   3. Sets CameraViewChildrenContainer to the cropped size
+        ///   4. Updates ViewModel bar heights so the black overlay bars cover the cropped-away areas
         ///
-        /// Logic:
-        /// 1. Get camera view dimensions and selected camera resolution
-        /// 2. Handle orientation by swapping resolution dimensions for portrait
-        /// 3. Calculate aspect ratios (camera vs viewport)
-        /// 4. Determine visible dimensions based on AspectFit scaling
-        /// 5. Set CameraViewChildrenContainer size
-        /// 6. HorizontalOptions/VerticalOptions="Center" automatically centers it
+        /// Bar heights are computed from the CameraView height so bars reach from
+        /// the Row 0 edges all the way to the (possibly already AspectFit-letterboxed)
+        /// container edges.
         /// </summary>
-        private void CalculateAndPositionCameraViewChildrenContainer(
-            double cameraViewWidth,
-            double cameraViewHeight,
-            CameraInfo? selectedCamera)
+        private void ApplyCameraLayout(double cameraViewWidth, double cameraViewHeight, CameraInfo? selectedCamera)
         {
-            // 1. SAFETY CHECKS
-            if (cameraViewWidth <= 0 || cameraViewHeight <= 0)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    "[MainPage] CameraView has invalid dimensions, skipping container calculation");
-                return;
-            }
-
-            if (selectedCamera == null)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    "[MainPage] No camera selected, skipping container calculation");
-                return;
-            }
-
-            if (selectedCamera.SupportedResolutions == null || selectedCamera.SupportedResolutions.Count == 0)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    "[MainPage] Camera has no supported resolutions, skipping container calculation");
-                return;
-            }
-
-            if (CameraViewChildrenContainer == null)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    "[MainPage] CameraViewChildrenContainer not found, skipping calculation");
-                return;
-            }
+            if (cameraViewWidth <= 0 || cameraViewHeight <= 0) return;
+            if (selectedCamera == null) return;
+            if (selectedCamera.SupportedResolutions == null || selectedCamera.SupportedResolutions.Count == 0) return;
+            if (CameraViewChildrenContainer == null) return;
 
             try
             {
-                // 2. GET CAMERA RESOLUTION
-                // Use highest resolution (most likely what's being rendered)
-                var cameraResolution = selectedCamera.SupportedResolutions[selectedCamera.SupportedResolutions.Count - 1];
-                double cameraWidth = cameraResolution.Width;
-                double cameraHeight = cameraResolution.Height;
+                // ── Step 1: natural visible area (AspectFit of sensor resolution) ──────────
+                var res = selectedCamera.SupportedResolutions[selectedCamera.SupportedResolutions.Count - 1];
+                double camW = res.Width;
+                double camH = res.Height;
 
-                // 3. HANDLE ORIENTATION
-                // Device is in portrait, so swap camera dimensions to match portrait coordinate system
                 var displayInfo = DeviceDisplay.Current.MainDisplayInfo;
                 if (displayInfo.Orientation == DisplayOrientation.Portrait)
-                {
-                    (cameraWidth, cameraHeight) = (cameraHeight, cameraWidth);
-                }
+                    (camW, camH) = (camH, camW);
 
-                // 4. CALCULATE ASPECT RATIOS
-                double cameraAspect = cameraWidth / cameraHeight;
+                double camAspect  = camW / camH;
                 double viewAspect = cameraViewWidth / cameraViewHeight;
 
-                // 5. CALCULATE VISIBLE DIMENSIONS (with AspectFit scaling)
-                double visibleWidth, visibleHeight;
-
-                if (cameraAspect > viewAspect)
+                double naturalW, naturalH;
+                if (camAspect > viewAspect)
                 {
-                    // Camera is wider relative to view → letterbox top/bottom
-                    visibleWidth = cameraViewWidth;
-                    visibleHeight = cameraViewWidth / cameraAspect;
+                    naturalW = cameraViewWidth;
+                    naturalH = cameraViewWidth / camAspect;
                 }
                 else
                 {
-                    // Camera is taller relative to view → pillarbox left/right
-                    visibleHeight = cameraViewHeight;
-                    visibleWidth = cameraViewHeight * cameraAspect;
+                    naturalH = cameraViewHeight;
+                    naturalW = cameraViewHeight * camAspect;
                 }
 
-                // 6. SET CONTAINER SIZE
-                // HorizontalOptions="Center" and VerticalOptions="Center" automatically center it
-                CameraViewChildrenContainer.WidthRequest = visibleWidth;
-                CameraViewChildrenContainer.HeightRequest = visibleHeight;
+                // ── Step 2: apply aspect ratio crop ─────────────────────────────────────────
+                // The labels (4:3, 16:9, 1:1) refer to LANDSCAPE output ratios.
+                // In portrait preview the height-to-width ratio is the INVERSE:
+                //   • 4:3  landscape → portrait h/w = 4/3  (tall-ish, ~same as native on most cameras)
+                //   • 16:9 landscape → portrait h/w = 9/16 (horizontal band — crops top/bottom heavily)
+                //   • 1:1            → portrait h/w = 1/1  (square)
+                var ratio = _cameraSettingsVm.SelectedAspectRatio;
+                double r = ratio switch
+                {
+                    TravelCamApp.ViewModels.AspectRatioOption.FourThree   => 4.0 / 3.0,
+                    TravelCamApp.ViewModels.AspectRatioOption.SixteenNine => 9.0 / 16.0,   // portrait h/w for 16:9 output
+                    TravelCamApp.ViewModels.AspectRatioOption.OneOne       => 1.0,
+                    _                                                       => 0.0           // FullScreen
+                };
+
+                double croppedH;
+                if (r > 0)
+                {
+                    double desiredH = naturalW * r;
+                    croppedH = desiredH < naturalH ? desiredH : naturalH; // can't show more than natural
+                }
+                else
+                {
+                    croppedH = naturalH;
+                }
+
+                // ── Step 3: resize container to the cropped area ─────────────────────────────
+                CameraViewChildrenContainer.WidthRequest  = naturalW;
+                CameraViewChildrenContainer.HeightRequest = croppedH;
+
+                // ── Step 4: bar heights cover from Row-0 edge to container edge ──────────────
+                // Container is centered vertically in the CameraView (VerticalOptions="Center").
+                // Bars must reach from the CameraView top/bottom to the container top/bottom.
+                bool hasBars = r > 0 && croppedH < naturalH;
+                if (hasBars)
+                {
+                    double barH = (cameraViewHeight - croppedH) / 2.0;
+                    ViewModel.AspectTopBarHeight    = barH;
+                    ViewModel.AspectBottomBarHeight = barH;
+                }
+                else
+                {
+                    ViewModel.AspectTopBarHeight    = 0;
+                    ViewModel.AspectBottomBarHeight = 0;
+                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[MainPage] CalculateAndPositionCameraViewChildrenContainer error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[MainPage] ApplyCameraLayout error: {ex.Message}");
             }
         }
 

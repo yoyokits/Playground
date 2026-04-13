@@ -151,4 +151,41 @@ namespace TravelCamApp.Converters
             throw new NotImplementedException();
         }
     }
+
+    /// <summary>
+    /// Returns the background color for an aspect-ratio segment button.
+    /// Active → accent blue, Inactive → dark card.
+    /// Parameter is the AspectRatioOption name string.
+    /// </summary>
+    public sealed class AspectRatioToBackgroundConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is AspectRatioOption current && parameter is string p &&
+                System.Enum.TryParse<AspectRatioOption>(p, out var target))
+                return current == target ? Color.FromArgb("#0A84FF") : Color.FromArgb("#2C2C2E");
+            return Color.FromArgb("#2C2C2E");
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Returns the text color for an aspect-ratio segment button.
+    /// Active → White, Inactive → medium gray.
+    /// </summary>
+    public sealed class AspectRatioToTextColorConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is AspectRatioOption current && parameter is string p &&
+                System.Enum.TryParse<AspectRatioOption>(p, out var target))
+                return current == target ? Colors.White : Color.FromArgb("#88FFFFFF");
+            return Color.FromArgb("#88FFFFFF");
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotImplementedException();
+    }
 }
