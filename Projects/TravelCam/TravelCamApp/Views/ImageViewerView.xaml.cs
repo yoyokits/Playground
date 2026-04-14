@@ -36,7 +36,11 @@ namespace TravelCamApp.Views
             {
                 var index = vm.GalleryImagePaths.IndexOf(selected);
                 if (index >= 0)
+                {
                     vm.CurrentImageIndex = index;
+                    MainCarousel.ScrollTo(index, position: ScrollToPosition.Center, animate: true);
+                    StopSharedVideoPlayer();
+                }
             }
         }
 

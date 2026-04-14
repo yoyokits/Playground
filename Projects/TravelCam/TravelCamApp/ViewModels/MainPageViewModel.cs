@@ -1161,6 +1161,9 @@ namespace TravelCamApp.ViewModels
                 }
 
                 var city = GetCityForFileName();
+#if ANDROID
+                stream = CropStreamToAspectRatio(stream, _cameraSettings.SelectedAspectRatio);
+#endif
                 var (galleryPath, thumbPath) = await FileHelper.SavePhotoAsync(stream, city);
                 _ = galleryPath; // published to MediaStore; not stored in VM
 
@@ -1185,6 +1188,77 @@ namespace TravelCamApp.ViewModels
             _isCapturing = false;
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] Photo capture failed");
         }
+
+#if ANDROID
+        /// <summary>
+        /// Center-crops a JPEG stream to match the selected aspect ratio overlay.
+        /// Returns the original stream unchanged when ratio is FullScreen.
+        /// </summary>
+        private static Stream CropStreamToAspectRatio(Stream inputStream, AspectRatioOption ratio)
+        {
+            if (ratio == AspectRatioOption.FullScreen) return inputStream;
+
+            try
+            {
+                var bitmap = Android.Graphics.BitmapFactory.DecodeStream(inputStream);
+                if (bitmap == null) return inputStream;
+
+                int srcW = bitmap.Width;
+                int srcH = bitmap.Height;
+
+                // Target w:h ratio for the saved image (landscape convention)
+                double targetRatio = ratio switch
+                {
+                    AspectRatioOption.FourThree   => 4.0 / 3.0,
+                    AspectRatioOption.SixteenNine => 16.0 / 9.0,
+                    AspectRatioOption.OneOne       => 1.0,
+                    _                              => (double)srcW / srcH
+                };
+
+                double srcRatio = (double)srcW / srcH;
+                int cropW, cropH, offsetX, offsetY;
+
+                if (srcRatio > targetRatio)
+                {
+                    // Source wider than target → trim left/right
+                    cropH = srcH;
+                    cropW = (int)System.Math.Round(srcH * targetRatio);
+                    offsetX = (srcW - cropW) / 2;
+                    offsetY = 0;
+                }
+                else
+                {
+                    // Source taller than target → trim top/bottom
+                    cropW = srcW;
+                    cropH = (int)System.Math.Round(srcW / targetRatio);
+                    offsetX = 0;
+                    offsetY = (srcH - cropH) / 2;
+                }
+
+                // Clamp to bitmap bounds (safety)
+                cropW  = System.Math.Min(cropW,  srcW - offsetX);
+                cropH  = System.Math.Min(cropH,  srcH - offsetY);
+
+                var cropped = Android.Graphics.Bitmap.CreateBitmap(bitmap, offsetX, offsetY, cropW, cropH);
+                bitmap.Recycle();
+
+                var ms = new MemoryStream();
+                cropped.Compress(Android.Graphics.Bitmap.CompressFormat.Jpeg!, 95, ms);
+                cropped.Recycle();
+
+                ms.Position = 0;
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] Photo cropped: {srcW}×{srcH} → {cropW}×{cropH} ({ratio})");
+                return ms;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] CropStreamToAspectRatio error: {ex.Message}");
+                return inputStream;
+            }
+        }
+#endif
 
         #endregion
 

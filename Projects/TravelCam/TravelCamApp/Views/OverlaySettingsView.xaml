@@ -90,7 +90,9 @@
                                                        VerticalOptions="Center"
                                                        Margin="0,0,0,2" />
                                                 <Border.GestureRecognizers>
-                                                    <TapGestureRecognizer Tapped="OnItemRemoveClicked" />
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding Source={x:Reference SettingsRoot}, Path=BindingContext.MoveToAvailableCommand}"
+                                                        CommandParameter="{Binding .}" />
                                                 </Border.GestureRecognizers>
                                             </Border>
                                         </Grid>
@@ -138,7 +140,9 @@
                                                        VerticalOptions="Center"
                                                        Margin="0,0,0,1" />
                                                 <Border.GestureRecognizers>
-                                                    <TapGestureRecognizer Tapped="OnItemAddClicked" />
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding Source={x:Reference SettingsRoot}, Path=BindingContext.MoveToVisibleCommand}"
+                                                        CommandParameter="{Binding .}" />
                                                 </Border.GestureRecognizers>
                                             </Border>
                                         </Grid>
