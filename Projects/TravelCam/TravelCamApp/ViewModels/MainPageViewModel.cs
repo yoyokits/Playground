@@ -71,6 +71,8 @@ namespace TravelCamApp.ViewModels
         // Aspect ratio crop bars
         private double _aspectTopBarHeight;
         private double _aspectBottomBarHeight;
+        private double _aspectLeftBarWidth;
+        private double _aspectRightBarWidth;
 
         // Recording display timer
         private System.Timers.Timer? _recordingTimer;
@@ -270,6 +272,34 @@ namespace TravelCamApp.ViewModels
 
         /// <summary>True when letterbox bars should be shown (any non-FullScreen aspect ratio with non-zero bars).</summary>
         public bool HasAspectBars => _aspectTopBarHeight > 1;
+
+        /// <summary>Width of the left black pillarbox bar for the selected aspect ratio.</summary>
+        public double AspectLeftBarWidth
+        {
+            get => _aspectLeftBarWidth;
+            set
+            {
+                if (Math.Abs(_aspectLeftBarWidth - value) < 0.5) return;
+                _aspectLeftBarWidth = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasAspectSideBars));
+            }
+        }
+
+        /// <summary>Width of the right black pillarbox bar for the selected aspect ratio.</summary>
+        public double AspectRightBarWidth
+        {
+            get => _aspectRightBarWidth;
+            set
+            {
+                if (Math.Abs(_aspectRightBarWidth - value) < 0.5) return;
+                _aspectRightBarWidth = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>True when pillarbox side bars should be shown.</summary>
+        public bool HasAspectSideBars => _aspectLeftBarWidth > 1;
 
         /// <summary>
         /// Dynamic zoom presets generated from the active camera's min/max zoom range.
@@ -1192,6 +1222,7 @@ namespace TravelCamApp.ViewModels
 #if ANDROID
         /// <summary>
         /// Center-crops a JPEG stream to match the selected aspect ratio overlay.
+        /// Applies EXIF rotation so the output pixels are upright (no EXIF tag needed).
         /// Returns the original stream unchanged when ratio is FullScreen.
         /// </summary>
         private static Stream CropStreamToAspectRatio(Stream inputStream, AspectRatioOption ratio)
@@ -1200,17 +1231,67 @@ namespace TravelCamApp.ViewModels
 
             try
             {
-                var bitmap = Android.Graphics.BitmapFactory.DecodeStream(inputStream);
+                // Buffer input so EXIF can be read before the bitmap decoder consumes the stream
+                var buffer = new MemoryStream();
+                inputStream.CopyTo(buffer);
+                var imgBytes = buffer.ToArray();
+                buffer.Dispose();
+
+                // Read EXIF orientation by writing to a temp file (most reliable cross-version approach)
+                int exifOrientationInt = (int)Android.Media.Orientation.Normal;
+                var tmpExifPath = System.IO.Path.Combine(
+                    Android.App.Application.Context.CacheDir!.AbsolutePath,
+                    $"exif_{System.Guid.NewGuid():N}.jpg");
+                try
+                {
+                    System.IO.File.WriteAllBytes(tmpExifPath, imgBytes);
+                    var exif = new Android.Media.ExifInterface(tmpExifPath);
+                    exifOrientationInt = exif.GetAttributeInt(
+                        Android.Media.ExifInterface.TagOrientation,
+                        (int)Android.Media.Orientation.Normal);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MainPageViewModel] EXIF read failed: {ex.Message}");
+                }
+                finally
+                {
+                    try { System.IO.File.Delete(tmpExifPath); } catch { }
+                }
+
+                // Decode bitmap
+                var bitmap = Android.Graphics.BitmapFactory.DecodeByteArray(imgBytes, 0, imgBytes.Length);
                 if (bitmap == null) return inputStream;
+
+                // Apply EXIF rotation — output bitmap pixels are upright (no EXIF metadata needed)
+                int rotateDegrees = exifOrientationInt switch
+                {
+                    (int)Android.Media.Orientation.Rotate90  => 90,
+                    (int)Android.Media.Orientation.Rotate180 => 180,
+                    (int)Android.Media.Orientation.Rotate270 => 270,
+                    _ => 0
+                };
+
+                if (rotateDegrees != 0)
+                {
+                    var matrix = new Android.Graphics.Matrix();
+                    matrix.PostRotate(rotateDegrees);
+                    var rotated = Android.Graphics.Bitmap.CreateBitmap(
+                        bitmap, 0, 0, bitmap.Width, bitmap.Height, matrix, true);
+                    bitmap.Recycle();
+                    bitmap = rotated;
+                }
 
                 int srcW = bitmap.Width;
                 int srcH = bitmap.Height;
+                bool isPortrait = srcW <= srcH;
 
-                // Target w:h ratio for the saved image (landscape convention)
+                // Target w:h ratio in the bitmap's natural orientation after rotation
                 double targetRatio = ratio switch
                 {
-                    AspectRatioOption.FourThree   => 4.0 / 3.0,
-                    AspectRatioOption.SixteenNine => 16.0 / 9.0,
+                    AspectRatioOption.FourThree   => isPortrait ? 3.0 / 4.0 : 4.0 / 3.0,
+                    AspectRatioOption.SixteenNine => isPortrait ? 9.0 / 16.0 : 16.0 / 9.0,
                     AspectRatioOption.OneOne       => 1.0,
                     _                              => (double)srcW / srcH
                 };
@@ -1236,8 +1317,8 @@ namespace TravelCamApp.ViewModels
                 }
 
                 // Clamp to bitmap bounds (safety)
-                cropW  = System.Math.Min(cropW,  srcW - offsetX);
-                cropH  = System.Math.Min(cropH,  srcH - offsetY);
+                cropW = System.Math.Min(cropW, srcW - offsetX);
+                cropH = System.Math.Min(cropH, srcH - offsetY);
 
                 var cropped = Android.Graphics.Bitmap.CreateBitmap(bitmap, offsetX, offsetY, cropW, cropH);
                 bitmap.Recycle();
@@ -1248,7 +1329,7 @@ namespace TravelCamApp.ViewModels
 
                 ms.Position = 0;
                 System.Diagnostics.Debug.WriteLine(
-                    $"[MainPageViewModel] Photo cropped: {srcW}×{srcH} → {cropW}×{cropH} ({ratio})");
+                    $"[MainPageViewModel] Photo cropped: {srcW}×{srcH} → {cropW}×{cropH} ({ratio}, rot={rotateDegrees}°)");
                 return ms;
             }
             catch (Exception ex)

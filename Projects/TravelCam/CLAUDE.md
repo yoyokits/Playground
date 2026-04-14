@@ -223,7 +223,7 @@ See `CodeStyle.txt` for full standards. Key rules:
 | Target SDK 36 (API 36) | PLANNED | Required by Aug 31, 2026 for new uploads |
 | Scoped Storage (API 29+) | OK | MediaStore with IsPending flag |
 | Runtime Permissions | OK | Camera, Mic, Location, Storage handled |
-| Camera.MAUI 1.5.1 | RISK | Last release; consider CommunityToolkit.Maui.Camera for long-term |
+| Camera.MAUI 1.5.1 | RESOLVED | Migrated to CommunityToolkit.Maui.Camera 6.0.1 |
 
 ## KEY FILES
 
@@ -324,6 +324,48 @@ Key compile checks:
 
 ---
 
+## RECENT FIXES (2026-04-15)
+
+### 1. Aspect Ratio Crop Bugs — 3-Part Fix
+**Files:** `MainPageViewModel.cs`, `MainPage.xaml.cs`, `MainPage.xaml`
+
+**Bug A — 1:1 image rotated 90° in gallery:**
+- `BitmapFactory.DecodeStream` ignores EXIF orientation → decoded bitmap is always landscape pixels
+- Fix: buffer input → write to temp file → read `ExifInterface.TagOrientation` → rotate bitmap via `Matrix.PostRotate()` → crop using **portrait-convention ratios** (3:4=`3.0/4.0`, 9:16=`9.0/16.0`, 1:1=`1.0`) on the upright bitmap → save without EXIF (pixels already correct)
+
+**Bug B — 16:9 mode shows a landscape band in portrait:**
+- `SixteenNine => 9.0/16.0` gave `r = 0.5625` → `croppedH = naturalW × 0.5625` → container width > height → landscape crop indicator
+- Fix: `isPortrait ? 16.0/9.0 : 9.0/16.0` (orientation-aware). Now shows a tall portrait 9:16 crop frame.
+
+**Bug C — 3:4 and 9:16 look the same on 4:3 sensor devices:**
+- With `r = 16/9`, `croppedH = naturalW × 1.778 > naturalH` on 4:3 sensors → clamped to naturalH → same as Full
+- Fix: Added **pillarbox** (left/right bar) support. When `desiredH > naturalH`: `croppedW = naturalH / r` and `croppedH = naturalH`. New properties `AspectLeftBarWidth`, `AspectRightBarWidth`, `HasAspectSideBars` added to `MainPageViewModel`. Two new `BoxView` bars at `HorizontalOptions="Start/End"` added to `MainPage.xaml`.
+- Also fixed resolution normalization: `camLong = Math.Max(res.Width, res.Height)` → robust to both portrait/landscape resolution reporting from toolkit.
+
+### 2. Gallery Crash (SelectionChanged re-entrancy) — Fixed
+**File:** `ImageViewerView.xaml.cs`
+
+**Root causes:**
+1. `OpenImageViewer()` sets `GalleryImagePaths` and `CurrentImageIndex` **before** `IsImageViewerVisible = true`. Property change notifications fire `SelectionChanged` → `OnThumbnailSelected` calls `MainCarousel.ScrollTo()` on a non-rendered CarouselView → crash.
+2. Inside `OnThumbnailSelected`, setting `vm.CurrentImageIndex` notifies `CurrentImageItem` → TwoWay `SelectedItem` binding updates CollectionView → fires `SelectionChanged` again → re-entrant double `ScrollTo`.
+
+**Fix:**
+- Added `_isSyncingThumbnail` bool flag — blocks re-entrant calls while processing a tap
+- Added `if (!IsVisible)` guard — discards all binding-driven events when gallery panel is hidden
+- Wrapped `MainCarousel.ScrollTo` in try/catch
+
+### 3. Camera Layout Refactor
+**File:** `MainPage.xaml`
+
+- **Removed** the 4-column top toolbar `[Flash] [Sensor] [timer] [Camera Settings]`
+- **Moved** all three icon buttons **inside** `CameraViewChildrenContainer` as a right-side `VerticalStackLayout` at `HorizontalOptions="End" VerticalOptions="Start" Margin="0,12,12,0"`:
+  - Top: Camera Settings (gear)
+  - Middle: Flash Toggle (yellow bolt / white slash)
+  - Bottom: Sensor Overlay Settings (data bars)
+- **Kept** recording timer as a standalone `HorizontalStackLayout` at `VerticalOptions="Start" HorizontalOptions="Center"` — only visible when `IsRecording`
+
+---
+
 ## RECENT CRITICAL FIXES (2026-04-12)
 
 > **📖 COMPLETE SOLUTION:** All fixes consolidated in master memory file:  
@@ -399,7 +441,10 @@ Key compile checks:
 - [ ] Upgrade Target SDK to API 36 before Aug 2026 Google Play deadline
 - [ ] Verify CommunityToolkit.Maui.Camera 6.0.1+ compatibility; check for upgrades
 - [ ] iOS support — scaffold only, not targeted
-- [x] Flash control — UI toggle in top toolbar, icon path, yellow when on / slash when off
+- [x] **Gallery stability** — Fixed SelectionChanged re-entrancy crash + hidden-view ScrollTo crash (2026-04-15)
+- [x] **Aspect ratio crop** — EXIF rotation applied, 16:9 portrait preview fixed, pillarbox bars added (2026-04-15)
+- [x] **Camera layout** — Flash, Sensor, Camera Settings moved inside CameraViewChildrenContainer right column (2026-04-15)
+- [x] Flash control — icon path, yellow when on / slash when off
 - [x] Zoom control — 5 preset pills (.6×, 1×, 2, 3, 10) overlaying bottom of preview
 - [x] Migrated from Camera.MAUI 1.5.1 to CommunityToolkit.Maui.Camera 6.0.1
 - [x] DataOverlayViewModel rewired — subscribes to SensorHelper, owns OverlayItems
