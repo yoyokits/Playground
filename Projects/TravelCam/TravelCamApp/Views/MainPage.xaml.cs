@@ -166,17 +166,13 @@ namespace TravelCamApp.Views
         /// <summary>
         /// Single unified method that:
         ///   1. Calculates the natural visible container size (AspectFit of camera native resolution)
-        ///   2. Applies the selected aspect ratio crop:
-        ///      - "Full"  → no additional crop (container = natural size)
-        ///      - "4:3"   → portrait preview h/w = 4/3  (landscape 4:3 output, portrait shows 3:4)
-        ///      - "16:9"  → portrait preview h/w = 9/16 (landscape 16:9 output, preview is a horizontal band)
-        ///      - "1:1"   → portrait preview h/w = 1
+        ///   2. Applies the selected aspect ratio crop using the phone's orientation:
+        ///      - "Full"  → no crop (container = natural size)
+        ///      - "4:3"   → portrait h/w = 4/3  (3:4 output, fills frame on a 4:3 sensor)
+        ///      - "16:9"  → portrait h/w = 16/9 (9:16 output, pillarboxed on a 4:3 sensor)
+        ///      - "1:1"   → h/w = 1 (square, letterboxed)
         ///   3. Sets CameraViewChildrenContainer to the cropped size
-        ///   4. Updates ViewModel bar heights so the black overlay bars cover the cropped-away areas
-        ///
-        /// Bar heights are computed from the CameraView height so bars reach from
-        /// the Row 0 edges all the way to the (possibly already AspectFit-letterboxed)
-        /// container edges.
+        ///   4. Updates ViewModel bar heights/widths for letterbox (top/bottom) or pillarbox (left/right)
         /// </summary>
         private void ApplyCameraLayout(double cameraViewWidth, double cameraViewHeight, CameraInfo? selectedCamera)
         {
@@ -189,12 +185,14 @@ namespace TravelCamApp.Views
             {
                 // ── Step 1: natural visible area (AspectFit of sensor resolution) ──────────
                 var res = selectedCamera.SupportedResolutions[selectedCamera.SupportedResolutions.Count - 1];
-                double camW = res.Width;
-                double camH = res.Height;
+                // Normalize to landscape-first so portrait/landscape reporting differences don't matter
+                double camLong  = Math.Max(res.Width, res.Height);
+                double camShort = Math.Min(res.Width, res.Height);
 
                 var displayInfo = DeviceDisplay.Current.MainDisplayInfo;
-                if (displayInfo.Orientation == DisplayOrientation.Portrait)
-                    (camW, camH) = (camH, camW);
+                bool isPortrait = displayInfo.Orientation == DisplayOrientation.Portrait;
+                double camW = isPortrait ? camShort : camLong;
+                double camH = isPortrait ? camLong  : camShort;
 
                 double camAspect  = camW / camH;
                 double viewAspect = cameraViewWidth / cameraViewHeight;
@@ -211,41 +209,48 @@ namespace TravelCamApp.Views
                     naturalW = cameraViewHeight * camAspect;
                 }
 
-                // ── Step 2: apply aspect ratio crop ─────────────────────────────────────────
-                // The labels (4:3, 16:9, 1:1) refer to LANDSCAPE output ratios.
-                // In portrait preview the height-to-width ratio is the INVERSE:
-                //   • 4:3  landscape → portrait h/w = 4/3  (tall-ish, ~same as native on most cameras)
-                //   • 16:9 landscape → portrait h/w = 9/16 (horizontal band — crops top/bottom heavily)
-                //   • 1:1            → portrait h/w = 1/1  (square)
-                var ratio = _cameraSettingsVm.SelectedAspectRatio;
-                double r = ratio switch
+                // ── Step 2: aspect ratio crop ─────────────────────────────────────────
+                // r = desired container h/w.  Portrait: tall ratios (r > 1); landscape: wide (r < 1).
+                // "4:3" and "16:9" labels are the output portrait ratios (3:4 and 9:16).
+                double r = _cameraSettingsVm.SelectedAspectRatio switch
                 {
-                    TravelCamApp.ViewModels.AspectRatioOption.FourThree   => 4.0 / 3.0,
-                    TravelCamApp.ViewModels.AspectRatioOption.SixteenNine => 9.0 / 16.0,   // portrait h/w for 16:9 output
+                    TravelCamApp.ViewModels.AspectRatioOption.FourThree   => isPortrait ? 4.0 / 3.0 : 3.0 / 4.0,
+                    TravelCamApp.ViewModels.AspectRatioOption.SixteenNine => isPortrait ? 16.0 / 9.0 : 9.0 / 16.0,
                     TravelCamApp.ViewModels.AspectRatioOption.OneOne       => 1.0,
-                    _                                                       => 0.0           // FullScreen
+                    _                                                       => 0.0   // FullScreen
                 };
 
-                double croppedH;
+                double croppedW, croppedH;
                 if (r > 0)
                 {
                     double desiredH = naturalW * r;
-                    croppedH = desiredH < naturalH ? desiredH : naturalH; // can't show more than natural
+                    if (desiredH <= naturalH)
+                    {
+                        // Letterbox: crop top/bottom — desired height fits within the natural frame
+                        croppedW = naturalW;
+                        croppedH = desiredH;
+                    }
+                    else
+                    {
+                        // Pillarbox: desired height exceeds natural frame → reduce width instead
+                        // (e.g. 16:9 / 9:16 on a 4:3 sensor in portrait)
+                        croppedH = naturalH;
+                        croppedW = naturalH / r;
+                    }
                 }
                 else
                 {
+                    croppedW = naturalW;
                     croppedH = naturalH;
                 }
 
                 // ── Step 3: resize container to the cropped area ─────────────────────────────
-                CameraViewChildrenContainer.WidthRequest  = naturalW;
+                CameraViewChildrenContainer.WidthRequest  = croppedW;
                 CameraViewChildrenContainer.HeightRequest = croppedH;
 
-                // ── Step 4: bar heights cover from Row-0 edge to container edge ──────────────
-                // Container is centered vertically in the CameraView (VerticalOptions="Center").
-                // Bars must reach from the CameraView top/bottom to the container top/bottom.
-                bool hasBars = r > 0 && croppedH < naturalH;
-                if (hasBars)
+                // ── Step 4: letterbox bars (top/bottom) ──────────────────────────────────────
+                bool hasTopBottomBars = r > 0 && croppedH < naturalH;
+                if (hasTopBottomBars)
                 {
                     double barH = (cameraViewHeight - croppedH) / 2.0;
                     ViewModel.AspectTopBarHeight    = barH;
@@ -255,6 +260,20 @@ namespace TravelCamApp.Views
                 {
                     ViewModel.AspectTopBarHeight    = 0;
                     ViewModel.AspectBottomBarHeight = 0;
+                }
+
+                // ── Step 5: pillarbox bars (left/right) ──────────────────────────────────────
+                bool hasSideBars = r > 0 && croppedW < naturalW;
+                if (hasSideBars)
+                {
+                    double barW = (cameraViewWidth - croppedW) / 2.0;
+                    ViewModel.AspectLeftBarWidth  = barW;
+                    ViewModel.AspectRightBarWidth = barW;
+                }
+                else
+                {
+                    ViewModel.AspectLeftBarWidth  = 0;
+                    ViewModel.AspectRightBarWidth = 0;
                 }
             }
             catch (Exception ex)

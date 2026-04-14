@@ -12,6 +12,9 @@ namespace TravelCamApp.Views
     {
         private bool _isScrollingFromCarousel = false;
         private CancellationTokenSource? _scrollDebounceCancel;
+        // Prevents re-entrant calls: setting CurrentImageIndex notifies CurrentImageItem,
+        // which updates SelectedItem via binding, which fires SelectionChanged again.
+        private bool _isSyncingThumbnail = false;
 
         public ImageViewerView()
         {
@@ -27,7 +30,11 @@ namespace TravelCamApp.Views
 
         private void OnThumbnailSelected(object? sender, SelectionChangedEventArgs e)
         {
-            if (e.CurrentSelection.Count == 0) return;
+            // Guard 1: ignore binding-triggered events when the gallery is not yet visible
+            // (OpenImageViewer sets GalleryImagePaths/CurrentImageIndex before IsVisible=true,
+            // which drives binding updates that fire SelectionChanged on a hidden/unlaid CarouselView).
+            // Guard 2: prevent re-entrancy from the CurrentImageIndex→CurrentImageItem→SelectedItem loop.
+            if (!IsVisible || _isSyncingThumbnail || e.CurrentSelection.Count == 0) return;
 
             var selected = e.CurrentSelection[0] as string;
             if (string.IsNullOrEmpty(selected)) return;
@@ -35,12 +42,24 @@ namespace TravelCamApp.Views
             if (BindingContext is MainPageViewModel vm)
             {
                 var index = vm.GalleryImagePaths.IndexOf(selected);
-                if (index >= 0)
+                if (index < 0) return;
+
+                _isSyncingThumbnail = true;
+                try
                 {
                     vm.CurrentImageIndex = index;
                     MainCarousel.ScrollTo(index, position: ScrollToPosition.Center, animate: true);
-                    StopSharedVideoPlayer();
                 }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[ImageViewerView] OnThumbnailSelected scroll error: {ex.Message}");
+                }
+                finally
+                {
+                    _isSyncingThumbnail = false;
+                }
+                StopSharedVideoPlayer();
             }
         }
 
