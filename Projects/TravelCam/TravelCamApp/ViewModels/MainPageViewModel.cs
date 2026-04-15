@@ -81,6 +81,8 @@ namespace TravelCamApp.ViewModels
         // Gallery viewer
         private ObservableCollection<string> _galleryImagePaths = new();
         private int _currentImageIndex;
+        private bool _isMediaInfoVisible;
+        private Models.MediaInfo _currentMediaInfo = new();
 
         // Lifecycle guards — instance-level only (no static flag)
         private List<Window> _trackedWindows = new();  // track all windows for proper cleanup
@@ -194,6 +196,20 @@ namespace TravelCamApp.ViewModels
         {
             get => _isImageViewerVisible;
             set { _isImageViewerVisible = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>Whether the media info overlay panel is currently visible.</summary>
+        public bool IsMediaInfoVisible
+        {
+            get => _isMediaInfoVisible;
+            set { _isMediaInfoVisible = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>EXIF metadata for the currently displayed media item.</summary>
+        public Models.MediaInfo CurrentMediaInfo
+        {
+            get => _currentMediaInfo;
+            private set { _currentMediaInfo = value; OnPropertyChanged(); }
         }
 
         public ObservableCollection<string> GalleryImagePaths
@@ -334,6 +350,7 @@ namespace TravelCamApp.ViewModels
         public ICommand ShareImageCommand { get; }
         public ICommand DeleteImageCommand { get; }
         public ICommand PlayVideoCommand { get; }
+        public ICommand ToggleMediaInfoCommand { get; }
 
         #endregion
 
@@ -362,6 +379,7 @@ namespace TravelCamApp.ViewModels
             ShareImageCommand = new Command(async () => await SafeExecuteAsync(ShareCurrentImageAsync));
             DeleteImageCommand = new Command(async () => await SafeExecuteAsync(DeleteCurrentImageAsync));
             PlayVideoCommand = new Command<string>(async (filePath) => await SafeExecuteAsync(() => PlayVideoAsync(filePath)));
+            ToggleMediaInfoCommand = new Command(() => ExecuteToggleMediaInfo());
 
             _ = SafeInitializeAsync();
         }
@@ -1193,6 +1211,18 @@ namespace TravelCamApp.ViewModels
                 var city = GetCityForFileName();
 #if ANDROID
                 stream = CropStreamToAspectRatio(stream, _cameraSettings.SelectedAspectRatio);
+
+                // Embed EXIF metadata (GPS, temperature, device info, etc.) into the JPEG
+                var meta = BuildPhotoCaptureMetadata();
+                try
+                {
+                    stream = Helpers.ExifHelper.ApplyMetadata(stream, meta);
+                }
+                catch (Exception exifEx)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MainPageViewModel] ExifHelper.ApplyMetadata error: {exifEx.Message}");
+                }
 #endif
                 var (galleryPath, thumbPath) = await FileHelper.SavePhotoAsync(stream, city);
                 _ = galleryPath; // published to MediaStore; not stored in VM
@@ -1685,8 +1715,19 @@ namespace TravelCamApp.ViewModels
                 return;
             }
 
-            // Adjust index if we deleted the last item, then navigate to the new current item.
-            var newIndex = deletedIndex >= GalleryImagePaths.Count ? GalleryImagePaths.Count - 1 : deletedIndex;
+            // Close info panel if open — the item it was showing is now gone
+            IsMediaInfoVisible = false;
+
+            // Adjust index if we deleted the last item
+            var newIndex = deletedIndex >= GalleryImagePaths.Count
+                ? GalleryImagePaths.Count - 1
+                : deletedIndex;
+
+            // Force PropertyChanged even when the numeric index is unchanged.
+            // The item at this position has shifted after RemoveAt, so CurrentImageItem
+            // must be re-evaluated; the setter's equality guard would skip it otherwise.
+            if (_currentImageIndex == newIndex)
+                _currentImageIndex = -1;
             CurrentImageIndex = newIndex;
         }
 
@@ -1734,6 +1775,39 @@ namespace TravelCamApp.ViewModels
             }
         }
 
+        private void ExecuteToggleMediaInfo()
+        {
+            if (IsMediaInfoVisible)
+            {
+                IsMediaInfoVisible = false;
+                return;
+            }
+
+            var path = CurrentImageItem;
+            if (string.IsNullOrEmpty(path)) return;
+
+#if ANDROID
+            try
+            {
+                CurrentMediaInfo = Helpers.ExifHelper.ReadMetadata(path);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] ReadMetadata error: {ex.Message}");
+                CurrentMediaInfo = new Models.MediaInfo
+                {
+                    FileName = System.IO.Path.GetFileName(path)
+                };
+            }
+#else
+            CurrentMediaInfo = new Models.MediaInfo
+            {
+                FileName = System.IO.Path.GetFileName(path)
+            };
+#endif
+            IsMediaInfoVisible = true;
+        }
+
         #endregion
 
         #region Helpers
@@ -1769,6 +1843,39 @@ namespace TravelCamApp.ViewModels
             var cityItem = OverlayItems.FirstOrDefault(s => s.Name == "City");
             var city = cityItem?.Value;
             return string.IsNullOrWhiteSpace(city) || city == "Unknown" ? "CekliCam" : city;
+        }
+
+        /// <summary>
+        /// Builds a <see cref="Models.PhotoCaptureMetadata"/> snapshot from the most
+        /// recent sensor reading and current camera settings.
+        /// </summary>
+        private Models.PhotoCaptureMetadata BuildPhotoCaptureMetadata()
+        {
+            var sensor = _sensorValueViewModel.LastSensorData;
+            return new Models.PhotoCaptureMetadata
+            {
+                Latitude  = sensor?.Latitude  ?? 0,
+                Longitude = sensor?.Longitude ?? 0,
+                Altitude  = sensor?.Altitude,
+                Temperature = sensor?.Temperature,
+                City      = sensor?.City,
+                Country   = sensor?.Country,
+                Heading   = sensor?.Heading,
+                SpeedMps  = sensor?.Speed,
+                FlashFired = _isFlashOn,
+                AspectRatioLabel = _cameraSettings.SelectedAspectRatio switch
+                {
+                    AspectRatioOption.FourThree   => "4:3",
+                    AspectRatioOption.SixteenNine => "16:9",
+                    AspectRatioOption.OneOne       => "1:1",
+                    _                              => "Full"
+                },
+                ResolutionLabel = _cameraSettings.AvailableResolutionLabels.Count > 0 &&
+                                  _cameraSettings.SelectedResolutionIndex >= 0 &&
+                                  _cameraSettings.SelectedResolutionIndex < _cameraSettings.AvailableResolutionLabels.Count
+                    ? _cameraSettings.AvailableResolutionLabels[_cameraSettings.SelectedResolutionIndex]
+                    : "Auto"
+            };
         }
 
         /// <summary>
