@@ -95,6 +95,20 @@ namespace TravelCamApp.ViewModels
         #region Public API
 
         /// <summary>
+        /// Rebuilds VisibleOverlayItems from OverlayItems in their current order.
+        /// Call after the settings panel reorders or changes visibility.
+        /// </summary>
+        public void RefreshVisibleItems()
+        {
+            _visibleItems.Clear();
+            foreach (var item in _sensorItems)
+            {
+                if (item.IsVisible)
+                    _visibleItems.Add(item);
+            }
+        }
+
+        /// <summary>
         /// Loads saved sensor visibility settings from persistent storage.
         /// Call once during app initialization.
         /// </summary>

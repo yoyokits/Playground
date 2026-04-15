@@ -330,7 +330,13 @@ namespace TravelCamApp.Views
             ViewModel.DataOverlayViewModel.FontSize = _sensorSettingsVm.FontSize;
 
             await _sensorSettingsVm.SaveSettingsAsync();
+
+            // Apply visibility flags + reorder OverlayItems to match settings panel order
             _sensorSettingsVm.ApplyToOverlayItems(ViewModel.OverlayItems);
+
+            // Rebuild VisibleOverlayItems in the new order so the camera overlay updates
+            ViewModel.DataOverlayViewModel.RefreshVisibleItems();
+
             ViewModel.IsSettingsVisible = false;
         }
     }

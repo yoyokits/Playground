@@ -129,23 +129,25 @@ namespace TravelCamApp.Helpers
                     return false;
                 }
 
-                // ✅ Start preview on MainThread to prevent lifecycle conflicts
-                bool success = false;
+                // ✅ Start preview on MainThread; use TCS so we actually await the result
+                var tcs = new TaskCompletionSource<bool>();
+
                 MainThread.BeginInvokeOnMainThread(async () =>
                 {
                     try
                     {
                         await cameraView.StartCameraPreview(CancellationToken.None);
-                        success = true;
                         LogDebug("[CameraHelper] StartCameraPreview completed");
+                        tcs.TrySetResult(true);
                     }
                     catch (Exception ex)
                     {
                         LogDebug("[CameraHelper] MainThread preview start error: {0}", ex.Message);
+                        tcs.TrySetResult(false);
                     }
                 });
 
-                return success;
+                return await tcs.Task;
             }
             catch (Exception ex)
             {

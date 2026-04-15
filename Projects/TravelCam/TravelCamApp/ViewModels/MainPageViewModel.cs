@@ -1671,19 +1671,21 @@ namespace TravelCamApp.ViewModels
 
             if (!FileHelper.DeleteMedia(path)) return;
 
-            var updated = new List<string>(_galleryImagePaths);
-            updated.RemoveAt(_currentImageIndex);
+            var deletedIndex = _currentImageIndex;
 
-            if (updated.Count == 0)
+            // Remove from the existing collection instead of replacing it.
+            // Replacing the collection causes CollectionView/CarouselView to fully reinitialize,
+            // which makes ScrollTo crash when SelectionChanged fires during reinitialization.
+            GalleryImagePaths.RemoveAt(deletedIndex);
+
+            if (GalleryImagePaths.Count == 0)
             {
                 IsImageViewerVisible = false;
-                GalleryImagePaths = new ObservableCollection<string>();
                 return;
             }
 
-            // Adjust index if we deleted the last item
-            var newIndex = _currentImageIndex >= updated.Count ? updated.Count - 1 : _currentImageIndex;
-            GalleryImagePaths = new ObservableCollection<string>(updated);
+            // Adjust index if we deleted the last item, then navigate to the new current item.
+            var newIndex = deletedIndex >= GalleryImagePaths.Count ? GalleryImagePaths.Count - 1 : deletedIndex;
             CurrentImageIndex = newIndex;
         }
 
