@@ -80,6 +80,12 @@ namespace TravelCamApp.ViewModels
             set { _isMapOverlayVisible = value; OnPropertyChanged(); }
         }
 
+        /// <summary>Height for the Visible CollectionView: 46 dp × item count, min 48 dp.</summary>
+        public double VisibleListHeight   => Math.Max(48.0, _visibleOverlayItems.Count   * 46.0);
+
+        /// <summary>Height for the Available CollectionView: 46 dp × item count, min 48 dp.</summary>
+        public double AvailableListHeight => Math.Max(48.0, _availableOverlayItems.Count * 46.0);
+
         #endregion
 
         #region Commands
@@ -93,8 +99,12 @@ namespace TravelCamApp.ViewModels
 
         public OverlaySettingsViewModel()
         {
-            MoveToVisibleCommand = new Command<OverlayItem>(MoveToVisible);
+            MoveToVisibleCommand   = new Command<OverlayItem>(MoveToVisible);
             MoveToAvailableCommand = new Command<OverlayItem>(MoveToAvailable);
+
+            // Notify height properties whenever either list changes
+            _visibleOverlayItems.CollectionChanged   += (_, _) => OnPropertyChanged(nameof(VisibleListHeight));
+            _availableOverlayItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(AvailableListHeight));
         }
 
         #endregion
@@ -121,16 +131,34 @@ namespace TravelCamApp.ViewModels
         }
 
         /// <summary>
-        /// Writes the visibility state back to the source list.
+        /// Writes visibility state and order back to the source list.
+        /// Visible items come first (in the order the user set in settings),
+        /// followed by available items.
         /// Called when the settings overlay closes.
         /// </summary>
         public void ApplyToOverlayItems(ObservableCollection<OverlayItem> source)
         {
+            // 1. Update IsVisible flags
             var visibleNames = new HashSet<string>(VisibleOverlayItems.Select(i => i.Name));
-
             foreach (var item in source)
-            {
                 item.IsVisible = visibleNames.Contains(item.Name);
+
+            // 2. Reorder source to match: visible items first (settings order), then available.
+            //    Use Move() so bindings receive targeted CollectionChanged notifications
+            //    rather than a full reset.
+            var orderedItems = VisibleOverlayItems.Concat(AvailableOverlayItems).ToList();
+            for (int i = 0; i < orderedItems.Count; i++)
+            {
+                var target = orderedItems[i];
+                // Search from position i onward (everything before i is already in place)
+                for (int j = i; j < source.Count; j++)
+                {
+                    if (source[j].Name == target.Name)
+                    {
+                        if (j != i) source.Move(j, i);
+                        break;
+                    }
+                }
             }
         }
 

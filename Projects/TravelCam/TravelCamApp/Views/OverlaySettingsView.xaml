@@ -60,7 +60,7 @@
                             <CollectionView x:Name="VisibleSensorsList"
                                             ItemsSource="{Binding VisibleOverlayItems}"
                                             SelectionMode="Single"
-                                            HeightRequest="148"
+                                            HeightRequest="{Binding VisibleListHeight}"
                                             SelectedItem="{Binding SelectedVisibleItem, Mode=TwoWay}"
                                             CanReorderItems="True"
                                             ReorderCompleted="OnVisibleListReorderCompleted">
@@ -118,7 +118,7 @@
                             <CollectionView x:Name="AvailableSensorsList"
                                             ItemsSource="{Binding AvailableOverlayItems}"
                                             SelectionMode="Single"
-                                            HeightRequest="148"
+                                            HeightRequest="{Binding AvailableListHeight}"
                                             SelectedItem="{Binding SelectedAvailableItem, Mode=TwoWay}">
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate x:DataType="models:OverlayItem">
