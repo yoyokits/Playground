@@ -119,16 +119,23 @@ namespace TravelCamApp.ViewModels
                 var config = await SettingsHelper.LoadOverlayItemsConfigurationAsync();
                 if (config != null)
                 {
-                    SettingsHelper.ApplyConfigurationToOverlayItems(
-                        new List<OverlayItem>(_sensorItems), config);
+                    // Pass _sensorItems directly so Move() reorders the live collection.
+                    SettingsHelper.ApplyConfigurationToOverlayItems(_sensorItems, config);
+
+                    // Restore font size from saved settings.
+                    if (config.FontSize > 0)
+                        FontSize = config.FontSize;
                 }
                 else
                 {
-                    // Default visibility
+                    // Default visibility on first run
                     UpdateItem("City", isVisible: true);
                     UpdateItem("Country", isVisible: true);
                     UpdateItem("Temperature", isVisible: true);
                 }
+
+                // Rebuild VisibleOverlayItems in the current (possibly reordered) sequence.
+                RefreshVisibleItems();
             }
             catch (Exception ex)
             {

@@ -144,19 +144,24 @@
                                 BackgroundColor="#1C1C1E" Padding="0">
                             <VerticalStackLayout Spacing="0">
 
-                                <!-- Resolution placeholder -->
+                                <!-- Resolution selector -->
                                 <Grid ColumnDefinitions="*,Auto"
-                                      Padding="16,14" HeightRequest="52">
+                                      Padding="16,6,8,6" MinimumHeightRequest="52">
                                     <VerticalStackLayout Grid.Column="0" Spacing="2"
                                                           VerticalOptions="Center">
                                         <Label Text="Resolution" FontSize="14"
-                                               TextColor="#636366" />
-                                        <Label Text="Coming soon"
-                                               FontSize="11" TextColor="#48484A" />
+                                               TextColor="#FFFFFF" />
+                                        <Label Text="Photo capture resolution"
+                                               FontSize="11" TextColor="#636366" />
                                     </VerticalStackLayout>
-                                    <Label Grid.Column="1" Text="Auto"
-                                           FontSize="13" TextColor="#636366"
-                                           VerticalOptions="Center" />
+                                    <Picker Grid.Column="1"
+                                            ItemsSource="{Binding AvailableResolutionLabels}"
+                                            SelectedIndex="{Binding SelectedResolutionIndex}"
+                                            TextColor="#FFFFFF"
+                                            TitleColor="#ABABAB"
+                                            BackgroundColor="Transparent"
+                                            WidthRequest="160"
+                                            VerticalOptions="Center" />
                                 </Grid>
 
                                 <!-- Divider -->

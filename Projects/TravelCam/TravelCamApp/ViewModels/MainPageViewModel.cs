@@ -1574,7 +1574,8 @@ namespace TravelCamApp.ViewModels
             try
             {
                 await SettingsHelper.SaveOverlayItemsConfigurationAsync(
-                    _sensorValueViewModel.OverlayItems);
+                    _sensorValueViewModel.OverlayItems,
+                    _sensorValueViewModel.FontSize);
             }
             catch (Exception ex)
             {

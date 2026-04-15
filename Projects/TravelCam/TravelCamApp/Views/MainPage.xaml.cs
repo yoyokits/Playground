@@ -76,10 +76,11 @@ namespace TravelCamApp.Views
                 OnCameraReady();
             };
 
-            // ── Aspect ratio changes → recompute letterbox bars ──────────────
+            // ── Aspect ratio or resolution changes → recompute letterbox bars ─
             _cameraSettingsVm.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == nameof(TravelCamApp.ViewModels.CameraSettingsViewModel.SelectedAspectRatio))
+                if (e.PropertyName == nameof(TravelCamApp.ViewModels.CameraSettingsViewModel.SelectedAspectRatio) ||
+                    e.PropertyName == nameof(TravelCamApp.ViewModels.CameraSettingsViewModel.SelectedResolutionIndex))
                     UpdateAspectRatioBars(CameraView.Width, CameraView.Height);
             };
         }
@@ -144,6 +145,11 @@ namespace TravelCamApp.Views
         {
             System.Diagnostics.Debug.WriteLine("[MainPage] OnCameraReady called");
             if (CameraView == null) return;
+
+            // Populate resolution picker from the newly selected camera's supported sizes
+            if (CameraView.SelectedCamera?.SupportedResolutions is { Count: > 0 } resolutions)
+                _cameraSettingsVm.SetAvailableResolutions(resolutions);
+
             ApplyCameraLayout(CameraView.Width, CameraView.Height, CameraView.SelectedCamera);
         }
 
@@ -184,7 +190,13 @@ namespace TravelCamApp.Views
             try
             {
                 // ── Step 1: natural visible area (AspectFit of sensor resolution) ──────────
-                var res = selectedCamera.SupportedResolutions[selectedCamera.SupportedResolutions.Count - 1];
+                // Use the user-selected resolution if set; otherwise fall back to the highest
+                // available resolution (last entry in SupportedResolutions).
+                var selectedRes = _cameraSettingsVm.GetSelectedResolutionSize();
+                var res = selectedRes.HasValue
+                    ? selectedRes.Value
+                    : selectedCamera.SupportedResolutions[selectedCamera.SupportedResolutions.Count - 1];
+
                 // Normalize to landscape-first so portrait/landscape reporting differences don't matter
                 double camLong  = Math.Max(res.Width, res.Height);
                 double camShort = Math.Min(res.Width, res.Height);

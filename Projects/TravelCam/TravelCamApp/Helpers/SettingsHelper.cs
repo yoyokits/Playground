@@ -1,243 +1,161 @@
 // ========================================== //
 // Developer: Yohanes Wahyu Nurcahyo          //
-// Website: https://github.com/yoyokits       //
+// Website: https://github.com/yoyokitos       //
 // ========================================== //
+//
+// SettingsHelper — all persistent app settings stored in Android SharedPreferences.
+//
+// Overlay items (visibility + order) are serialized to a single JSON string
+// and stored under the key "OverlayItemsJson". This avoids a settings file
+// while still preserving item order across sessions.
+//
+// Camera settings (rule of thirds, aspect ratio, resolution, etc.) are stored
+// as individual keys directly in CameraSettingsViewModel via Preferences.Set().
 
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using TravelCamApp.Models;
 
 namespace TravelCamApp.Helpers
 {
-    /// <summary>
-    /// Helper class to manage application settings including sensor item configurations
-    /// </summary>
-    public class SettingsHelper
+    public static class SettingsHelper
     {
-        private const string SETTINGS_FILE_NAME = "sensor_settings.json";
-        
+        // ── Preference keys ────────────────────────────────────────────────────
+        private const string PrefOverlayFontSize  = "OverlayFontSize";
+        private const string PrefOverlayItemsJson = "OverlayItemsJson";
+
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        // ── Overlay items API ─────────────────────────────────────────────────
+
         /// <summary>
-        /// Saves the overlay items configuration to a JSON file
+        /// Saves overlay items (in current order) and font size to SharedPreferences.
+        /// Visible items must be first in <paramref name="overlayItems"/> so order is
+        /// restored correctly on the next load.
+        /// Safe to call at any time — not limited to app exit.
         /// </summary>
-        /// <param name="overlayItems">The collection of overlay items to save</param>
-        /// <returns>True if the save was successful, false otherwise</returns>
-        public static async Task<bool> SaveOverlayItemsConfigurationAsync(IEnumerable<OverlayItem> overlayItems)
+        public static Task<bool> SaveOverlayItemsConfigurationAsync(
+            IEnumerable<OverlayItem> overlayItems, float fontSize = 12f)
         {
             try
             {
-                var settingsPath = Path.Combine(FileSystem.AppDataDirectory, SETTINGS_FILE_NAME);
+                Preferences.Set(PrefOverlayFontSize, fontSize);
 
-                var config = new OverlayItemsConfiguration
-                {
-                    Items = new List<OverlayItemConfig>()
-                };
+                var records = overlayItems
+                    .Select(i => new OverlayItemRecord { Name = i.Name, IsVisible = i.IsVisible })
+                    .ToList();
 
-                foreach (var item in overlayItems)
-                {
-                    config.Items.Add(new OverlayItemConfig
-                    {
-                        Name = item.Name,
-                        IsVisible = item.IsVisible,
-                        UpdateInterval = item.UpdateInterval
-                    });
-                }
+                var json = JsonSerializer.Serialize(records, JsonOptions);
+                Preferences.Set(PrefOverlayItemsJson, json);
 
-                var options = new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-
-                var json = JsonSerializer.Serialize(config, options);
-
-                await File.WriteAllTextAsync(settingsPath, json);
-
-                return true;
+                System.Diagnostics.Debug.WriteLine(
+                    $"[SettingsHelper] Overlay items saved to SharedPreferences ({records.Count} items)");
+                return Task.FromResult(true);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error saving sensor items configuration: {ex.Message}");
-                return false;
+                System.Diagnostics.Debug.WriteLine(
+                    $"[SettingsHelper] SaveOverlayItemsConfigurationAsync error: {ex.Message}");
+                return Task.FromResult(false);
             }
         }
 
         /// <summary>
-        /// Loads the overlay items configuration from a JSON file
+        /// Loads overlay configuration from SharedPreferences.
+        /// Returns null if no settings have been saved yet.
         /// </summary>
-        /// <returns>The loaded configuration, or null if loading failed</returns>
-        public static async Task<OverlayItemsConfiguration?> LoadOverlayItemsConfigurationAsync()
+        public static Task<OverlayItemsConfiguration?> LoadOverlayItemsConfigurationAsync()
         {
             try
             {
-                var settingsPath = Path.Combine(FileSystem.AppDataDirectory, SETTINGS_FILE_NAME);
-                
-                if (!File.Exists(settingsPath))
+                var json = Preferences.Get(PrefOverlayItemsJson, string.Empty);
+                if (string.IsNullOrEmpty(json))
+                    return Task.FromResult<OverlayItemsConfiguration?>(null);
+
+                var records = JsonSerializer.Deserialize<List<OverlayItemRecord>>(json, JsonOptions);
+                if (records == null)
+                    return Task.FromResult<OverlayItemsConfiguration?>(null);
+
+                return Task.FromResult<OverlayItemsConfiguration?>(new OverlayItemsConfiguration
                 {
-                    return null;
-                }
-
-                var json = await File.ReadAllTextAsync(settingsPath);
-                
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-
-                var config = JsonSerializer.Deserialize<OverlayItemsConfiguration>(json, options);
-                
-                return config;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error loading sensor items configuration: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Applies the loaded configuration to the overlay items
-        /// </summary>
-        /// <param name="allOverlayItems">The collection of all overlay items to update</param>
-        /// <param name="config">The configuration to apply</param>
-        public static void ApplyConfigurationToOverlayItems(List<OverlayItem> allOverlayItems, OverlayItemsConfiguration? config)
-        {
-            if (config?.Items == null) return;
-
-            // First, set visibility and update interval based on the configuration
-            foreach (var item in allOverlayItems)
-            {
-                var configItem = config.Items.Find(ci => ci.Name == item.Name);
-                if (configItem != null)
-                {
-                    item.IsVisible = configItem.IsVisible;
-                    item.UpdateInterval = configItem.UpdateInterval;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Creates an OverlayItemsConfiguration from overlay items
-        /// </summary>
-        /// <param name="overlayItems">The overlay items to convert</param>
-        /// <returns>The created configuration</returns>
-        public static OverlayItemsConfiguration CreateOverlayItemsConfiguration(List<OverlayItem> overlayItems)
-        {
-            var config = new OverlayItemsConfiguration
-            {
-                Items = new List<OverlayItemConfig>()
-            };
-
-            foreach (var item in overlayItems)
-            {
-                config.Items.Add(new OverlayItemConfig
-                {
-                    Name = item.Name,
-                    IsVisible = item.IsVisible,
-                    UpdateInterval = item.UpdateInterval
+                    FontSize = Preferences.Get(PrefOverlayFontSize, 12f),
+                    Items = records
+                        .Select(r => new OverlayItemConfig { Name = r.Name, IsVisible = r.IsVisible })
+                        .ToList()
                 });
             }
-
-            return config;
-        }
-
-        /// <summary>
-        /// Saves additional settings to a JSON file
-        /// </summary>
-        /// <param name="fontSize">The font size to save</param>
-        /// <param name="isMapOverlayVisible">Whether map overlay is visible</param>
-        /// <returns>True if the save was successful, false otherwise</returns>
-        public static async Task<bool> SaveAdditionalSettingsAsync(double fontSize, bool isMapOverlayVisible)
-        {
-            try
-            {
-                var settingsPath = Path.Combine(FileSystem.AppDataDirectory, "additional_settings.json");
-
-                var settings = new AdditionalSettings
-                {
-                    FontSize = fontSize,
-                    IsMapOverlayVisible = isMapOverlayVisible
-                };
-
-                var options = new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-
-                var json = JsonSerializer.Serialize(settings, options);
-
-                await File.WriteAllTextAsync(settingsPath, json);
-
-                return true;
-            }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error saving additional settings: {ex.Message}");
-                return false;
+                System.Diagnostics.Debug.WriteLine(
+                    $"[SettingsHelper] LoadOverlayItemsConfigurationAsync error: {ex.Message}");
+                return Task.FromResult<OverlayItemsConfiguration?>(null);
             }
         }
 
         /// <summary>
-        /// Loads additional settings from a JSON file
+        /// Applies the loaded configuration to <paramref name="source"/>.
+        /// Sets IsVisible on each item AND reorders the collection to match the saved order,
+        /// so the camera overlay reflects the user's last arrangement immediately on startup.
         /// </summary>
-        /// <returns>The loaded additional settings, or null if loading failed</returns>
-        public static async Task<AdditionalSettings?> LoadAdditionalSettingsAsync()
+        public static void ApplyConfigurationToOverlayItems(
+            ObservableCollection<OverlayItem> source, OverlayItemsConfiguration? config)
         {
-            try
-            {
-                var settingsPath = Path.Combine(FileSystem.AppDataDirectory, "additional_settings.json");
+            if (config?.Items == null || config.Items.Count == 0) return;
 
-                if (!File.Exists(settingsPath))
+            // ── Step 1: update IsVisible flags ───────────────────────────────
+            foreach (var item in source)
+            {
+                var saved = config.Items.FirstOrDefault(c => c.Name == item.Name);
+                if (saved != null)
+                    item.IsVisible = saved.IsVisible;
+            }
+
+            // ── Step 2: reorder source to match saved order ──────────────────
+            // config.Items is in saved order (visible first, then hidden).
+            // Use Move() so CollectionView receives targeted notifications instead of a reset.
+            for (int i = 0; i < config.Items.Count; i++)
+            {
+                var targetName = config.Items[i].Name;
+                for (int j = i; j < source.Count; j++)
                 {
-                    return null;
+                    if (source[j].Name == targetName)
+                    {
+                        if (j != i) source.Move(j, i);
+                        break;
+                    }
                 }
-
-                var json = await File.ReadAllTextAsync(settingsPath);
-
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
-
-                var settings = JsonSerializer.Deserialize<AdditionalSettings>(json, options);
-
-                return settings;
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error loading additional settings: {ex.Message}");
-                return null;
-            }
+        }
+
+        // ── Private serialization record ──────────────────────────────────────
+        // Used only for JSON within the OverlayItemsJson preference string.
+        private sealed class OverlayItemRecord
+        {
+            public string Name { get; set; } = "";
+            public bool IsVisible { get; set; }
         }
     }
 
-    /// <summary>
-    /// Represents the configuration for overlay items
-    /// </summary>
+    // ── Result model types ────────────────────────────────────────────────────
+
+    /// <summary>Overlay configuration returned by LoadOverlayItemsConfigurationAsync.</summary>
     public class OverlayItemsConfiguration
     {
+        public float FontSize { get; set; } = 12f;
         public List<OverlayItemConfig>? Items { get; set; }
     }
 
-    /// <summary>
-    /// Represents the configuration for a single overlay item
-    /// </summary>
+    /// <summary>Single item record in OverlayItemsConfiguration.</summary>
     public class OverlayItemConfig
     {
         public string? Name { get; set; }
         public bool IsVisible { get; set; }
-        public TimeSpan UpdateInterval { get; set; } = TimeSpan.FromSeconds(10); // Default to 10 seconds
-    }
-
-    /// <summary>
-    /// Represents additional settings for sensor display
-    /// </summary>
-    public class AdditionalSettings
-    {
-        public double FontSize { get; set; } = 14.0;
-        public bool IsMapOverlayVisible { get; set; } = false;
     }
 }
