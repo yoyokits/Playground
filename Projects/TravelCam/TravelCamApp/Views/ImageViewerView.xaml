@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:vm="clr-namespace:TravelCamApp.ViewModels"
+             xmlns:views="clr-namespace:TravelCamApp.Views"
+             xmlns:models="clr-namespace:TravelCamApp.Models"
              xmlns:converters="clr-namespace:TravelCamApp.Converters"
              xmlns:sys="clr-namespace:System;assembly=netstandard"
              xmlns:selectors="clr-namespace:TravelCamApp.Selectors"
@@ -117,7 +119,8 @@
             </Grid>
 
             <!-- ── Row 1: CarouselView + shared video player overlay ── -->
-            <Grid Grid.Row="1" BackgroundColor="Black">
+            <Grid x:Name="ImageAreaGrid" Grid.Row="1" BackgroundColor="Black"
+                  SizeChanged="OnImageAreaSizeChanged">
 
                 <CarouselView x:Name="MainCarousel"
                               ItemsSource="{Binding GalleryImagePaths}"
@@ -143,6 +146,7 @@
                                       BackgroundColor="Black"
                                       ShouldShowPlaybackControls="True"
                                       ShouldAutoPlay="False" />
+
             </Grid>
 
             <!-- ── Row 2: Thumbnail strip ── -->
@@ -203,6 +207,44 @@
                     </Border.GestureRecognizers>
                 </Border>
             </Grid>
+
+            <!-- ── Sensor data overlay pill (bottom-right of actual image) ── -->
+            <!-- Shows EXIF metadata from the current image — NOT live sensor data.
+                 Margin is set from code-behind (UpdateOverlayPosition) to compensate
+                 for AspectFit letterbox/pillarbox bars that vary per image.
+                 IsVisible driven by IsGalleryOverlayVisible (requires ShowSensorOverlay=true
+                 AND at least one item with data from the image EXIF). -->
+            <Border x:Name="SensorOverlayPill"
+                    Grid.Row="1"
+                    HorizontalOptions="End" VerticalOptions="End"
+                    Margin="0,0,12,12"
+                    BackgroundColor="#99000000"
+                    StrokeShape="RoundRectangle 10"
+                    Stroke="Transparent"
+                    Padding="10,10"
+                    IsVisible="{Binding IsGalleryOverlayVisible}">
+                <VerticalStackLayout Spacing="4"
+                                     HorizontalOptions="Start"
+                                     BindableLayout.ItemsSource="{Binding GalleryOverlayItems}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="models:OverlayItem">
+                            <VerticalStackLayout Spacing="0" HorizontalOptions="Start">
+                                <Label Text="{Binding Name}"
+                                       FontSize="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DataOverlayViewModel.LabelFontSize}"
+                                       CharacterSpacing="0.6"
+                                       TextColor="#9E9E9E"
+                                       LineBreakMode="NoWrap"
+                                       TextTransform="Uppercase" />
+                                <Label Text="{Binding Value}"
+                                       FontSize="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DataOverlayViewModel.ValueFontSize}"
+                                       FontAttributes="Bold"
+                                       TextColor="#FFFFFF"
+                                       LineBreakMode="NoWrap" />
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </Border>
 
             <!-- ── Media Info Overlay (spans all rows) ── -->
             <!-- Dimmed backdrop — tap to close -->
@@ -405,6 +447,18 @@
                     </ScrollView>
                 </Border>
             </Grid>
+
+            <!-- ── Sensor settings overlay (spans all rows) ── -->
+            <!-- IsVisible is managed from code-behind (WireSensorSettings) to avoid
+                 BindingContext conflict: this element's BindingContext is set to
+                 OverlaySettingsViewModel at runtime, so XAML bindings to
+                 MainPageViewModel properties won't resolve correctly. -->
+            <views:OverlaySettingsView
+                x:Name="SensorSettingsOverlay"
+                Grid.Row="0" Grid.RowSpan="4"
+                IsVisible="False"
+                HorizontalOptions="Fill" VerticalOptions="Fill"
+                InputTransparent="False" />
 
         </Grid>
     </ContentView.Content>

@@ -244,6 +244,9 @@ See `CodeStyle.txt` for full standards. Key rules:
 | `ImageViewerView.xaml` | Full-screen gallery viewer with carousel + thumbnail strip |
 | `ImageViewerView.xaml.cs` | Gallery navigation, sharing, delete operations |
 | `FilePathToImageSourceConverter.cs` | Converts file paths to `ImageSource` using `FromStream()` for reliable loading from app cache |
+| `Models/PhotoCaptureMetadata.cs` | Snapshot of sensor data collected at capture time — written into JPEG EXIF |
+| `Models/MediaInfo.cs` | EXIF metadata read back from a captured file — displayed in gallery info panel |
+| `Platforms/Android/ExifHelper.cs` | Android-only JPEG EXIF read/write. `ApplyMetadata` writes tags; `ReadMetadata` returns `MediaInfo` |
 
 ---
 
@@ -324,130 +327,161 @@ Key compile checks:
 
 ---
 
-## RECENT FIXES (2026-04-15)
+## RECENT FIXES (2026-04-16)
 
-### 1. Aspect Ratio Crop Bugs — 3-Part Fix
-**Files:** `MainPageViewModel.cs`, `MainPage.xaml.cs`, `MainPage.xaml`
+### 1. Sensor Overlay + Settings Panel in ImageViewerView (Gallery)
+**Files:** `Views/ImageViewerView.xaml`, `Views/ImageViewerView.xaml.cs`, `Views/MainPage.xaml`, `Views/MainPage.xaml.cs`, `ViewModels/MainPageViewModel.cs`
 
-**Bug A — 1:1 image rotated 90° in gallery:**
-- `BitmapFactory.DecodeStream` ignores EXIF orientation → decoded bitmap is always landscape pixels
-- Fix: buffer input → write to temp file → read `ExifInterface.TagOrientation` → rotate bitmap via `Matrix.PostRotate()` → crop using **portrait-convention ratios** (3:4=`3.0/4.0`, 9:16=`9.0/16.0`, 1:1=`1.0`) on the upright bitmap → save without EXIF (pixels already correct)
+- `DataOverlayView` (sensor pill) added to gallery — positioned at bottom-right of the **actual displayed image**, not the container. Margin is computed at runtime via `UpdateOverlayPosition()`.
+- `OverlaySettingsView` added to gallery — same settings panel as camera view, shared `OverlaySettingsViewModel` instance.
+- `IsGallerySettingsVisible` added to `MainPageViewModel` — dedicated flag for gallery settings overlay, independent of camera's `IsSettingsVisible`.
+- `OpenSettingsCommand` is now context-aware: sets `IsGallerySettingsVisible` when gallery is open, `IsSettingsVisible` otherwise.
+- Wired from `MainPage.xaml.cs` via `GalleryView.WireSensorSettings(_sensorSettingsVm, viewModel)`.
 
-**Bug B — 16:9 mode shows a landscape band in portrait:**
-- `SixteenNine => 9.0/16.0` gave `r = 0.5625` → `croppedH = naturalW × 0.5625` → container width > height → landscape crop indicator
-- Fix: `isPortrait ? 16.0/9.0 : 9.0/16.0` (orientation-aware). Now shows a tall portrait 9:16 crop frame.
+**⚠️ Critical pattern: BindingContext override breaks compiled XAML bindings.**
+`WireSensorSettings` sets `SensorSettingsOverlay.BindingContext = OverlaySettingsViewModel`.
+Any `{Binding IsGallerySettingsVisible}` on that element is compiled against `MainPageViewModel` but runtime context becomes `OverlaySettingsViewModel` → binding mismatch → overlay stuck.
+**Fix:** `IsVisible="False"` in XAML; drive from code via `mainVm.PropertyChanged` subscription in `WireSensorSettings`.
 
-**Bug C — 3:4 and 9:16 look the same on 4:3 sensor devices:**
-- With `r = 16/9`, `croppedH = naturalW × 1.778 > naturalH` on 4:3 sensors → clamped to naturalH → same as Full
-- Fix: Added **pillarbox** (left/right bar) support. When `desiredH > naturalH`: `croppedW = naturalH / r` and `croppedH = naturalH`. New properties `AspectLeftBarWidth`, `AspectRightBarWidth`, `HasAspectSideBars` added to `MainPageViewModel`. Two new `BoxView` bars at `HorizontalOptions="Start/End"` added to `MainPage.xaml`.
-- Also fixed resolution normalization: `camLong = Math.Max(res.Width, res.Height)` → robust to both portrait/landscape resolution reporting from toolkit.
+### 2. Overlay Position Respects EXIF Orientation
+**File:** `Views/ImageViewerView.xaml.cs` — `UpdateOverlayPosition()`
 
-### 2. Gallery Crash (SelectionChanged re-entrancy) — Fixed
-**File:** `ImageViewerView.xaml.cs`
+`BitmapFactory.DecodeFile` with `InJustDecodeBounds` returns raw stored dimensions, ignoring EXIF rotation. A portrait photo stored landscape (e.g. 4000×3000, Orientation=6) gives aspect 1.33 instead of 0.75 → wrong margin → pill lands in black bars.
+**Fix:** After `DecodeFile`, read `ExifInterface.TagOrientation`; if orientation ≥ 5 (values 5–8 = any 90°/270° rotation), swap imageW and imageH before aspect ratio math.
 
-**Root causes:**
-1. `OpenImageViewer()` sets `GalleryImagePaths` and `CurrentImageIndex` **before** `IsImageViewerVisible = true`. Property change notifications fire `SelectionChanged` → `OnThumbnailSelected` calls `MainCarousel.ScrollTo()` on a non-rendered CarouselView → crash.
-2. Inside `OnThumbnailSelected`, setting `vm.CurrentImageIndex` notifies `CurrentImageItem` → TwoWay `SelectedItem` binding updates CollectionView → fires `SelectionChanged` again → re-entrant double `ScrollTo`.
+```csharp
+using var exif = new Android.Media.ExifInterface(filePath);
+int orientation = exif.GetAttributeInt(Android.Media.ExifInterface.TagOrientation,
+    (int)Android.Media.Orientation.Normal);
+if (orientation >= 5)
+    (imageW, imageH) = (imageH, imageW);
+```
 
-**Fix:**
-- Added `_isSyncingThumbnail` bool flag — blocks re-entrant calls while processing a tap
-- Added `if (!IsVisible)` guard — discards all binding-driven events when gallery panel is hidden
-- Wrapped `MainCarousel.ScrollTo` in try/catch
+### 3. Gallery Crash on Rapid Thumbnail Taps — Fixed
+**File:** `Views/ImageViewerView.xaml.cs` — `OnCarouselPositionChanged`
 
-### 3. Camera Layout Refactor
-**File:** `MainPage.xaml`
+`async void` + debounce: `_scrollDebounceCancel.Cancel()` caused previous `await Task.Delay(..., token)` to throw `OperationCanceledException` with no handler → unhandled exception on UI thread → **crash**.
+**Fix:** Added `catch (OperationCanceledException)` — expected cancellation, silently ignored.
+Moved `StopSharedVideoPlayer()`, `IsMediaInfoVisible=false`, and `UpdateOverlayPosition()` inside the `try` block so they only run when debounce settles.
 
-- **Removed** the 4-column top toolbar `[Flash] [Sensor] [timer] [Camera Settings]`
-- **Moved** all three icon buttons **inside** `CameraViewChildrenContainer` as a right-side `VerticalStackLayout` at `HorizontalOptions="End" VerticalOptions="Start" Margin="0,12,12,0"`:
-  - Top: Camera Settings (gear)
-  - Middle: Flash Toggle (yellow bolt / white slash)
-  - Bottom: Sensor Overlay Settings (data bars)
-- **Kept** recording timer as a standalone `HorizontalStackLayout` at `VerticalOptions="Start" HorizontalOptions="Center"` — only visible when `IsRecording`
+**Rule:** Any `async void` using debounce cancellation MUST catch `OperationCanceledException`.
+
+### 4. Camera Container Layout — Always Uses Native Resolution
+**File:** `Views/MainPage.xaml.cs` — `ApplyCameraLayout()`
+
+`CameraViewChildrenContainer` was sized using the user-selected capture resolution instead of the camera's native (largest) resolution. The live preview always streams the full sensor feed at its native aspect ratio, so the capture resolution setting must not affect the layout.
+**Fix:** Always use `SupportedResolutions.OrderByDescending(pixel count).First()` for the layout calculation.
 
 ---
 
-## RECENT CRITICAL FIXES (2026-04-12)
+## RECENT FIXES (2026-04-15)
 
-> **📖 COMPLETE SOLUTION:** All fixes consolidated in master memory file:  
-> **`~/.claude/projects/[...]/memory/MASTER-XAML-AND-LIFECYCLE-CRASH-FIX-2026-04-12.md`**  
-> This single document contains all 5 parts with code, diagnostic flowchart, and is reusable for other MAUI apps.
+### 1. EXIF Metadata Write on Photo Capture
+**Files:** `Platforms/Android/ExifHelper.cs` (new), `Models/PhotoCaptureMetadata.cs` (new), `MainPageViewModel.cs`
 
-### Camera Reopen Crash — 5-Part Complete Solution
-**Status:** ✅ IMPLEMENTED & VERIFIED (Build: 0 errors, 0 warnings)
-**Tested:** Real Android devices, multiple reopen cycles
+- `BuildPhotoCaptureMetadata()` snapshots current sensor state (GPS, temperature, heading, speed, city, country, flash, aspect ratio, resolution) into a `PhotoCaptureMetadata` at capture time.
+- `ExifHelper.ApplyMetadata(stream, meta)` writes all standard EXIF tags (GPS, date, device, flash) plus a `JSON:` prefixed `UserComment` payload for custom fields.
+- **⚠️ Heavy I/O — must be on background thread.** Both `CropStreamToAspectRatio` and `ApplyMetadata` are combined in a single `await Task.Run(...)` inside `OnMediaCaptured`. Never call these on the main thread.
 
-**Problem:** App crashes when reopened after being closed (swipe away from recents)
-**Confirmed on:** Real Android smartphones (not just emulator)
-**Root Cause:** Known .NET 10 regression — ObjectDisposedException on IServiceProvider (fixed in SR5)
+### 2. Gallery Info Panel ("i" button)
+**Files:** `Models/MediaInfo.cs` (new), `MainPageViewModel.cs`, `Views/ImageViewerView.xaml`
 
-**Solution:** Proper Window.Stopped/Window.Destroying lifecycle cleanup in App.xaml.cs
+- `ToggleMediaInfoCommand` shows/hides an info overlay on the current gallery image.
+- `ExifHelper.ReadMetadata(path)` reads tags back and populates a `MediaInfo` object — also wrapped in `await Task.Run(...)` (disk I/O on tap).
+- `_isLoadingMediaInfo` guard prevents double-tap launching concurrent reads.
+- `MediaInfo` exposes computed `HasCameraInfo`, `HasLocationInfo`, `HasConditionsInfo` for section visibility.
 
-**Root Causes & Solutions:**
+### 3. Gallery Delete-then-Click Crash — Fixed
+**File:** `MainPageViewModel.cs`
 
-1. **Inverted initialization flag** (Commit e8540aa)
-   - Changed `_isAppInitialized = true` → `_isAppInitialized = false`
-   - Set to `true` only after `InitializeAsync` completes
-   - Reset to `false` in `OnWindowDestroying`
-   - **File:** `MainPageViewModel.cs` (line 94, 388-389, 716)
+- After deleting the last item, `GalleryImagePaths` becomes empty → `CurrentImageIndex` clamp + null check guards prevent indexing into an empty list → no crash.
 
-2. **UI-blocking wait loop** (Commit 3baf19f)
-   - Removed `while (!_isAppInitialized)` loop that blocked OnAppearing
-   - OnViewReady now returns immediately, lets InitializeAsync work asynchronously
-   - **File:** `MainPageViewModel.cs` (lines 750-779, 393-398)
+### 4. Main Thread Freeze — Fixed
+**File:** `MainPageViewModel.cs`
 
-3. **Android linker stripping CameraView in Release mode** (Current)
-   - Created `linker.xml` to preserve all CommunityToolkit.Maui.Camera types
-   - Added `<AndroidLinkDescription Include="linker.xml" />` to .csproj
-   - **Files:** `linker.xml` (new), `TravelCamApp.csproj` (updated)
+- `ExifInterface` write + re-read (~500–2000 ms) and bitmap decode/rotate were running on the main thread → ANR/freeze.
+- Fix: single `await Task.Run(...)` wrapping both `CropStreamToAspectRatio` + `ExifHelper.ApplyMetadata` in `OnMediaCaptured`; separate `await Task.Run(...)` for `ExifHelper.ReadMetadata` in `ExecuteToggleMediaInfo`.
 
-4. **Failed resource cleanup on page disappear** (Current)
-   - Added `OnDisappearing()` handler to explicitly stop camera preview
-   - Ensures CameraView resources released before page destroyed
-   - **File:** `MainPage.xaml.cs` (+30 lines)
+### 5. Aspect Ratio Crop Bugs — 3-Part Fix
+**Files:** `MainPageViewModel.cs`, `MainPage.xaml.cs`, `MainPage.xaml`
 
-5. **Camera operations conflicting with Android lifecycle** (Current)
-   - Wrapped 9 CameraHelper methods in `MainThread.BeginInvokeOnMainThread()`
-   - Methods: SelectFirstAvailableCamera, ToggleCamera, StartPreview, StopPreview, TriggerCapture, StartVideoRecording, StopVideoRecording, CycleFlashMode, SetZoom
-   - **File:** `CameraHelper.cs` (9 methods updated)
+- **Bug A (1:1 rotated 90°):** `BitmapFactory.DecodeStream` ignores EXIF orientation. Fix: buffer → temp file → read `TagOrientation` → `Matrix.PostRotate()` → crop upright bitmap.
+- **Bug B (16:9 landscape band in portrait):** `SixteenNine => 9.0/16.0` gave `r = 0.5625` → landscape crop. Fix: `isPortrait ? 16.0/9.0 : 9.0/16.0`.
+- **Bug C (3:4 = 9:16 on 4:3 sensors):** `desiredH > naturalH` was clamped. Fix: pillarbox bars (`AspectLeftBarWidth`, `AspectRightBarWidth`, `HasAspectSideBars` + two `BoxView` in XAML).
 
-**Temporary Workaround:**
-- Disabled custom font loading in `MauiProgram.cs` (font assets not deploying to APK)
-- App uses system sans-serif fonts
-- TODO: Fix proper font asset deployment and re-enable custom fonts
+### 6. Gallery Crash (SelectionChanged re-entrancy) — Fixed
+**File:** `ImageViewerView.xaml.cs`
 
-**Testing Checklist:**
-- [ ] First launch: App opens, camera preview appears
-- [ ] Background/return: Smooth camera resume without black screen
-- [ ] Close/reopen 10x: Zero crashes, consistent 60fps rendering
-- [ ] Release build: Linker.xml prevents stripping, app starts correctly
-- [ ] Resource cleanup: No "A resource failed" warnings in logcat
+- `_isSyncingThumbnail` bool flag blocks re-entrant calls; `if (!IsVisible)` guard discards binding-driven events when gallery panel is hidden.
 
-**6. XAML Parse Errors** (Final Session)
-   - Removed invalid `SafeAreaEdges="Top/Bottom/None"` attributes from XAML
-   - MAUI type converter cannot parse enum string values — use explicit padding instead
-   - **Files:** `MainPage.xaml` (lines 13, 74, 170)
+### 7. Camera Layout Refactor
+**File:** `MainPage.xaml`
 
-**Memory Reference (Complete):** See master memory file noted above — contains all 5-6 parts with full technical details, diagnostic flowchart, and reusable patterns for other MAUI apps.
+- Top toolbar removed; Flash, Sensor, Camera Settings moved inside `CameraViewChildrenContainer` as right-edge `VerticalStackLayout`. Recording timer remains centered, visible only when `IsRecording`.
+
+---
+
+## CRITICAL PATTERNS
+
+### Heavy I/O Must Run on Background Thread
+`ExifInterface`, `BitmapFactory.DecodeStream`, file writes — all block for 500–2000 ms on mobile. **Always wrap in `await Task.Run()`.**
+
+```csharp
+// Capture — crop + EXIF write in one hop
+stream = await Task.Run(() =>
+{
+    var cropped = CropStreamToAspectRatio(inStream, ratio);
+    return (Stream)ExifHelper.ApplyMetadata(cropped, meta);
+});
+
+// Info tap — EXIF read
+var info = await Task.Run(() => ExifHelper.ReadMetadata(path));
+```
+
+Use a guard bool (`_isLoadingMediaInfo`) to prevent double-tap launching concurrent reads.
+
+---
+
+## PRIOR FIXES (2026-04-12) — Camera Reopen Crash
+
+> **Complete solution in master memory file:**
+> `~/.claude/projects/[...]/memory/MASTER-XAML-AND-LIFECYCLE-CRASH-FIX-2026-04-12.md`
+
+**Status:** ✅ Implemented & tested on real Android devices.
+
+Summary of 5-part fix:
+1. Inverted `_isAppInitialized` flag (false by default, set true after init)
+2. Removed `while (!_isAppInitialized)` wait loop from `OnViewReady`
+3. `linker.xml` preserving CommunityToolkit.Maui.Camera types from Release linker
+4. `OnDisappearing()` stops camera preview to release CameraView resources
+5. 9 `CameraHelper` methods wrapped in `MainThread.BeginInvokeOnMainThread()`
+6. Removed invalid `SafeAreaEdges="..."` XAML attributes
+
+**Temporary workaround:** Custom fonts disabled in `MauiProgram.cs` (font assets not deploying to APK). App uses system sans-serif. TODO: fix font deployment.
 
 ---
 
 ## TODO / INCOMPLETE FEATURES
 
-- [ ] **Test camera + video recording on physical Android device** (NEXT: Test all scenarios from checklist above)
-- [ ] **Fix font asset deployment** — currently disabled to allow app startup; re-enable when fixed
+- [ ] **Test camera + video recording on physical Android device**
+- [ ] **Fix font asset deployment** — currently disabled; app uses system fonts
 - [ ] **Test Release build** — verify linker.xml prevents code stripping
 - [ ] Map overlay — not implemented yet
 - [ ] Weather API verification — Open-Meteo integrated, untested on device
 - [ ] Upgrade Target SDK to API 36 before Aug 2026 Google Play deadline
 - [ ] Verify CommunityToolkit.Maui.Camera 6.0.1+ compatibility; check for upgrades
 - [ ] iOS support — scaffold only, not targeted
-- [x] **Gallery stability** — Fixed SelectionChanged re-entrancy crash + hidden-view ScrollTo crash (2026-04-15)
-- [x] **Aspect ratio crop** — EXIF rotation applied, 16:9 portrait preview fixed, pillarbox bars added (2026-04-15)
-- [x] **Camera layout** — Flash, Sensor, Camera Settings moved inside CameraViewChildrenContainer right column (2026-04-15)
+- [x] **EXIF metadata write** — GPS, date, device, flash + JSON UserComment payload written on every capture (2026-04-15)
+- [x] **Gallery info panel** — "i" button shows EXIF data overlay; async `ReadMetadata` with guard (2026-04-15)
+- [x] **Gallery delete crash** — empty list guard after deleting last item (2026-04-15)
+- [x] **Main thread freeze** — crop + EXIF write and EXIF read both moved to `Task.Run` (2026-04-15)
+- [x] **Gallery stability** — SelectionChanged re-entrancy crash + hidden-view ScrollTo crash (2026-04-15); rapid thumbnail tap crash via OperationCanceledException in async void (2026-04-16)
+- [x] **Aspect ratio crop** — EXIF rotation, 16:9 portrait preview, pillarbox bars (2026-04-15)
+- [x] **Camera layout** — Flash, Sensor, Camera Settings inside CameraViewChildrenContainer right column (2026-04-15); container sized from native resolution not capture resolution (2026-04-16)
+- [x] **Gallery sensor overlay** — DataOverlayView pill + OverlaySettingsView in ImageViewerView; position computed from EXIF-corrected aspect ratio (2026-04-16)
 - [x] Flash control — icon path, yellow when on / slash when off
 - [x] Zoom control — 5 preset pills (.6×, 1×, 2, 3, 10) overlaying bottom of preview
 - [x] Migrated from Camera.MAUI 1.5.1 to CommunityToolkit.Maui.Camera 6.0.1
 - [x] DataOverlayViewModel rewired — subscribes to SensorHelper, owns OverlayItems
 - [x] Premium Samsung-style camera UI — shutter ring+circle, flip path icon, grid lines, mode dots
-- [x] Shutter button — vector white ring + white circle
-- [x] Camera reopen crash fixed — 4-part solution (init flag, UI-blocking wait, linker, resource cleanup)
+- [x] Camera reopen crash — 5-part fix (init flag, wait loop, linker, cleanup, MainThread wrapping)
