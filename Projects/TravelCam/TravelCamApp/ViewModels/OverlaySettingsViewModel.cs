@@ -169,7 +169,7 @@ namespace TravelCamApp.ViewModels
         {
             try
             {
-                // Save ALL items (visible + available) so load preserves the full list
+                // Visible items first (in settings order), then available — preserves display order.
                 var allItems = new List<OverlayItem>();
                 foreach (var item in VisibleOverlayItems)
                 {
@@ -182,8 +182,9 @@ namespace TravelCamApp.ViewModels
                     allItems.Add(item);
                 }
 
-                await SettingsHelper.SaveOverlayItemsConfigurationAsync(allItems);
-                System.Diagnostics.Debug.WriteLine("[OverlaySettingsViewModel] Settings saved");
+                // Pass FontSize so the unified CekliCamSettings.json includes it.
+                await SettingsHelper.SaveOverlayItemsConfigurationAsync(allItems, FontSize);
+                System.Diagnostics.Debug.WriteLine("[OverlaySettingsViewModel] Settings saved to CekliCamSettings.json");
             }
             catch (Exception ex)
             {
