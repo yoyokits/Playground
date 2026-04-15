@@ -59,6 +59,7 @@ namespace TravelCamApp.ViewModels
         // Overlay visibility
         private bool _isSensorOverlayVisible = true;
         private bool _isSettingsVisible;
+        private bool _isGallerySettingsVisible;
         private bool _isCameraSettingsVisible;
         private bool _isImageViewerVisible;
 
@@ -83,6 +84,8 @@ namespace TravelCamApp.ViewModels
         private int _currentImageIndex;
         private bool _isMediaInfoVisible;
         private Models.MediaInfo _currentMediaInfo = new();
+        private ObservableCollection<Models.OverlayItem> _galleryOverlayItems = new();
+        private bool _isGalleryOverlayVisible;
 
         // Lifecycle guards — instance-level only (no static flag)
         private List<Window> _trackedWindows = new();  // track all windows for proper cleanup
@@ -186,6 +189,13 @@ namespace TravelCamApp.ViewModels
             set { _isSettingsVisible = value; OnPropertyChanged(); }
         }
 
+        /// <summary>Controls the sensor settings overlay inside the gallery (ImageViewerView).</summary>
+        public bool IsGallerySettingsVisible
+        {
+            get => _isGallerySettingsVisible;
+            set { _isGallerySettingsVisible = value; OnPropertyChanged(); }
+        }
+
         public bool IsCameraSettingsVisible
         {
             get => _isCameraSettingsVisible;
@@ -210,6 +220,20 @@ namespace TravelCamApp.ViewModels
         {
             get => _currentMediaInfo;
             private set { _currentMediaInfo = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>Overlay items populated from the current gallery image's EXIF metadata.</summary>
+        public ObservableCollection<Models.OverlayItem> GalleryOverlayItems
+        {
+            get => _galleryOverlayItems;
+            private set { _galleryOverlayItems = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>True when the gallery sensor pill should be shown (settings enabled + items available).</summary>
+        public bool IsGalleryOverlayVisible
+        {
+            get => _isGalleryOverlayVisible;
+            private set { _isGalleryOverlayVisible = value; OnPropertyChanged(); }
         }
 
         public ObservableCollection<string> GalleryImagePaths
@@ -371,7 +395,13 @@ namespace TravelCamApp.ViewModels
             SetPhotoModeCommand = new Command(() => SelectedMode = CaptureMode.Photo);
             SetVideoModeCommand = new Command(() => SelectedMode = CaptureMode.Video);
             ToggleFlashCommand = new Command(ToggleFlash);
-            OpenSettingsCommand = new Command(() => IsSettingsVisible = true);
+            OpenSettingsCommand = new Command(() =>
+            {
+                if (IsImageViewerVisible)
+                    IsGallerySettingsVisible = true;
+                else
+                    IsSettingsVisible = true;
+            });
             OpenCameraSettingsCommand = new Command(() => IsCameraSettingsVisible = true);
             CloseSettingsCommand = new Command(async () => await SafeExecuteAsync(CloseSettingsAsync));
             OpenGalleryCommand = new Command(() => OpenImageViewer());
@@ -1210,18 +1240,22 @@ namespace TravelCamApp.ViewModels
 
                 var city = GetCityForFileName();
 #if ANDROID
-                stream = CropStreamToAspectRatio(stream, _cameraSettings.SelectedAspectRatio);
-
-                // Embed EXIF metadata (GPS, temperature, device info, etc.) into the JPEG
-                var meta = BuildPhotoCaptureMetadata();
+                // Crop + EXIF write are both heavy sync I/O — run off the main thread
+                var meta      = BuildPhotoCaptureMetadata();
+                var ratio     = _cameraSettings.SelectedAspectRatio;
+                var inStream  = stream;
                 try
                 {
-                    stream = Helpers.ExifHelper.ApplyMetadata(stream, meta);
+                    stream = await Task.Run(() =>
+                    {
+                        var cropped = CropStreamToAspectRatio(inStream, ratio);
+                        return (System.IO.Stream)Helpers.ExifHelper.ApplyMetadata(cropped, meta);
+                    });
                 }
                 catch (Exception exifEx)
                 {
                     System.Diagnostics.Debug.WriteLine(
-                        $"[MainPageViewModel] ExifHelper.ApplyMetadata error: {exifEx.Message}");
+                        $"[MainPageViewModel] Crop/EXIF error: {exifEx.Message}");
                 }
 #endif
                 var (galleryPath, thumbPath) = await FileHelper.SavePhotoAsync(stream, city);
@@ -1775,7 +1809,10 @@ namespace TravelCamApp.ViewModels
             }
         }
 
-        private void ExecuteToggleMediaInfo()
+        // Guard: prevents double-tap from launching two concurrent reads
+        private bool _isLoadingMediaInfo;
+
+        private async void ExecuteToggleMediaInfo()
         {
             if (IsMediaInfoVisible)
             {
@@ -1783,29 +1820,95 @@ namespace TravelCamApp.ViewModels
                 return;
             }
 
+            if (_isLoadingMediaInfo) return;
+
             var path = CurrentImageItem;
             if (string.IsNullOrEmpty(path)) return;
 
-#if ANDROID
+            _isLoadingMediaInfo = true;
             try
             {
-                CurrentMediaInfo = Helpers.ExifHelper.ReadMetadata(path);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] ReadMetadata error: {ex.Message}");
+#if ANDROID
+                // ReadMetadata does disk I/O (ExifInterface) — run off the main thread
+                var info = await Task.Run(() => Helpers.ExifHelper.ReadMetadata(path));
+                CurrentMediaInfo = info;
+#else
                 CurrentMediaInfo = new Models.MediaInfo
                 {
                     FileName = System.IO.Path.GetFileName(path)
                 };
-            }
-#else
-            CurrentMediaInfo = new Models.MediaInfo
-            {
-                FileName = System.IO.Path.GetFileName(path)
-            };
 #endif
-            IsMediaInfoVisible = true;
+                IsMediaInfoVisible = true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] ReadMetadata error: {ex.Message}");
+                CurrentMediaInfo = new Models.MediaInfo
+                {
+                    FileName = System.IO.Path.GetFileName(path)
+                };
+                IsMediaInfoVisible = true;
+            }
+            finally
+            {
+                _isLoadingMediaInfo = false;
+            }
+        }
+
+        /// <summary>
+        /// Reads EXIF metadata from <paramref name="filePath"/> and populates
+        /// <see cref="GalleryOverlayItems"/> with the values recorded at capture time.
+        /// Only items with non-empty values are included, matching the names used in the
+        /// live camera overlay (City, Country, Temperature, etc.).
+        /// </summary>
+        public async Task LoadGalleryOverlayItemsAsync(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath))
+            {
+                GalleryOverlayItems = new ObservableCollection<Models.OverlayItem>();
+                IsGalleryOverlayVisible = false;
+                return;
+            }
+
+#if ANDROID
+            Models.MediaInfo? info = null;
+            try
+            {
+                info = await Task.Run(() => Helpers.ExifHelper.ReadMetadata(filePath));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] LoadGalleryOverlayItemsAsync error: {ex.Message}");
+            }
+
+            var items = new List<Models.OverlayItem>();
+            if (info != null)
+            {
+                void Add(string name, string val)
+                {
+                    if (!string.IsNullOrWhiteSpace(val))
+                        items.Add(new Models.OverlayItem(name, val));
+                }
+
+                Add("City",        info.CityText);
+                Add("Country",     info.CountryText);
+                Add("Temperature", info.TemperatureText);
+                Add("Altitude",    info.AltitudeText);
+                Add("GPS",         info.GpsCoordsText);
+                Add("Heading",     info.HeadingText);
+                Add("Speed",       info.SpeedText);
+                Add("Date",        info.CaptureDateText);
+            }
+
+            GalleryOverlayItems = new ObservableCollection<Models.OverlayItem>(items);
+            IsGalleryOverlayVisible = CameraSettings.ShowSensorOverlay && items.Count > 0;
+#else
+            GalleryOverlayItems = new ObservableCollection<Models.OverlayItem>();
+            IsGalleryOverlayVisible = false;
+            await Task.CompletedTask;
+#endif
         }
 
         #endregion

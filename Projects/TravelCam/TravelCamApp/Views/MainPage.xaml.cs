@@ -34,6 +34,9 @@ namespace TravelCamApp.Views
             _sensorSettingsVm = sensorSettingsVm;
             _cameraSettingsVm = cameraSettingsVm;
 
+            // ── Gallery sensor settings overlay ──────────────────────────────
+            GalleryView.WireSensorSettings(_sensorSettingsVm, viewModel);
+
             // ── Sensor settings overlay ──────────────────────────────────────
             SensorSettingsOverlay.BindingContext = _sensorSettingsVm;
 
@@ -190,12 +193,12 @@ namespace TravelCamApp.Views
             try
             {
                 // ── Step 1: natural visible area (AspectFit of sensor resolution) ──────────
-                // Use the user-selected resolution if set; otherwise fall back to the highest
-                // available resolution (last entry in SupportedResolutions).
-                var selectedRes = _cameraSettingsVm.GetSelectedResolutionSize();
-                var res = selectedRes.HasValue
-                    ? selectedRes.Value
-                    : selectedCamera.SupportedResolutions[selectedCamera.SupportedResolutions.Count - 1];
+                // Always use the camera's native (largest) resolution for this calculation.
+                // The user-selected capture resolution only affects post-processing output —
+                // the live preview always streams the full sensor feed at its native aspect ratio.
+                var res = selectedCamera.SupportedResolutions
+                    .OrderByDescending(s => (long)s.Width * (long)s.Height)
+                    .First();
 
                 // Normalize to landscape-first so portrait/landscape reporting differences don't matter
                 double camLong  = Math.Max(res.Width, res.Height);

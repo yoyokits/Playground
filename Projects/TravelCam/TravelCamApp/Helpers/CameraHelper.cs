@@ -245,7 +245,6 @@ namespace TravelCamApp.Helpers
                 LogDebug("[CameraHelper] Starting video recording on camera: {0}", cameraView.SelectedCamera.Name);
 
                 // ✅ Start recording on MainThread to prevent lifecycle conflicts
-                bool success = false;
                 var tcs = new TaskCompletionSource<bool>();
 
                 MainThread.BeginInvokeOnMainThread(async () =>

@@ -364,6 +364,7 @@
 
         <!-- Image viewer overlay — full-screen, above all other overlays -->
         <views:ImageViewerView
+            x:Name="GalleryView"
             Grid.RowSpan="2"
             IsVisible="{Binding IsImageViewerVisible}"
             HorizontalOptions="Fill" VerticalOptions="Fill"
