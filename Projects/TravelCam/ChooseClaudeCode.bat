@@ -79,7 +79,7 @@ echo.
 set /p USER_KEY="Paste OpenRouter API Key (sk-or-...): "
 echo.
 
-echo 1. Step-3.5-Flash (Free)
+echo 1. Minimax-M2.5:free (Free)
 echo 2. Minimax-M2.5 (stronger)
 echo 3. Qwen 3.6 Plus (Free)
 echo.
@@ -90,10 +90,10 @@ if errorlevel 3 (
 ) else if errorlevel 2 (
     set TARGET_MODEL=minimax/minimax-m2.5
 ) else (
-    set TARGET_MODEL=stepfun/step-3.5-flash:free
+    set TARGET_MODEL=minimax/minimax-m2.5:free
 )
 
-set ANTHROPIC_BASE_URL=https://openrouter.ai/api
+set ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1/adapters/anthropic
 set ANTHROPIC_AUTH_TOKEN=%USER_KEY%
 set ANTHROPIC_API_KEY=
 

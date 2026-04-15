@@ -90,8 +90,22 @@ namespace TravelCamApp.Views
                 _isScrollingFromCarousel = false;
             }
 
-            // Hide the shared video player when navigating to another item
+            // Hide shared video player and close info panel when swiping to another item
             StopSharedVideoPlayer();
+            if (BindingContext is MainPageViewModel viewModel && viewModel.IsMediaInfoVisible)
+                viewModel.IsMediaInfoVisible = false;
+        }
+
+        private void OnInfoBackdropTapped(object? sender, TappedEventArgs e)
+        {
+            if (BindingContext is MainPageViewModel vm)
+                vm.IsMediaInfoVisible = false;
+        }
+
+        /// <summary>Absorb taps on the info card so they don't bubble to the backdrop.</summary>
+        private void OnInfoCardTapped(object? sender, TappedEventArgs e)
+        {
+            // Intentionally empty — prevents backdrop tap from firing.
         }
 
         /// <summary>

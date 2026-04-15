@@ -34,6 +34,7 @@ namespace TravelCamApp.ViewModels
         private float _fontSize = 12f;
         private bool _isMapOverlayVisible;
         private bool _isDisposed;
+        private SensorData? _lastSensorData;
 
         #endregion
 
@@ -78,6 +79,9 @@ namespace TravelCamApp.ViewModels
             get => _isMapOverlayVisible;
             set { _isMapOverlayVisible = value; OnPropertyChanged(); }
         }
+
+        /// <summary>Most recent sensor reading — snapshot taken on every update tick.</summary>
+        public SensorData? LastSensorData => _lastSensorData;
 
         #endregion
 
@@ -166,6 +170,9 @@ namespace TravelCamApp.ViewModels
         private void OnSensorDataUpdated(Models.SensorData data)
         {
             if (_isDisposed) return;
+
+            // Capture snapshot before dispatching to UI thread
+            _lastSensorData = data;
 
             Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
             {

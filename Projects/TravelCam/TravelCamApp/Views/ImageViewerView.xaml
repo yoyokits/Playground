@@ -13,6 +13,10 @@
         <converters:FilePathToImageSourceConverter x:Key="FilePathToImageSourceConverter" />
         <converters:ThumbnailConverter x:Key="ThumbnailConverter" />
         <converters:ExtensionEqualsConverter x:Key="ExtensionEqualsConverter" />
+        <!-- Info button active state: teal when panel is open, dark otherwise -->
+        <converters:BoolToColorConverter x:Key="BoolToInfoBgConverter"
+                                         TrueColor="#0A84FF"
+                                         FalseColor="#AA000000" />
 
         <!-- Image template for photos -->
         <DataTemplate x:Key="ImageTemplate" x:DataType="sys:String">
@@ -59,9 +63,9 @@
     <ContentView.Content>
         <Grid RowDefinitions="Auto,*,Auto,Auto" BackgroundColor="Black">
 
-            <!-- ── Row 0: Top bar — Close | position text | Share ── -->
+            <!-- ── Row 0: Top bar — Close | position text | Info | Share ── -->
             <Grid Grid.Row="0" Padding="12,8,12,8"
-                  ColumnDefinitions="Auto,*,Auto"
+                  ColumnDefinitions="Auto,*,Auto,Auto"
                   BackgroundColor="Black">
 
                 <!-- Close button -->
@@ -82,8 +86,23 @@
                        FontSize="14" TextColor="#CCCCCC"
                        HorizontalOptions="Center" VerticalOptions="Center" />
 
-                <!-- Share button -->
+                <!-- Info button -->
                 <Border Grid.Column="2"
+                        StrokeShape="RoundRectangle 22"
+                        BackgroundColor="{Binding IsMediaInfoVisible, Converter={StaticResource BoolToInfoBgConverter}}"
+                        Stroke="Transparent"
+                        WidthRequest="44" HeightRequest="44"
+                        Margin="0,0,8,0">
+                    <Label Text="i" FontSize="18" FontAttributes="Bold"
+                           TextColor="White"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ToggleMediaInfoCommand}" />
+                    </Border.GestureRecognizers>
+                </Border>
+
+                <!-- Share button -->
+                <Border Grid.Column="3"
                         StrokeShape="RoundRectangle 22"
                         BackgroundColor="#AA000000" Stroke="Transparent"
                         WidthRequest="44" HeightRequest="44">
@@ -182,6 +201,208 @@
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding DeleteImageCommand}" />
                     </Border.GestureRecognizers>
+                </Border>
+            </Grid>
+
+            <!-- ── Media Info Overlay (spans all rows) ── -->
+            <!-- Dimmed backdrop — tap to close -->
+            <Grid Grid.Row="0" Grid.RowSpan="4"
+                  BackgroundColor="#CC000000"
+                  IsVisible="{Binding IsMediaInfoVisible}">
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnInfoBackdropTapped" />
+                </Grid.GestureRecognizers>
+
+                <Border Margin="24,40"
+                        StrokeShape="RoundRectangle 16"
+                        BackgroundColor="#111111"
+                        Stroke="Transparent"
+                        VerticalOptions="Center"
+                        HorizontalOptions="Fill">
+                    <!-- Absorb taps on the card so they don't reach the backdrop -->
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnInfoCardTapped" />
+                    </Border.GestureRecognizers>
+
+                    <ScrollView MaximumHeightRequest="520" BackgroundColor="#111111">
+                        <VerticalStackLayout Padding="0" Spacing="0">
+
+                            <!-- Header -->
+                            <Grid Padding="20,20,16,16" ColumnDefinitions="*,Auto"
+                                  BackgroundColor="#111111">
+                                <Label Grid.Column="0"
+                                       Text="MEDIA INFO"
+                                       FontSize="13" CharacterSpacing="1.2"
+                                       FontAttributes="Bold" TextColor="#8E8E93"
+                                       VerticalOptions="Center" />
+                                <Border Grid.Column="1"
+                                        StrokeShape="RoundRectangle 16"
+                                        BackgroundColor="#2C2C2E" Stroke="Transparent"
+                                        WidthRequest="32" HeightRequest="32">
+                                    <Label Text="✕" FontSize="13" TextColor="#ABABAB"
+                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding ToggleMediaInfoCommand}" />
+                                    </Border.GestureRecognizers>
+                                </Border>
+                            </Grid>
+                            <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+
+                            <!-- FILE section — always shown -->
+                            <VerticalStackLayout Padding="20,16,20,0" Spacing="0">
+                                <Label Text="FILE"
+                                       FontSize="11" CharacterSpacing="1.0"
+                                       FontAttributes="Bold" TextColor="#8E8E93"
+                                       Margin="0,0,0,10" />
+                                <Border StrokeShape="RoundRectangle 12" Stroke="Transparent"
+                                        BackgroundColor="#1C1C1E" Padding="16,4">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Name" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.FileName}"
+                                                   FontSize="13" TextColor="#8E8E93"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaximumWidthRequest="160" />
+                                        </Grid>
+                                        <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Size" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.FileSizeText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                        <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Date" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.CaptureDateText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </VerticalStackLayout>
+
+                            <!-- CAMERA section -->
+                            <VerticalStackLayout Padding="20,16,20,0" Spacing="0"
+                                                 IsVisible="{Binding CurrentMediaInfo.HasCameraInfo}">
+                                <Label Text="CAMERA"
+                                       FontSize="11" CharacterSpacing="1.0"
+                                       FontAttributes="Bold" TextColor="#8E8E93"
+                                       Margin="0,0,0,10" />
+                                <Border StrokeShape="RoundRectangle 12" Stroke="Transparent"
+                                        BackgroundColor="#1C1C1E" Padding="16,4">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Device" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.DeviceDisplay}"
+                                                   FontSize="13" TextColor="#8E8E93"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaximumWidthRequest="160" />
+                                        </Grid>
+                                        <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Resolution" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.ResolutionText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                        <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Aspect Ratio" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.AspectRatioText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                        <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Flash" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.FlashText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </VerticalStackLayout>
+
+                            <!-- LOCATION section -->
+                            <VerticalStackLayout Padding="20,16,20,0" Spacing="0"
+                                                 IsVisible="{Binding CurrentMediaInfo.HasLocationInfo}">
+                                <Label Text="LOCATION"
+                                       FontSize="11" CharacterSpacing="1.0"
+                                       FontAttributes="Bold" TextColor="#8E8E93"
+                                       Margin="0,0,0,10" />
+                                <Border StrokeShape="RoundRectangle 12" Stroke="Transparent"
+                                        BackgroundColor="#1C1C1E" Padding="16,4">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="City" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.CityText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                        <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Country" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.CountryText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                        <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="GPS" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.GpsCoordsText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                        <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Altitude" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.AltitudeText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </VerticalStackLayout>
+
+                            <!-- CONDITIONS section -->
+                            <VerticalStackLayout Padding="20,16,20,24" Spacing="0"
+                                                 IsVisible="{Binding CurrentMediaInfo.HasConditionsInfo}">
+                                <Label Text="CONDITIONS"
+                                       FontSize="11" CharacterSpacing="1.0"
+                                       FontAttributes="Bold" TextColor="#8E8E93"
+                                       Margin="0,0,0,10" />
+                                <Border StrokeShape="RoundRectangle 12" Stroke="Transparent"
+                                        BackgroundColor="#1C1C1E" Padding="16,4">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Temperature" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.TemperatureText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                        <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Heading" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.HeadingText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                        <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,10">
+                                            <Label Grid.Column="0" Text="Speed" FontSize="14" TextColor="#FFFFFF" />
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding CurrentMediaInfo.SpeedText}"
+                                                   FontSize="13" TextColor="#8E8E93" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </VerticalStackLayout>
+
+                        </VerticalStackLayout>
+                    </ScrollView>
                 </Border>
             </Grid>
 
