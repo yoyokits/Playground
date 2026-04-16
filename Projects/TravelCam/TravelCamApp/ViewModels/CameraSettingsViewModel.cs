@@ -8,7 +8,7 @@
 //
 // Settings:
 //   • ShowRuleOfThirds   — rule-of-thirds guide lines toggle
-//   • ShowSensorOverlay  — sensor data panel toggle
+//   • ShowDataOverlay  — sensor data panel toggle
 //   • GridLineOpacity    — guide line opacity (5–50 %)
 //   • SelectedAspectRatio — crop overlay applied to the preview
 //   • SelectedResolutionIndex — index into AvailableResolutionLabels (0 = Auto)
@@ -32,7 +32,7 @@ namespace TravelCamApp.ViewModels
         #region Fields
 
         private bool _showRuleOfThirds = true;
-        private bool _showSensorOverlay = true;
+        private bool _showDataOverlay = true;
         private double _gridLineOpacity = 0.18;
         private AspectRatioOption _selectedAspectRatio = AspectRatioOption.FullScreen;
 
@@ -65,14 +65,14 @@ namespace TravelCamApp.ViewModels
             }
         }
 
-        /// <summary>Show or hide the sensor data overlay panel.</summary>
-        public bool ShowSensorOverlay
+        /// <summary>Show or hide the data overlay panel.</summary>
+        public bool ShowDataOverlay
         {
-            get => _showSensorOverlay;
+            get => _showDataOverlay;
             set
             {
-                if (_showSensorOverlay == value) return;
-                _showSensorOverlay = value;
+                if (_showDataOverlay == value) return;
+                _showDataOverlay = value;
                 OnPropertyChanged();
                 Preferences.Set(PrefShowSensors, value);
             }
@@ -163,7 +163,7 @@ namespace TravelCamApp.ViewModels
         private void LoadPersistedSettings()
         {
             _showRuleOfThirds    = Preferences.Get(PrefShowGrid,       true);
-            _showSensorOverlay   = Preferences.Get(PrefShowSensors,    true);
+            _showDataOverlay   = Preferences.Get(PrefShowSensors,    true);
             _gridLineOpacity     = Preferences.Get(PrefGridOpacity,     0.18);
             _selectedAspectRatio = (AspectRatioOption)Preferences.Get(PrefAspectRatio, (int)AspectRatioOption.FullScreen);
             // Resolution index is restored in SetAvailableResolutions once the

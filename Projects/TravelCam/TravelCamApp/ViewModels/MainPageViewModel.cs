@@ -84,8 +84,6 @@ namespace TravelCamApp.ViewModels
         private int _currentImageIndex;
         private bool _isMediaInfoVisible;
         private Models.MediaInfo _currentMediaInfo = new();
-        private ObservableCollection<Models.OverlayItem> _galleryOverlayItems = new();
-        private bool _isGalleryOverlayVisible;
 
         // Lifecycle guards — instance-level only (no static flag)
         private List<Window> _trackedWindows = new();  // track all windows for proper cleanup
@@ -220,20 +218,6 @@ namespace TravelCamApp.ViewModels
         {
             get => _currentMediaInfo;
             private set { _currentMediaInfo = value; OnPropertyChanged(); }
-        }
-
-        /// <summary>Overlay items populated from the current gallery image's EXIF metadata.</summary>
-        public ObservableCollection<Models.OverlayItem> GalleryOverlayItems
-        {
-            get => _galleryOverlayItems;
-            private set { _galleryOverlayItems = value; OnPropertyChanged(); }
-        }
-
-        /// <summary>True when the gallery sensor pill should be shown (settings enabled + items available).</summary>
-        public bool IsGalleryOverlayVisible
-        {
-            get => _isGalleryOverlayVisible;
-            private set { _isGalleryOverlayVisible = value; OnPropertyChanged(); }
         }
 
         public ObservableCollection<string> GalleryImagePaths
@@ -1692,17 +1676,67 @@ namespace TravelCamApp.ViewModels
             var path = _galleryImagePaths[_currentImageIndex];
             if (!File.Exists(path)) return;
 
-            // Determine media type from file extension
             var extension = System.IO.Path.GetExtension(path).ToLowerInvariant();
-            var isVideo = extension == ".mp4";
-            var title = isVideo ? "Share Video" : "Share Photo";
+            var isVideo   = extension == ".mp4";
+            var mimeType  = isVideo ? "video/mp4" : "image/jpeg";
+            var title     = isVideo ? "Share Video" : "Share Photo";
+
+            // For photos: composite the visible overlay items onto the image at full resolution.
+            // Videos are shared as-is (no overlay compositing).
+            var sharePath = path;
+#if ANDROID
+            if (!isVideo)
+            {
+                var overlayItems = DataOverlayViewModel.VisibleOverlayItems
+                    .Where(i => !string.IsNullOrEmpty(i.Value))
+                    .Select(i => (i.Name, i.Value))
+                    .ToList();
+
+                if (overlayItems.Count > 0)
+                {
+                    var fontSize = DataOverlayViewModel.FontSize;
+                    var composite = await Task.Run(
+                        () => Helpers.ImageCompositor.CompositeAndSave(path, overlayItems, fontSize));
+                    if (!string.IsNullOrEmpty(composite))
+                        sharePath = composite;
+                }
+            }
+#endif
 
             try
             {
+#if ANDROID
+                // Files in ExternalCacheDir / CacheDir are app-private — use FileProvider
+                // to vend a content:// URI so the receiving app reads actual file bytes.
+                try
+                {
+                    var context   = Android.App.Application.Context;
+                    var javaFile  = new Java.IO.File(sharePath);
+                    var authority = context.PackageName + ".fileprovider";
+                    var uri       = AndroidX.Core.Content.FileProvider.GetUriForFile(context, authority, javaFile);
+
+                    var intent = new Android.Content.Intent(Android.Content.Intent.ActionSend);
+                    intent.SetType(mimeType);
+                    intent.PutExtra(Android.Content.Intent.ExtraStream, uri);
+                    intent.AddFlags(Android.Content.ActivityFlags.GrantReadUriPermission);
+
+                    var chooser = Android.Content.Intent.CreateChooser(intent, title);
+                    chooser!.AddFlags(Android.Content.ActivityFlags.NewTask);
+                    context.StartActivity(chooser);
+                    return;
+                }
+                catch (Exception andEx)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[MainPageViewModel] Android FileProvider share failed: {andEx.Message}");
+                    // Fall through to MAUI cross-platform share below
+                }
+#endif
+                // Fallback: MAUI cross-platform share (non-Android or FileProvider failure)
                 await Share.RequestAsync(new ShareFileRequest
                 {
                     Title = title,
-                    File = new ShareFile(path)
+                    File  = new ShareFile(sharePath)
                 });
             }
             catch (Exception ex)
@@ -1854,65 +1888,6 @@ namespace TravelCamApp.ViewModels
             {
                 _isLoadingMediaInfo = false;
             }
-        }
-
-        /// <summary>
-        /// Reads EXIF metadata from <paramref name="filePath"/> and populates
-        /// <see cref="GalleryOverlayItems"/> with the values recorded at capture time.
-        /// Only items with non-empty values are included, matching the names used in the
-        /// live camera overlay (City, Country, Temperature, etc.).
-        /// </summary>
-        public async Task LoadGalleryOverlayItemsAsync(string filePath, CancellationToken cancellationToken = default)
-        {
-            if (string.IsNullOrEmpty(filePath))
-            {
-                GalleryOverlayItems = new ObservableCollection<Models.OverlayItem>();
-                IsGalleryOverlayVisible = false;
-                return;
-            }
-
-#if ANDROID
-            Models.MediaInfo? info = null;
-            try
-            {
-                info = await Task.Run(() => Helpers.ExifHelper.GetOrReadMetadata(filePath), cancellationToken);
-            }
-            catch (OperationCanceledException) { return; }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[MainPageViewModel] LoadGalleryOverlayItemsAsync error: {ex.Message}");
-            }
-
-            // Check cancellation after async gap — user may have swiped to a different image
-            if (cancellationToken.IsCancellationRequested) return;
-
-            var items = new List<Models.OverlayItem>();
-            if (info != null)
-            {
-                void Add(string name, string val)
-                {
-                    if (!string.IsNullOrWhiteSpace(val))
-                        items.Add(new Models.OverlayItem(name, val));
-                }
-
-                Add("City",        info.CityText);
-                Add("Country",     info.CountryText);
-                Add("Temperature", info.TemperatureText);
-                Add("Altitude",    info.AltitudeText);
-                Add("GPS",         info.GpsCoordsText);
-                Add("Heading",     info.HeadingText);
-                Add("Speed",       info.SpeedText);
-                Add("Date",        info.CaptureDateText);
-            }
-
-            GalleryOverlayItems = new ObservableCollection<Models.OverlayItem>(items);
-            IsGalleryOverlayVisible = CameraSettings.ShowSensorOverlay && items.Count > 0;
-#else
-            GalleryOverlayItems = new ObservableCollection<Models.OverlayItem>();
-            IsGalleryOverlayVisible = false;
-            await Task.CompletedTask;
-#endif
         }
 
         #endregion

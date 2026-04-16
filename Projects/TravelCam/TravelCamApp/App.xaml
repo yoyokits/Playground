@@ -26,6 +26,18 @@
             <!-- CommunityToolkit InvertedBool -->
             <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <toolkit:IsStringNotNullOrEmptyConverter x:Key="IsNotNullOrEmptyConverter" />
+
+            <!-- Shared overlay settings icon style — visual properties only.
+                 Path.Data must be set inline via {x:Static helpers:AppIcons.OverlaySettings}
+                 because Style.Setter for Geometry does not reliably invoke TypeConverter. -->
+            <Style x:Key="OverlaySettingsIconPath" TargetType="Path">
+                <Setter Property="Fill" Value="White" />
+                <Setter Property="Aspect" Value="Uniform" />
+                <Setter Property="WidthRequest" Value="22" />
+                <Setter Property="HeightRequest" Value="22" />
+                <Setter Property="HorizontalOptions" Value="Center" />
+                <Setter Property="VerticalOptions" Value="Center" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

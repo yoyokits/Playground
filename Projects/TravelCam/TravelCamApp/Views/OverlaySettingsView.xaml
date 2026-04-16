@@ -45,7 +45,7 @@
                     <!-- Divider -->
                     <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E" Margin="0" />
 
-                    <!-- ── Visible Sensors section ── -->
+                    <!-- ── Visible Items section ── -->
                     <VerticalStackLayout Padding="20,16,20,0" Spacing="10"
                                          BackgroundColor="#111111">
 
@@ -57,7 +57,7 @@
                         <Border StrokeShape="RoundRectangle 12" Stroke="Transparent"
                                 BackgroundColor="#1C1C1E" Padding="0"
                                 MinimumHeightRequest="48">
-                            <CollectionView x:Name="VisibleSensorsList"
+                            <CollectionView x:Name="VisibleItemsList"
                                             ItemsSource="{Binding VisibleOverlayItems}"
                                             SelectionMode="Single"
                                             HeightRequest="{Binding VisibleListHeight}"
@@ -74,7 +74,7 @@
                                                    TextColor="#3C3C3E"
                                                    VerticalOptions="Center"
                                                    Margin="0,0,10,0" />
-                                            <!-- Sensor name -->
+                                            <!-- Item name -->
                                             <Label Grid.Column="1"
                                                    Text="{Binding Name}"
                                                    FontSize="14" TextColor="#FFFFFF"
@@ -103,7 +103,7 @@
 
                     </VerticalStackLayout>
 
-                    <!-- ── Available Sensors section ── -->
+                    <!-- ── Available Items section ── -->
                     <VerticalStackLayout Padding="20,16,20,0" Spacing="10"
                                          BackgroundColor="#111111">
 
@@ -115,7 +115,7 @@
                         <Border StrokeShape="RoundRectangle 12" Stroke="Transparent"
                                 BackgroundColor="#1C1C1E" Padding="0"
                                 MinimumHeightRequest="48">
-                            <CollectionView x:Name="AvailableSensorsList"
+                            <CollectionView x:Name="AvailableItemsList"
                                             ItemsSource="{Binding AvailableOverlayItems}"
                                             SelectionMode="Single"
                                             HeightRequest="{Binding AvailableListHeight}"
@@ -124,7 +124,7 @@
                                     <DataTemplate x:DataType="models:OverlayItem">
                                         <Grid ColumnDefinitions="*,Auto"
                                               Padding="14,0" HeightRequest="46">
-                                            <!-- Sensor name -->
+                                            <!-- Item name -->
                                             <Label Grid.Column="0"
                                                    Text="{Binding Name}"
                                                    FontSize="14" TextColor="#ABABAB"

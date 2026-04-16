@@ -5,6 +5,7 @@
              xmlns:views="clr-namespace:TravelCamApp.Views"
              xmlns:vm="clr-namespace:TravelCamApp.ViewModels"
              xmlns:models="clr-namespace:TravelCamApp.Models"
+             xmlns:helpers="clr-namespace:TravelCamApp.Helpers"
              x:Class="TravelCamApp.Views.MainPage"
              x:DataType="vm:MainPageViewModel"
              x:Name="ThisPage"
@@ -116,11 +117,11 @@
                              Color="{Binding CameraSettings.GridLineColor}" />
                 </Grid>
 
-                <!-- ── Sensor overlay (inside container) ── -->
+                <!-- ── Data overlay (inside container) ── -->
                 <views:DataOverlayView
                     HorizontalOptions="End" VerticalOptions="End"
                     Margin="0,0,12,12"
-                    IsVisible="{Binding CameraSettings.ShowSensorOverlay}" />
+                    IsVisible="{Binding CameraSettings.ShowDataOverlay}" />
 
                 <!-- ── Right-side controls column: Camera Settings | Flash | Sensor ──
                      Stacked vertically at top-right of the visible camera feed area. -->
@@ -167,10 +168,8 @@
                         <Border StrokeShape="RoundRectangle 22"
                                 BackgroundColor="#55000000" Stroke="Transparent"
                                 WidthRequest="44" HeightRequest="44" />
-                        <Path Data="M4,6 h16 v2 h-16 Z M4,11 h10 v2 h-10 Z M4,16 h13 v2 h-13 Z"
-                              Fill="White" Aspect="Uniform"
-                              WidthRequest="20" HeightRequest="20"
-                              HorizontalOptions="Center" VerticalOptions="Center" />
+                        <Path Data="{x:Static helpers:AppIcons.OverlaySettings}"
+                              Style="{StaticResource OverlaySettingsIconPath}" />
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
                         </Grid.GestureRecognizers>
@@ -344,9 +343,9 @@
              OVERLAYS — full-screen, above both rows
         ═══════════════════════════════════════════════════════════════════ -->
 
-        <!-- Sensor settings panel -->
+        <!-- Data overlay settings panel -->
         <views:OverlaySettingsView
-            x:Name="SensorSettingsOverlay"
+            x:Name="DataOverlaySettingsPanel"
             Grid.RowSpan="2"
             IsVisible="{Binding Source={x:Reference ThisPage},
                 Path=BindingContext.IsSettingsVisible}"

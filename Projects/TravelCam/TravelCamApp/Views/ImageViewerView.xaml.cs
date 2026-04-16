@@ -11,7 +11,6 @@ namespace TravelCamApp.Views
     public partial class ImageViewerView : ContentView
     {
         private CancellationTokenSource? _scrollDebounceCancel;
-        private CancellationTokenSource? _overlayLoadCancel;
         // Unified sync guard: prevents feedback loops between CarouselView.PositionChanged
         // and CollectionView.SelectionChanged. Both handlers check this flag. It blocks
         // the synchronous PropertyChanged→Binding→Event propagation chain that would
@@ -26,15 +25,9 @@ namespace TravelCamApp.Views
             {
                 if (e.PropertyName != nameof(IsVisible)) return;
                 if (!IsVisible)
-                {
                     StopSharedVideoPlayer();
-                    _overlayLoadCancel?.Cancel();
-                }
                 else
-                {
                     _ = UpdateOverlayPositionAsync();
-                    _ = LoadCurrentImageOverlayAsync();
-                }
             };
         }
 
@@ -115,9 +108,7 @@ namespace TravelCamApp.Views
                 if (BindingContext is MainPageViewModel viewModel && viewModel.IsMediaInfoVisible)
                     viewModel.IsMediaInfoVisible = false;
 
-                // Run overlay position and overlay data load concurrently.
-                // Both use the ExifHelper cache, so at most one disk read occurs.
-                await Task.WhenAll(UpdateOverlayPositionAsync(), LoadCurrentImageOverlayAsync());
+                await UpdateOverlayPositionAsync();
             }
             catch (OperationCanceledException)
             {
@@ -189,31 +180,7 @@ namespace TravelCamApp.Views
         private void OnImageAreaSizeChanged(object? sender, EventArgs e) => _ = UpdateOverlayPositionAsync();
 
         /// <summary>
-        /// Asks the ViewModel to load EXIF overlay items for the currently displayed image.
-        /// Cancels any previous in-flight load to avoid stale data overwriting the current image.
-        /// </summary>
-        private async Task LoadCurrentImageOverlayAsync()
-        {
-            if (BindingContext is not MainPageViewModel vm) return;
-            if (vm.GalleryImagePaths == null || vm.GalleryImagePaths.Count == 0) return;
-
-            var index = MainCarousel?.Position ?? 0;
-            if (index < 0 || index >= vm.GalleryImagePaths.Count) return;
-
-            // Cancel any in-flight EXIF read from a previous swipe
-            _overlayLoadCancel?.Cancel();
-            _overlayLoadCancel = new CancellationTokenSource();
-            var token = _overlayLoadCancel.Token;
-
-            try
-            {
-                await vm.LoadGalleryOverlayItemsAsync(vm.GalleryImagePaths[index], token);
-            }
-            catch (OperationCanceledException) { /* swipe overtook this load — expected */ }
-        }
-
-        /// <summary>
-        /// Adjusts SensorOverlayPill's bottom/right margin so the pill sits at the
+        /// Adjusts DataOverlayPill's bottom/right margin so the pill sits at the
         /// bottom-right corner of the DISPLAYED image, not the Row 1 container.
         /// AspectFit centers the image with letterbox/pillarbox bars that vary per image,
         /// so the margin must be computed per image.
@@ -252,7 +219,7 @@ namespace TravelCamApp.Views
 
                 if (imageW <= 0 || imageH <= 0)
                 {
-                    SensorOverlayPill.Margin = new Thickness(0, 0, EdgePad, EdgePad);
+                    DataOverlayPill.Margin = new Thickness(0, 0, EdgePad, EdgePad);
                     return;
                 }
 
@@ -276,7 +243,7 @@ namespace TravelCamApp.Views
                 double rightMargin  = (containerW - displayW) / 2.0 + EdgePad;
                 double bottomMargin = (containerH - displayH) / 2.0 + EdgePad;
 
-                SensorOverlayPill.Margin = new Thickness(0, 0, rightMargin, bottomMargin);
+                DataOverlayPill.Margin = new Thickness(0, 0, rightMargin, bottomMargin);
             }
             catch (Exception ex)
             {
@@ -294,14 +261,14 @@ namespace TravelCamApp.Views
         /// </summary>
         public void WireSensorSettings(OverlaySettingsViewModel vm, MainPageViewModel mainVm)
         {
-            SensorSettingsOverlay.BindingContext = vm;
+            DataOverlaySettingsPanel.BindingContext = vm;
 
             // Drive IsVisible from code so it isn't affected by the BindingContext override.
             mainVm.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName != nameof(MainPageViewModel.IsGallerySettingsVisible)) return;
 
-                SensorSettingsOverlay.IsVisible = mainVm.IsGallerySettingsVisible;
+                DataOverlaySettingsPanel.IsVisible = mainVm.IsGallerySettingsVisible;
                 if (mainVm.IsGallerySettingsVisible)
                 {
                     vm.LoadFromOverlayItems(mainVm.OverlayItems);
@@ -309,7 +276,7 @@ namespace TravelCamApp.Views
                 }
             };
 
-            SensorSettingsOverlay.CloseRequested += async (s, e) =>
+            DataOverlaySettingsPanel.CloseRequested += async (s, e) =>
             {
                 try { await HideGallerySettingsAsync(vm, mainVm); }
                 catch (Exception ex)
