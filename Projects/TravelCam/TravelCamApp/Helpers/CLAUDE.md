@@ -34,6 +34,7 @@ File capture to MediaStore gallery publishing.
 - `SaveVideoAsync`: Saves video, extracts first frame as thumbnail (Android only)
 - Sanitize filenames, handle same-second captures with `_2`, `_3` suffixes
 - `GetAllGalleryMediaPaths()`: Combines MediaStore query with cache files as fallback
+- `DeleteMedia()` invalidates ExifHelper cache before deleting file
 
 ## SensorHelper.cs
 Location + compass + weather polling (10s timer).

@@ -16,6 +16,7 @@
 // no #if ANDROID guards are needed.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
@@ -29,6 +30,81 @@ namespace TravelCamApp.Helpers
 {
     internal static class ExifHelper
     {
+        // ── In-memory EXIF cache ──────────────────────────────────────────────
+        // Keyed by file path. Stores both MediaInfo (for overlay + info panel)
+        // and image dimensions + EXIF orientation (for overlay position calc).
+        // Populated on first read, subsequent accesses are dictionary lookups.
+
+        private record CachedExifData(
+            MediaInfo Info,
+            int ImageWidth,
+            int ImageHeight,
+            int ExifOrientation);
+
+        private static readonly ConcurrentDictionary<string, CachedExifData> _cache = new();
+
+        /// <summary>
+        /// Returns cached <see cref="MediaInfo"/> or reads from disk on first access.
+        /// Thread-safe; suitable for use inside <c>Task.Run</c>.
+        /// </summary>
+        public static MediaInfo GetOrReadMetadata(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath)) return new MediaInfo();
+            if (_cache.TryGetValue(filePath, out var cached)) return cached.Info;
+            PopulateCache(filePath);
+            return _cache.TryGetValue(filePath, out cached) ? cached.Info : new MediaInfo();
+        }
+
+        /// <summary>
+        /// Returns cached image dimensions (EXIF-orientation-corrected) or reads from disk.
+        /// Width/Height are swapped for orientations 5–8 (90°/270° rotations).
+        /// </summary>
+        public static (int Width, int Height) GetImageDimensions(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath)) return (0, 0);
+            if (!_cache.TryGetValue(filePath, out var cached))
+            {
+                PopulateCache(filePath);
+                if (!_cache.TryGetValue(filePath, out cached)) return (0, 0);
+            }
+            int w = cached.ImageWidth, h = cached.ImageHeight;
+            if (cached.ExifOrientation >= 5) (w, h) = (h, w);
+            return (w, h);
+        }
+
+        /// <summary>Removes a file from the cache (call on photo deletion).</summary>
+        public static void InvalidateCache(string filePath)
+        {
+            if (!string.IsNullOrEmpty(filePath))
+                _cache.TryRemove(filePath, out _);
+        }
+
+        /// <summary>Reads EXIF + image dimensions and stores in cache.</summary>
+        private static void PopulateCache(string filePath)
+        {
+            var info = ReadMetadata(filePath);
+            int imgW = 0, imgH = 0, orientation = (int)Android.Media.Orientation.Normal;
+            try
+            {
+                if (File.Exists(filePath) && !info.IsVideo)
+                {
+                    var opts = new Android.Graphics.BitmapFactory.Options { InJustDecodeBounds = true };
+                    Android.Graphics.BitmapFactory.DecodeFile(filePath, opts);
+                    imgW = opts.OutWidth;
+                    imgH = opts.OutHeight;
+                    using var exif = new ExifInterface(filePath);
+                    orientation = exif.GetAttributeInt(
+                        ExifInterface.TagOrientation,
+                        (int)Android.Media.Orientation.Normal);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ExifHelper] PopulateCache dimension read error: {ex.Message}");
+            }
+            _cache[filePath] = new CachedExifData(info, imgW, imgH, orientation);
+        }
+
         // ── Write ─────────────────────────────────────────────────────────────
 
         /// <summary>
