@@ -246,7 +246,7 @@ See `CodeStyle.txt` for full standards. Key rules:
 | `FilePathToImageSourceConverter.cs` | Converts file paths to `ImageSource` using `FromStream()` for reliable loading from app cache |
 | `Models/PhotoCaptureMetadata.cs` | Snapshot of sensor data collected at capture time — written into JPEG EXIF |
 | `Models/MediaInfo.cs` | EXIF metadata read back from a captured file — displayed in gallery info panel |
-| `Platforms/Android/ExifHelper.cs` | Android-only JPEG EXIF read/write. `ApplyMetadata` writes tags; `ReadMetadata` returns `MediaInfo` |
+| `Platforms/Android/ExifHelper.cs` | Android-only JPEG EXIF read/write + in-memory cache. `ApplyMetadata` writes tags; `GetOrReadMetadata`/`GetImageDimensions` use `ConcurrentDictionary` cache; `InvalidateCache` on delete |
 
 ---
 
@@ -372,6 +372,49 @@ Moved `StopSharedVideoPlayer()`, `IsMediaInfoVisible=false`, and `UpdateOverlayP
 `CameraViewChildrenContainer` was sized using the user-selected capture resolution instead of the camera's native (largest) resolution. The live preview always streams the full sensor feed at its native aspect ratio, so the capture resolution setting must not affect the layout.
 **Fix:** Always use `SupportedResolutions.OrderByDescending(pixel count).First()` for the layout calculation.
 
+### 5. CarouselView + CollectionView Feedback Loop Crash — Fixed
+**Files:** `Views/ImageViewerView.xaml`, `Views/ImageViewerView.xaml.cs`
+
+TwoWay `Position` binding on `CarouselView` let intermediate animated positions feed back through `CurrentImageIndex` → `CurrentImageItem` → `SelectedItem` → `SelectionChanged` → fighting the animation → jumping + crash.
+
+**Fix (4 parts):**
+1. Changed `CarouselView.Position` binding to `Mode=OneWay` (VM→Carousel only)
+2. In `OnCarouselPositionChanged` (debounced 150ms), manually push `vm.CurrentImageIndex = MainCarousel.Position`
+3. In `OnThumbnailSelected`, set `vm.CurrentImageIndex` only — NO `MainCarousel.ScrollTo()` (intermediate animation events re-enter)
+4. Unified `_isSyncing` flag checked in BOTH handlers blocks synchronous PropertyChanged→Binding→Event propagation chain
+
+**Rule:** Never TwoWay-bind `CarouselView.Position` when synchronized with a `CollectionView`.
+
+### 6. EXIF In-Memory Cache — Eliminates Redundant Disk I/O
+**File:** `Platforms/Android/ExifHelper.cs` (+76 lines)
+
+Every gallery swipe triggered `ReadMetadata` (50-200ms) + `BitmapFactory.DecodeFile` + `ExifInterface` for overlay position. Rapid swiping accumulated blocking I/O.
+
+**Fix:** `ConcurrentDictionary<string, CachedExifData>` cache storing `MediaInfo` + image dimensions + EXIF orientation. Three public methods:
+- `GetOrReadMetadata(filePath)` — cached `MediaInfo`
+- `GetImageDimensions(filePath)` — cached (width, height) with orientation swap applied
+- `InvalidateCache(filePath)` — remove on file delete
+
+`PopulateCache` reads once: `ReadMetadata` + `BitmapFactory.DecodeFile(InJustDecodeBounds)` + `ExifInterface.TagOrientation`.
+Result: first view ~150ms, subsequent views <5ms.
+
+### 7. Overlay Loading Cancellation — Prevents Stale Data Race
+**Files:** `ViewModels/MainPageViewModel.cs`, `Views/ImageViewerView.xaml.cs`
+
+`LoadGalleryOverlayItemsAsync` had no `CancellationToken`. If user swiped away before EXIF read completed, stale overlay data overwrote the current image's display.
+
+**Fix:**
+- `LoadGalleryOverlayItemsAsync(filePath, CancellationToken)` — token passed to `Task.Run`, checked after async gap
+- `_overlayLoadCancel` CancellationTokenSource in `ImageViewerView.xaml.cs` — cancelled on every new swipe and on gallery close
+- `ExecuteToggleMediaInfo` now uses `GetOrReadMetadata` (cache hit)
+
+### 8. Overlay Position Moved Off Main Thread
+**File:** `Views/ImageViewerView.xaml.cs`
+
+`UpdateOverlayPosition()` did synchronous `BitmapFactory.DecodeFile` + `ExifInterface` on main thread — 10-50ms blocking during carousel animation.
+
+**Fix:** Renamed to `UpdateOverlayPositionAsync()`. Image dimension lookup via `await Task.Run(() => ExifHelper.GetImageDimensions(filePath))` — uses cache, zero main-thread blocking. Both overlay ops run concurrently: `await Task.WhenAll(UpdateOverlayPositionAsync(), LoadCurrentImageOverlayAsync())`.
+
 ---
 
 ## RECENT FIXES (2026-04-15)
@@ -434,11 +477,15 @@ stream = await Task.Run(() =>
     return (Stream)ExifHelper.ApplyMetadata(cropped, meta);
 });
 
-// Info tap — EXIF read
-var info = await Task.Run(() => ExifHelper.ReadMetadata(path));
+// Info tap / gallery overlay — EXIF read (cached)
+var info = await Task.Run(() => ExifHelper.GetOrReadMetadata(path));
+
+// Overlay position — image dimensions (cached, orientation-corrected)
+var (w, h) = await Task.Run(() => ExifHelper.GetImageDimensions(path));
 ```
 
 Use a guard bool (`_isLoadingMediaInfo`) to prevent double-tap launching concurrent reads.
+Use `CancellationToken` on overlay loads — cancel previous in-flight reads on swipe.
 
 ---
 
@@ -475,7 +522,7 @@ Summary of 5-part fix:
 - [x] **Gallery info panel** — "i" button shows EXIF data overlay; async `ReadMetadata` with guard (2026-04-15)
 - [x] **Gallery delete crash** — empty list guard after deleting last item (2026-04-15)
 - [x] **Main thread freeze** — crop + EXIF write and EXIF read both moved to `Task.Run` (2026-04-15)
-- [x] **Gallery stability** — SelectionChanged re-entrancy crash + hidden-view ScrollTo crash (2026-04-15); rapid thumbnail tap crash via OperationCanceledException in async void (2026-04-16)
+- [x] **Gallery stability** — SelectionChanged re-entrancy crash + hidden-view ScrollTo crash (2026-04-15); rapid thumbnail tap crash via OperationCanceledException in async void (2026-04-16); CarouselView OneWay binding + _isSyncing flag + EXIF cache + overlay cancellation (2026-04-16)
 - [x] **Aspect ratio crop** — EXIF rotation, 16:9 portrait preview, pillarbox bars (2026-04-15)
 - [x] **Camera layout** — Flash, Sensor, Camera Settings inside CameraViewChildrenContainer right column (2026-04-15); container sized from native resolution not capture resolution (2026-04-16)
 - [x] **Gallery sensor overlay** — DataOverlayView pill + OverlaySettingsView in ImageViewerView; position computed from EXIF-corrected aspect ratio (2026-04-16)

@@ -1830,7 +1830,7 @@ namespace TravelCamApp.ViewModels
             {
 #if ANDROID
                 // ReadMetadata does disk I/O (ExifInterface) — run off the main thread
-                var info = await Task.Run(() => Helpers.ExifHelper.ReadMetadata(path));
+                var info = await Task.Run(() => Helpers.ExifHelper.GetOrReadMetadata(path));
                 CurrentMediaInfo = info;
 #else
                 CurrentMediaInfo = new Models.MediaInfo
@@ -1862,7 +1862,7 @@ namespace TravelCamApp.ViewModels
         /// Only items with non-empty values are included, matching the names used in the
         /// live camera overlay (City, Country, Temperature, etc.).
         /// </summary>
-        public async Task LoadGalleryOverlayItemsAsync(string filePath)
+        public async Task LoadGalleryOverlayItemsAsync(string filePath, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(filePath))
             {
@@ -1875,13 +1875,17 @@ namespace TravelCamApp.ViewModels
             Models.MediaInfo? info = null;
             try
             {
-                info = await Task.Run(() => Helpers.ExifHelper.ReadMetadata(filePath));
+                info = await Task.Run(() => Helpers.ExifHelper.GetOrReadMetadata(filePath), cancellationToken);
             }
+            catch (OperationCanceledException) { return; }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
                     $"[MainPageViewModel] LoadGalleryOverlayItemsAsync error: {ex.Message}");
             }
+
+            // Check cancellation after async gap — user may have swiped to a different image
+            if (cancellationToken.IsCancellationRequested) return;
 
             var items = new List<Models.OverlayItem>();
             if (info != null)

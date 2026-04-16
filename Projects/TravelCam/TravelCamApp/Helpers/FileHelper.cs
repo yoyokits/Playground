@@ -210,6 +210,7 @@ namespace TravelCamApp.Helpers
             {
 #if ANDROID
                 DeleteFromMediaStore(filePath);
+                ExifHelper.InvalidateCache(filePath);
 #endif
                 File.Delete(filePath);
                 System.Diagnostics.Debug.WriteLine($"[FileHelper] Deleted: {filePath}");

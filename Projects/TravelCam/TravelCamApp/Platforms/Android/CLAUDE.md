@@ -77,3 +77,25 @@ Used for: sharing captured photos with gallery apps via `FileProvider.GetUriForF
 
 `MainActivity.cs` — `LaunchMode = LaunchMode.SingleTask`, `ResizeableActivity = true` (required for MediaElement)
 `MainApplication.cs` — Standard MAUI entry point, delegates to `MauiProgram.CreateMauiApp()`
+
+---
+
+## ExifHelper.cs — EXIF Read/Write + In-Memory Cache
+
+Android-only static helper for JPEG EXIF metadata.
+
+### Write
+- `ApplyMetadata(Stream, PhotoCaptureMetadata)` → writes GPS, date, device, flash + JSON UserComment. Returns `MemoryStream`. **Must run on background thread.**
+
+### Read (Cached)
+- `GetOrReadMetadata(filePath)` → returns `MediaInfo` (cached after first read)
+- `GetImageDimensions(filePath)` → returns `(int Width, int Height)` with EXIF orientation swap applied (values 5-8 = 90/270 rotation)
+- `InvalidateCache(filePath)` → call before deleting a file
+- `ReadMetadata(filePath)` → raw uncached read (internal, prefer `GetOrReadMetadata`)
+
+### Cache Architecture
+- `ConcurrentDictionary<string, CachedExifData>` — thread-safe, zero dependencies
+- `CachedExifData` record stores: `MediaInfo`, `ImageWidth`, `ImageHeight`, `ExifOrientation`
+- `PopulateCache` does: `ReadMetadata` + `BitmapFactory.DecodeFile(InJustDecodeBounds)` + `ExifInterface.TagOrientation`
+- First read ~150ms, subsequent reads <5ms (dictionary lookup)
+- Both `UpdateOverlayPositionAsync` and `LoadGalleryOverlayItemsAsync` use the same cache — at most one disk read per image

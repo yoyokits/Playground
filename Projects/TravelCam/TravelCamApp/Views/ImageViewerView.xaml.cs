@@ -11,9 +11,12 @@ namespace TravelCamApp.Views
     public partial class ImageViewerView : ContentView
     {
         private CancellationTokenSource? _scrollDebounceCancel;
-        // Prevents re-entrant calls: setting CurrentImageIndex notifies CurrentImageItem,
-        // which updates SelectedItem via binding, which fires SelectionChanged again.
-        private bool _isSyncingThumbnail = false;
+        private CancellationTokenSource? _overlayLoadCancel;
+        // Unified sync guard: prevents feedback loops between CarouselView.PositionChanged
+        // and CollectionView.SelectionChanged. Both handlers check this flag. It blocks
+        // the synchronous PropertyChanged→Binding→Event propagation chain that would
+        // otherwise cause infinite re-entrancy and carousel jumping.
+        private bool _isSyncing = false;
 
         public ImageViewerView()
         {
@@ -25,10 +28,11 @@ namespace TravelCamApp.Views
                 if (!IsVisible)
                 {
                     StopSharedVideoPlayer();
+                    _overlayLoadCancel?.Cancel();
                 }
                 else
                 {
-                    UpdateOverlayPosition();
+                    _ = UpdateOverlayPositionAsync();
                     _ = LoadCurrentImageOverlayAsync();
                 }
             };
@@ -36,55 +40,74 @@ namespace TravelCamApp.Views
 
         private void OnThumbnailSelected(object? sender, SelectionChangedEventArgs e)
         {
-            // Guard 1: ignore binding-triggered events when the gallery is not yet visible
-            // (OpenImageViewer sets GalleryImagePaths/CurrentImageIndex before IsVisible=true,
-            // which drives binding updates that fire SelectionChanged on a hidden/unlaid CarouselView).
-            // Guard 2: prevent re-entrancy from the CurrentImageIndex→CurrentImageItem→SelectedItem loop.
-            if (!IsVisible || _isSyncingThumbnail || e.CurrentSelection.Count == 0) return;
+            // Guard 1: ignore binding-triggered events when the gallery is not yet visible.
+            // Guard 2: prevent re-entrancy from the CurrentImageIndex→CurrentImageItem→SelectedItem
+            //          loop and from carousel PositionChanged propagation.
+            if (!IsVisible || _isSyncing || e.CurrentSelection.Count == 0) return;
 
             var selected = e.CurrentSelection[0] as string;
             if (string.IsNullOrEmpty(selected)) return;
 
-            if (BindingContext is MainPageViewModel vm)
-            {
-                var index = vm.GalleryImagePaths.IndexOf(selected);
-                if (index < 0) return;
+            if (BindingContext is not MainPageViewModel vm) return;
 
-                _isSyncingThumbnail = true;
-                try
-                {
-                    vm.CurrentImageIndex = index;
-                    MainCarousel.ScrollTo(index, position: ScrollToPosition.Center, animate: true);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[ImageViewerView] OnThumbnailSelected scroll error: {ex.Message}");
-                }
-                finally
-                {
-                    _isSyncingThumbnail = false;
-                }
-                StopSharedVideoPlayer();
+            var index = vm.GalleryImagePaths.IndexOf(selected);
+            if (index < 0 || index == MainCarousel.Position) return;
+
+            _isSyncing = true;
+            try
+            {
+                vm.CurrentImageIndex = index;
+                // The OneWay Position binding jumps the carousel to this index.
+                // DO NOT call MainCarousel.ScrollTo() here — it fires animated
+                // intermediate PositionChanged events that feed back through
+                // CurrentImageIndex→CurrentImageItem→SelectedItem→SelectionChanged,
+                // causing the carousel to fight its own animation (jumping + crash).
             }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[ImageViewerView] OnThumbnailSelected error: {ex.Message}");
+            }
+            finally
+            {
+                _isSyncing = false;
+            }
+            StopSharedVideoPlayer();
         }
 
         private async void OnCarouselPositionChanged(object? sender, EventArgs e)
         {
+            // Skip events fired by our own programmatic updates (thumbnail tap, gallery open).
+            if (_isSyncing) return;
+
             // Debounce: cancel previous timer and start a new one.
+            // 150 ms lets fast swipe sequences settle before we do any work.
             _scrollDebounceCancel?.Cancel();
             _scrollDebounceCancel = new CancellationTokenSource();
 
             try
             {
-                await Task.Delay(50, _scrollDebounceCancel.Token);
+                await Task.Delay(150, _scrollDebounceCancel.Token);
 
-                // Debounce settled — sync thumbnail strip.
-                if (BindingContext is MainPageViewModel vm && MainCarousel != null && ThumbnailStrip != null)
+                // Debounce settled — sync ViewModel and thumbnail strip.
+                // Position binding is OneWay (VM→Carousel), so user swipes do NOT
+                // automatically push back to CurrentImageIndex. We do it here.
+                _isSyncing = true;
+                try
                 {
-                    var newIndex = MainCarousel.Position;
-                    if (newIndex >= 0 && newIndex < vm.GalleryImagePaths.Count)
-                        ThumbnailStrip.ScrollTo(newIndex, position: ScrollToPosition.Center, animate: false);
+                    if (BindingContext is MainPageViewModel vm && MainCarousel != null && ThumbnailStrip != null)
+                    {
+                        var newIndex = MainCarousel.Position;
+                        if (newIndex >= 0 && newIndex < vm.GalleryImagePaths.Count)
+                        {
+                            vm.CurrentImageIndex = newIndex;
+                            ThumbnailStrip.ScrollTo(newIndex, position: ScrollToPosition.Center, animate: false);
+                        }
+                    }
+                }
+                finally
+                {
+                    _isSyncing = false;
                 }
 
                 StopSharedVideoPlayer();
@@ -92,15 +115,13 @@ namespace TravelCamApp.Views
                 if (BindingContext is MainPageViewModel viewModel && viewModel.IsMediaInfoVisible)
                     viewModel.IsMediaInfoVisible = false;
 
-                UpdateOverlayPosition();
-                await LoadCurrentImageOverlayAsync();
+                // Run overlay position and overlay data load concurrently.
+                // Both use the ExifHelper cache, so at most one disk read occurs.
+                await Task.WhenAll(UpdateOverlayPositionAsync(), LoadCurrentImageOverlayAsync());
             }
             catch (OperationCanceledException)
             {
                 // Debounce cancelled by a newer position change — expected, do nothing.
-            }
-            finally
-            {
             }
         }
 
@@ -165,11 +186,11 @@ namespace TravelCamApp.Views
 
         // ── Sensor overlay position ────────────────────────────────────────
 
-        private void OnImageAreaSizeChanged(object? sender, EventArgs e) => UpdateOverlayPosition();
+        private void OnImageAreaSizeChanged(object? sender, EventArgs e) => _ = UpdateOverlayPositionAsync();
 
         /// <summary>
         /// Asks the ViewModel to load EXIF overlay items for the currently displayed image.
-        /// Called on gallery open and after each swipe settles.
+        /// Cancels any previous in-flight load to avoid stale data overwriting the current image.
         /// </summary>
         private async Task LoadCurrentImageOverlayAsync()
         {
@@ -179,7 +200,16 @@ namespace TravelCamApp.Views
             var index = MainCarousel?.Position ?? 0;
             if (index < 0 || index >= vm.GalleryImagePaths.Count) return;
 
-            await vm.LoadGalleryOverlayItemsAsync(vm.GalleryImagePaths[index]);
+            // Cancel any in-flight EXIF read from a previous swipe
+            _overlayLoadCancel?.Cancel();
+            _overlayLoadCancel = new CancellationTokenSource();
+            var token = _overlayLoadCancel.Token;
+
+            try
+            {
+                await vm.LoadGalleryOverlayItemsAsync(vm.GalleryImagePaths[index], token);
+            }
+            catch (OperationCanceledException) { /* swipe overtook this load — expected */ }
         }
 
         /// <summary>
@@ -188,10 +218,10 @@ namespace TravelCamApp.Views
         /// AspectFit centers the image with letterbox/pillarbox bars that vary per image,
         /// so the margin must be computed per image.
         ///
-        /// Image raw dimensions come from BitmapFactory header-only decode (no pixels loaded).
-        /// EXIF orientation is read to correct swapped W/H on rotated photos.
+        /// Image dimensions come from the ExifHelper cache (populated on first read,
+        /// served from memory on subsequent calls). Disk I/O runs off the main thread.
         /// </summary>
-        private void UpdateOverlayPosition()
+        private async Task UpdateOverlayPositionAsync()
         {
             const double EdgePad = 12;
 
@@ -212,28 +242,12 @@ namespace TravelCamApp.Views
 
 #if ANDROID
                 var filePath = vm.GalleryImagePaths[index];
-                if (File.Exists(filePath))
-                {
-                    // Header-only decode — reads just a few bytes, does not load pixels.
-                    var opts = new Android.Graphics.BitmapFactory.Options { InJustDecodeBounds = true };
-                    Android.Graphics.BitmapFactory.DecodeFile(filePath, opts);
-                    imageW = opts.OutWidth;
-                    imageH = opts.OutHeight;
-
-                    // BitmapFactory returns raw stored dimensions, ignoring EXIF orientation.
-                    // Correct for 90°/270° rotations so the aspect ratio reflects what is DISPLAYED.
-                    try
-                    {
-                        using var exif = new Android.Media.ExifInterface(filePath);
-                        int orientation = exif.GetAttributeInt(
-                            Android.Media.ExifInterface.TagOrientation,
-                            (int)Android.Media.Orientation.Normal);
-                        // Values 5–8 indicate a 90° or 270° rotation → swap W and H.
-                        if (orientation >= 5)
-                            (imageW, imageH) = (imageH, imageW);
-                    }
-                    catch { /* EXIF unreadable — use raw dimensions */ }
-                }
+                // Use the ExifHelper cache — disk I/O only on first access per image,
+                // subsequent calls are a dictionary lookup. Runs off main thread.
+                var (cachedW, cachedH) = await Task.Run(
+                    () => Helpers.ExifHelper.GetImageDimensions(filePath));
+                imageW = cachedW;
+                imageH = cachedH;
 #endif
 
                 if (imageW <= 0 || imageH <= 0)
