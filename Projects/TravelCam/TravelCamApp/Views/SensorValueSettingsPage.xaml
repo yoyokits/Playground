@@ -5,7 +5,7 @@
              xmlns:models="clr-namespace:TravelCamApp.Models"
              x:Class="TravelCamApp.Views.OverlaySettingsPage"
              x:DataType="viewModels:OverlaySettingsViewModel"
-             Title="Sensor Settings"
+             Title="Overlay Settings"
              BackgroundColor="#FFFBFE"
              Shell.NavBarIsVisible="False">
 
@@ -37,7 +37,7 @@
                     Padding="0"
                     HeightRequest="32" />
             <Label Grid.Column="1"
-                   Text="Sensor Settings"
+                   Text="Overlay Settings"
                    FontSize="18"
                    FontAttributes="Bold"
                    TextColor="{StaticResource MD3OnSurface}"
@@ -71,7 +71,7 @@
         <!-- Visibility Content -->
         <ScrollView x:Name="VisibilityContent" Grid.Row="2" IsVisible="True">
             <VerticalStackLayout Spacing="12" Padding="12">
-                <!-- Visible Sensors Section -->
+                <!-- Visible Items Section -->
                 <Border BackgroundColor="{StaticResource MD3Surface}"
                         Stroke="{StaticResource MD3OutlineVariant}"
                         StrokeThickness="1"
@@ -79,7 +79,7 @@
                         Padding="10">
                     <VerticalStackLayout Spacing="6">
                         <HorizontalStackLayout Spacing="4">
-                            <Label Text="Visible Sensors"
+                            <Label Text="Visible Items"
                                    FontSize="13"
                                    FontAttributes="Bold"
                                    TextColor="{StaticResource MD3OnSurface}" />
@@ -89,7 +89,7 @@
                                    VerticalOptions="Center" />
                         </HorizontalStackLayout>
 
-                        <CollectionView x:Name="VisibleSensorsList"
+                        <CollectionView x:Name="VisibleItemsList"
                                         ItemsSource="{Binding VisibleOverlayItems}"
                                         SelectionMode="Single"
                                         HeightRequest="180"
@@ -130,19 +130,19 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Available Sensors Section -->
+                <!-- Available Items Section -->
                 <Border BackgroundColor="{StaticResource MD3Surface}"
                         Stroke="{StaticResource MD3OutlineVariant}"
                         StrokeThickness="1"
                         StrokeShape="RoundRectangle 12"
                         Padding="10">
                     <VerticalStackLayout Spacing="6">
-                        <Label Text="Available Sensors"
+                        <Label Text="Available Items"
                                FontSize="13"
                                FontAttributes="Bold"
                                TextColor="{StaticResource MD3OnSurface}" />
 
-                        <CollectionView x:Name="AvailableSensorsList"
+                        <CollectionView x:Name="AvailableItemsList"
                                         ItemsSource="{Binding AvailableOverlayItems}"
                                         SelectionMode="Single"
                                         HeightRequest="180"

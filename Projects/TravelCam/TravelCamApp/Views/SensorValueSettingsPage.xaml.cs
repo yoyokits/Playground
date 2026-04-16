@@ -77,7 +77,7 @@ namespace TravelCamApp.Views
             var selectedItem = e.CurrentSelection.FirstOrDefault() as OverlayItem;
             if (selectedItem != null)
             {
-                AvailableSensorsList.SelectedItem = null;
+                AvailableItemsList.SelectedItem = null;
             }
         }
 
@@ -86,7 +86,7 @@ namespace TravelCamApp.Views
             var selectedItem = e.CurrentSelection.FirstOrDefault() as OverlayItem;
             if (selectedItem != null)
             {
-                VisibleSensorsList.SelectedItem = null;
+                VisibleItemsList.SelectedItem = null;
             }
         }
 

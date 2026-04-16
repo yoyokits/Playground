@@ -21,6 +21,7 @@ namespace TravelCamApp.Models
         public string DeviceMake { get; set; } = string.Empty;
         public string DeviceModel { get; set; } = string.Empty;
         public string ResolutionText { get; set; } = string.Empty;
+        public string MegaPixelText { get; set; } = string.Empty;
         public string FlashText { get; set; } = string.Empty;
         public string AspectRatioText { get; set; } = string.Empty;
 
@@ -40,6 +41,8 @@ namespace TravelCamApp.Models
             string.IsNullOrEmpty(DeviceMake) && string.IsNullOrEmpty(DeviceModel)
                 ? string.Empty
                 : $"{DeviceMake} {DeviceModel}".Trim();
+
+        public bool HasMegaPixelText => !string.IsNullOrEmpty(MegaPixelText);
 
         public bool HasCameraInfo =>
             !string.IsNullOrEmpty(ResolutionText) || !string.IsNullOrEmpty(DeviceDisplay);

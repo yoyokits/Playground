@@ -71,7 +71,7 @@ CameraView Grid
         Margin="0,0,12,12"
         MaximumWidthRequest="160"
         MaximumHeightRequest="150"
-        IsVisible="{Binding CameraSettings.ShowSensorOverlay}" />
+        IsVisible="{Binding CameraSettings.ShowDataOverlay}" />
 </Grid>
 ```
 

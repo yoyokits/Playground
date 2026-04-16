@@ -38,7 +38,7 @@ namespace TravelCamApp.Views
             GalleryView.WireSensorSettings(_sensorSettingsVm, viewModel);
 
             // ── Sensor settings overlay ──────────────────────────────────────
-            SensorSettingsOverlay.BindingContext = _sensorSettingsVm;
+            DataOverlaySettingsPanel.BindingContext = _sensorSettingsVm;
 
             viewModel.PropertyChanged += (s, e) =>
             {
@@ -51,7 +51,7 @@ namespace TravelCamApp.Views
                 }
             };
 
-            SensorSettingsOverlay.CloseRequested += async (s, e) =>
+            DataOverlaySettingsPanel.CloseRequested += async (s, e) =>
             {
                 try { await HideSensorSettingsAsync(); }
                 catch (Exception ex)
@@ -252,6 +252,7 @@ namespace TravelCamApp.Views
                         croppedH = naturalH;
                         croppedW = naturalH / r;
                     }
+
                 }
                 else
                 {

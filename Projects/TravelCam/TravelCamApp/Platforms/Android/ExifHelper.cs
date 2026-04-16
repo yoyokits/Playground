@@ -276,7 +276,11 @@ namespace TravelCamApp.Helpers
                 var imgW = exif.GetAttributeInt(ExifInterface.TagImageWidth, 0);
                 var imgH = exif.GetAttributeInt(ExifInterface.TagImageLength, 0);
                 if (imgW > 0 && imgH > 0)
+                {
                     info.ResolutionText = $"{imgW} × {imgH}";
+                    double mp = imgW * (double)imgH / 1_000_000.0;
+                    info.MegaPixelText = $"{mp:F1} MP";
+                }
 
                 // ── UserComment JSON payload ────────────────────────────────────
                 var userComment = exif.GetAttribute(ExifInterface.TagUserComment) ?? string.Empty;

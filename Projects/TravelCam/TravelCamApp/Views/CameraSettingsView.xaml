@@ -90,18 +90,18 @@
                                 <BoxView HeightRequest="0.5" BackgroundColor="#2C2C2E"
                                          Margin="16,0" />
 
-                                <!-- Sensor overlay toggle -->
+                                <!-- Data overlay toggle -->
                                 <Grid ColumnDefinitions="*,Auto"
                                       Padding="16,14" HeightRequest="52">
                                     <VerticalStackLayout Grid.Column="0" Spacing="2"
                                                           VerticalOptions="Center">
-                                        <Label Text="Sensor Overlay" FontSize="14"
+                                        <Label Text="Data Overlay" FontSize="14"
                                                TextColor="#FFFFFF" />
                                         <Label Text="Show location &amp; weather data"
                                                FontSize="11" TextColor="#636366" />
                                     </VerticalStackLayout>
                                     <Switch Grid.Column="1"
-                                            IsToggled="{Binding ShowSensorOverlay}"
+                                            IsToggled="{Binding ShowDataOverlay}"
                                             OnColor="#30D158"
                                             ThumbColor="White"
                                             VerticalOptions="Center" />
