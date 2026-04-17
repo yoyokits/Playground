@@ -21,9 +21,11 @@
         <Grid Grid.Row="0" BackgroundColor="Black">
 
             <!-- ── Camera feed ── -->
+            <!-- Fill width completely; scale height to maintain aspect ratio.
+                 Align to top (VerticalOptions="Start") so at least the width edge has 0 distance. -->
             <toolkit:CameraView x:Name="CameraView"
                                 HorizontalOptions="Fill"
-                                VerticalOptions="Fill"
+                                VerticalOptions="Start"
                                 SizeChanged="OnCameraViewSizeChanged" />
 
 <!-- ── CameraViewChildrenContainer: Container that aligns with visible camera feed ──
