@@ -263,34 +263,6 @@ namespace TravelCamApp.Views
                 // ── Step 3: resize container to the cropped area ─────────────────────────────
                 CameraViewChildrenContainer.WidthRequest  = croppedW;
                 CameraViewChildrenContainer.HeightRequest = croppedH;
-
-                // ── Step 4: letterbox bars (top/bottom) ──────────────────────────────────────
-                bool hasTopBottomBars = r > 0 && croppedH < naturalH;
-                if (hasTopBottomBars)
-                {
-                    double barH = (cameraViewHeight - croppedH) / 2.0;
-                    ViewModel.AspectTopBarHeight    = barH;
-                    ViewModel.AspectBottomBarHeight = barH;
-                }
-                else
-                {
-                    ViewModel.AspectTopBarHeight    = 0;
-                    ViewModel.AspectBottomBarHeight = 0;
-                }
-
-                // ── Step 5: pillarbox bars (left/right) ──────────────────────────────────────
-                bool hasSideBars = r > 0 && croppedW < naturalW;
-                if (hasSideBars)
-                {
-                    double barW = (cameraViewWidth - croppedW) / 2.0;
-                    ViewModel.AspectLeftBarWidth  = barW;
-                    ViewModel.AspectRightBarWidth = barW;
-                }
-                else
-                {
-                    ViewModel.AspectLeftBarWidth  = 0;
-                    ViewModel.AspectRightBarWidth = 0;
-                }
             }
             catch (Exception ex)
             {

@@ -26,29 +26,7 @@
                                 VerticalOptions="Fill"
                                 SizeChanged="OnCameraViewSizeChanged" />
 
-            <!-- ── Aspect-ratio letterbox bars (top + bottom) ──
-                 Shown for 4:3 / 1:1 crops on sensors wider than the target ratio. -->
-            <BoxView VerticalOptions="Start" HorizontalOptions="Fill"
-                     BackgroundColor="Black" InputTransparent="True"
-                     HeightRequest="{Binding AspectTopBarHeight}"
-                     IsVisible="{Binding HasAspectBars}" />
-            <BoxView VerticalOptions="End" HorizontalOptions="Fill"
-                     BackgroundColor="Black" InputTransparent="True"
-                     HeightRequest="{Binding AspectBottomBarHeight}"
-                     IsVisible="{Binding HasAspectBars}" />
-
-            <!-- ── Aspect-ratio pillarbox bars (left + right) ──
-                 Shown for 16:9 / 9:16 crops on 4:3 sensors in portrait mode. -->
-            <BoxView HorizontalOptions="Start" VerticalOptions="Fill"
-                     BackgroundColor="Black" InputTransparent="True"
-                     WidthRequest="{Binding AspectLeftBarWidth}"
-                     IsVisible="{Binding HasAspectSideBars}" />
-            <BoxView HorizontalOptions="End" VerticalOptions="Fill"
-                     BackgroundColor="Black" InputTransparent="True"
-                     WidthRequest="{Binding AspectRightBarWidth}"
-                     IsVisible="{Binding HasAspectSideBars}" />
-
-            <!-- ── CameraViewChildrenContainer: Container that aligns with visible camera feed ──
+<!-- ── CameraViewChildrenContainer: Container that aligns with visible camera feed ──
                  This container dynamically positions and sizes itself to match the visible camera
                  feed area (excluding black bars from AspectFit letterboxing/pillarboxing).
                  It contains the rule-of-thirds grid and sensor overlay as children. -->
