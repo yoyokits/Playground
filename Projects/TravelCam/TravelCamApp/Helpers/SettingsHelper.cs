@@ -1,6 +1,6 @@
 // ========================================== //
 // Developer: Yohanes Wahyu Nurcahyo          //
-// Website: https://github.com/yoyokitos       //
+// Website: https://github.com/yoyokits       //
 // ========================================== //
 //
 // SettingsHelper — all persistent app settings stored in Android SharedPreferences.

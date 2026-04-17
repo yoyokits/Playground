@@ -1,6 +1,6 @@
 // ========================================== //
 // Developer: Yohanes Wahyu Nurcahyo          //
-// Website: https://github.com/yoyokitos       //
+// Website: https://github.com/yoyokits       //
 // ========================================== //
 //
 // Data collected at capture time and written into JPEG EXIF metadata.

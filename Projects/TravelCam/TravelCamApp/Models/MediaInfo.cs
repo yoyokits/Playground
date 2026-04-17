@@ -1,6 +1,6 @@
 // ========================================== //
 // Developer: Yohanes Wahyu Nurcahyo          //
-// Website: https://github.com/yoyokitos       //
+// Website: https://github.com/yoyokits       //
 // ========================================== //
 //
 // MediaInfo: EXIF metadata read from a captured image file.
