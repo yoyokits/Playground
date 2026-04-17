@@ -69,12 +69,6 @@ namespace TravelCamApp.ViewModels
         // Camera count — used to show/hide zoom strip
         private int _cameraCount;
 
-        // Aspect ratio crop bars
-        private double _aspectTopBarHeight;
-        private double _aspectBottomBarHeight;
-        private double _aspectLeftBarWidth;
-        private double _aspectRightBarWidth;
-
         // Recording display timer
         private System.Timers.Timer? _recordingTimer;
         private DateTime _recordingStart;
@@ -268,62 +262,6 @@ namespace TravelCamApp.ViewModels
 
         /// <summary>True when the device has more than one camera (shows zoom preset strip).</summary>
         public bool ShowZoomPresets => _cameraCount > 1;
-
-        /// <summary>Height of the top black letterbox bar for the selected aspect ratio.</summary>
-        public double AspectTopBarHeight
-        {
-            get => _aspectTopBarHeight;
-            set
-            {
-                if (Math.Abs(_aspectTopBarHeight - value) < 0.5) return;
-                _aspectTopBarHeight = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(HasAspectBars));
-            }
-        }
-
-        /// <summary>Height of the bottom black letterbox bar for the selected aspect ratio.</summary>
-        public double AspectBottomBarHeight
-        {
-            get => _aspectBottomBarHeight;
-            set
-            {
-                if (Math.Abs(_aspectBottomBarHeight - value) < 0.5) return;
-                _aspectBottomBarHeight = value;
-                OnPropertyChanged();
-            }
-        }
-
-        /// <summary>True when letterbox bars should be shown (any non-FullScreen aspect ratio with non-zero bars).</summary>
-        public bool HasAspectBars => _aspectTopBarHeight > 1;
-
-        /// <summary>Width of the left black pillarbox bar for the selected aspect ratio.</summary>
-        public double AspectLeftBarWidth
-        {
-            get => _aspectLeftBarWidth;
-            set
-            {
-                if (Math.Abs(_aspectLeftBarWidth - value) < 0.5) return;
-                _aspectLeftBarWidth = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(HasAspectSideBars));
-            }
-        }
-
-        /// <summary>Width of the right black pillarbox bar for the selected aspect ratio.</summary>
-        public double AspectRightBarWidth
-        {
-            get => _aspectRightBarWidth;
-            set
-            {
-                if (Math.Abs(_aspectRightBarWidth - value) < 0.5) return;
-                _aspectRightBarWidth = value;
-                OnPropertyChanged();
-            }
-        }
-
-        /// <summary>True when pillarbox side bars should be shown.</summary>
-        public bool HasAspectSideBars => _aspectLeftBarWidth > 1;
 
         /// <summary>
         /// Dynamic zoom presets generated from the active camera's min/max zoom range.

@@ -37,7 +37,13 @@
       "WebFetch(domain:www.mdisvg.com)",
       "WebFetch(domain:icon-sets.iconify.design)",
       "WebFetch(domain:fonts.google.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(dotnet publish *)",
+      "Bash(adb devices *)",
+      "Bash(adb install *)",
+      "Bash(adb shell *)",
+      "Bash(adb pull *)",
+      "Read(//c/Users/yoyok/**)"
     ]
   },
   "ENABLE_TOOL_SEARCH": "true"
