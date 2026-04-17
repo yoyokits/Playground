@@ -17,7 +17,7 @@
 		<ApplicationTitle>TravelCamApp</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.yoyokitos.travelcam</ApplicationId>
+		<ApplicationId>com.cekli.travelcam</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>

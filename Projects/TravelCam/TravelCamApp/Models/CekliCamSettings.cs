@@ -1,6 +1,6 @@
 // ========================================== //
 // Developer: Yohanes Wahyu Nurcahyo          //
-// Website: https://github.com/yoyokitos       //
+// Website: https://github.com/yoyokits       //
 // ========================================== //
 //
 // CekliCamSettings is the single persistent settings model for the app.

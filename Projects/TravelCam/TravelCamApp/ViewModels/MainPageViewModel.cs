@@ -978,6 +978,9 @@ namespace TravelCamApp.ViewModels
 
                     // Build zoom presets from actual hardware capabilities
                     UpdateZoomPresets(_cameraCount);
+
+                    // Validate aspect ratio against camera's native ratio
+                    ValidateAspectRatioForCamera(_cameraView.SelectedCamera);
                 }
 
                 if (_isDestroyed || _cameraView == null) return;
@@ -1107,6 +1110,52 @@ namespace TravelCamApp.ViewModels
 
             System.Diagnostics.Debug.WriteLine(
                 $"[MainPageViewModel] Zoom set to {preset.Label} ({preset.AbsoluteZoom:F1}x)");
+        }
+
+        private void ValidateAspectRatioForCamera(CameraInfo? camera)
+        {
+            if (camera == null || camera.SupportedResolutions == null || camera.SupportedResolutions.Count == 0)
+                return;
+
+            // Get the camera's native aspect ratio (largest resolution)
+            var res = camera.SupportedResolutions
+                .OrderByDescending(s => (long)s.Width * (long)s.Height)
+                .FirstOrDefault();
+            if (res.Width == 0 || res.Height == 0) return;
+
+            double camLong = Math.Max(res.Width, res.Height);
+            double camShort = Math.Min(res.Width, res.Height);
+            double camAspect = camShort / camLong;  // normalized aspect ratio
+
+            // Check if the currently selected aspect ratio is dramatically different from camera's native ratio.
+            // 16:9 portrait (9/16 = 0.5625) on a 4:3 camera (3/4 = 0.75) is incompatible.
+            // Reset to FullScreen if mismatch is significant (>10% difference).
+            bool isCompatible = false;
+
+            if (_cameraSettings.SelectedAspectRatio == AspectRatioOption.FullScreen)
+                isCompatible = true;
+            else if (_cameraSettings.SelectedAspectRatio == AspectRatioOption.OneOne)
+                isCompatible = true;  // 1:1 always compatible
+            else
+            {
+                // For 4:3 and 16:9, check compatibility
+                double selectedAspect = _cameraSettings.SelectedAspectRatio switch
+                {
+                    AspectRatioOption.FourThree   => 3.0 / 4.0,   // portrait
+                    AspectRatioOption.SixteenNine => 9.0 / 16.0,  // portrait
+                    _ => 1.0
+                };
+
+                double diff = Math.Abs(camAspect - selectedAspect);
+                isCompatible = diff < 0.1;  // within 10%
+            }
+
+            if (!isCompatible)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPageViewModel] Aspect ratio {_cameraSettings.SelectedAspectRatio} incompatible with camera {camAspect:F3}. Resetting to FullScreen.");
+                _cameraSettings.SelectedAspectRatio = AspectRatioOption.FullScreen;
+            }
         }
 
         #endregion
