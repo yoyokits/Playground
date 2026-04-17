@@ -29,12 +29,12 @@
                                 SizeChanged="OnCameraViewSizeChanged" />
 
 <!-- ── CameraViewChildrenContainer: Container that aligns with visible camera feed ──
-                 This container dynamically positions and sizes itself to match the visible camera
-                 feed area (excluding black bars from AspectFit letterboxing/pillarboxing).
+                 Positioned at top-center to align with camera preview (which now fills width and starts at top).
+                 Container is centered horizontally and aligned to top vertically.
                  It contains the rule-of-thirds grid and sensor overlay as children. -->
             <Grid x:Name="CameraViewChildrenContainer"
                   HorizontalOptions="Center"
-                  VerticalOptions="Center"
+                  VerticalOptions="Start"
                   InputTransparent="False">
 
                 <!-- ── Zoom pills strip — top center of visible camera feed ──

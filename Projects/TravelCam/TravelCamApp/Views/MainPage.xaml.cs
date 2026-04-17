@@ -260,12 +260,7 @@ namespace TravelCamApp.Views
                     croppedH = naturalH;
                 }
 
-                // ── Step 3: resize CameraView and container ──────────────────────────────────
-                // CameraView shows the full camera feed at its native aspect ratio.
-                // Set height based on naturalH (full feed), width already fills screen.
-                CameraView.WidthRequest  = cameraViewWidth;
-                CameraView.HeightRequest = naturalH;
-
+                // ── Step 3: resize container to the cropped area ─────────────────────────────
                 // Container guides overlays to the aspect-ratio-cropped area.
                 CameraViewChildrenContainer.WidthRequest  = croppedW;
                 CameraViewChildrenContainer.HeightRequest = croppedH;
