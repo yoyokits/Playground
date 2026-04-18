@@ -195,6 +195,14 @@
                        VerticalOptions="Center" />
             </HorizontalStackLayout>
 
+            <!-- ── Shutter flash feedback — white overlay, fades on photo capture ──
+                 Always rendered (Opacity=0) so FadeTo starts instantly with no IsVisible delay. -->
+            <BoxView x:Name="ShutterFlash"
+                     BackgroundColor="White"
+                     Opacity="0"
+                     InputTransparent="True"
+                     HorizontalOptions="Fill"
+                     VerticalOptions="Fill" />
 
         </Grid>
         <!-- ═══ END ROW 0 ═══ -->

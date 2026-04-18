@@ -52,25 +52,16 @@ namespace TravelCamApp.Helpers
             System.Diagnostics.Debug.WriteLine("[FileHelper] GetAllGalleryMediaPaths called");
             try
             {
+                // MediaStore returns DCIM/CekliCam paths; cache holds ExternalCacheDir copies.
+                // They are separate files — do NOT combine to avoid showing duplicates.
+                // Prefer MediaStore: it is the canonical gallery-visible copy.
+                // Fall back to cache only when MediaStore returns nothing (first-run, reinstall).
                 var mediaStorePaths = GetMediaStoreImages();
-                System.Diagnostics.Debug.WriteLine($"[FileHelper] MediaStore returned {mediaStorePaths.Count} paths");
+                System.Diagnostics.Debug.WriteLine(
+                    $"[FileHelper] MediaStore returned {mediaStorePaths.Count} paths");
 
-                var existingMediaPaths = mediaStorePaths
-                    .Where(p => !string.IsNullOrEmpty(p) && File.Exists(p))
-                    .ToList();
-
-                System.Diagnostics.Debug.WriteLine($"[FileHelper] {existingMediaPaths.Count} MediaStore paths exist on disk");
-
-                if (existingMediaPaths.Count > 0)
-                {
-                    var cachePaths = GetAllCapturedImagePaths();
-                    var allPaths = existingMediaPaths.Concat(cachePaths).Distinct()
-                        .OrderByDescending(p => File.GetLastWriteTime(p))
-                        .ToList();
-
-                    System.Diagnostics.Debug.WriteLine($"[FileHelper] Returning {allPaths.Count} combined paths");
-                    return allPaths.Count > 0 ? allPaths : GetAllCapturedImagePaths();
-                }
+                if (mediaStorePaths.Count > 0)
+                    return mediaStorePaths;
             }
             catch (Exception ex)
             {
@@ -82,9 +73,55 @@ namespace TravelCamApp.Helpers
             return GetAllCapturedImagePaths();
         }
 
-        // Currently returns cache files directly — MediaStore query kept as fallback for future use.
+        /// <summary>
+        /// Queries MediaStore for all images and videos saved in the app's DCIM folder.
+        /// Returns absolute file paths sorted newest-first.
+        /// Returns empty list (not null) on any failure.
+        /// </summary>
         private static List<string> GetMediaStoreImages()
-            => GetAllCapturedImagePaths();
+        {
+            var result = new List<string>();
+            var context = Android.App.Application.Context;
+            var resolver = context.ContentResolver;
+            if (resolver == null) return result;
+
+            string[] projection = { Android.Provider.MediaStore.IMediaColumns.Data };
+            // RELATIVE_PATH ends with '/' on Android — match the DCIM subfolder name.
+            string selection = $"{Android.Provider.MediaStore.IMediaColumns.RelativePath} LIKE ?";
+            string[] selectionArgs = { $"%{Settings.DefaultCameraName}%" };
+            string sortOrder = $"{Android.Provider.MediaStore.IMediaColumns.DateAdded} DESC";
+
+            var collections = new[]
+            {
+                Android.Provider.MediaStore.Images.Media.ExternalContentUri!,
+                Android.Provider.MediaStore.Video.Media.ExternalContentUri!
+            };
+
+            foreach (var uri in collections)
+            {
+                try
+                {
+                    using var cursor = resolver.Query(uri, projection, selection, selectionArgs, sortOrder);
+                    if (cursor == null) continue;
+
+                    var dataIdx = cursor.GetColumnIndex(Android.Provider.MediaStore.IMediaColumns.Data);
+                    while (cursor.MoveToNext())
+                    {
+                        var path = cursor.GetString(dataIdx);
+                        if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                            result.Add(path);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[FileHelper] GetMediaStoreImages query error: {ex.Message}");
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[FileHelper] MediaStore query returned {result.Count} paths");
+            return result;
+        }
 
         /// <summary>
         /// Extracts the first frame of a video file and saves it as a JPEG thumbnail.
@@ -191,19 +228,30 @@ namespace TravelCamApp.Helpers
             Android.Content.Context context, string sourcePath, string fileName, string mimeType)
         {
             var isVideo = mimeType.StartsWith("video", StringComparison.OrdinalIgnoreCase);
+
+            // DCIM/CekliCam — standard camera location, visible in ALL gallery apps.
+            // Using Pictures/ for videos causes MediaStore to silently reject inserts on
+            // Android 11+ because Pictures is categorised as an image-only bucket.
+            var relativePath = $"{Android.OS.Environment.DirectoryDcim}/{Settings.DefaultCameraName}";
+
             var collection = isVideo
-                ? Android.Provider.MediaStore.Video.Media.ExternalContentUri
-                : Android.Provider.MediaStore.Images.Media.ExternalContentUri;
+                ? Android.Provider.MediaStore.Video.Media.ExternalContentUri!
+                : Android.Provider.MediaStore.Images.Media.ExternalContentUri!;
+
+            var nowSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
             var values = new Android.Content.ContentValues();
-            values.Put(Android.Provider.MediaStore.IMediaColumns.DisplayName, Path.GetFileNameWithoutExtension(fileName));
-            values.Put(Android.Provider.MediaStore.IMediaColumns.MimeType, mimeType);
-            values.Put(Android.Provider.MediaStore.IMediaColumns.RelativePath,
-                $"{Android.OS.Environment.DirectoryPictures}/{Settings.DefaultCameraName}");
+            values.Put(Android.Provider.MediaStore.IMediaColumns.DisplayName,     Path.GetFileNameWithoutExtension(fileName));
+            values.Put(Android.Provider.MediaStore.IMediaColumns.MimeType,        mimeType);
+            values.Put(Android.Provider.MediaStore.IMediaColumns.RelativePath,    relativePath);
+            values.Put(Android.Provider.MediaStore.IMediaColumns.DateAdded,       nowSec);
+            values.Put(Android.Provider.MediaStore.IMediaColumns.DateModified,    nowSec);
+            // DATE_TAKEN is milliseconds since epoch — used by gallery apps for sorting.
+            values.Put("datetaken", nowSec * 1000L);
             values.Put(Android.Provider.MediaStore.IMediaColumns.IsPending, 1);
 
             var resolver = context.ContentResolver;
-            var uri = resolver?.Insert(collection!, values);
+            var uri = resolver?.Insert(collection, values);
             if (uri == null || resolver == null)
             {
                 System.Diagnostics.Debug.WriteLine("[FileHelper] MediaStore insert returned null URI");
@@ -217,6 +265,7 @@ namespace TravelCamApp.Helpers
                     if (outputStream == null)
                     {
                         resolver.Delete(uri, null, null);
+                        System.Diagnostics.Debug.WriteLine("[FileHelper] MediaStore OpenOutputStream returned null");
                         return null;
                     }
 
@@ -225,13 +274,15 @@ namespace TravelCamApp.Helpers
                     outputStream.Flush();
                 }
 
+                // Clear IsPending — this makes the file visible to every gallery app.
                 var updateValues = new Android.Content.ContentValues();
                 updateValues.Put(Android.Provider.MediaStore.IMediaColumns.IsPending, 0);
                 resolver.Update(uri, updateValues, null, null);
 
-                System.Diagnostics.Debug.WriteLine($"[FileHelper] MediaStore: published {fileName} to gallery");
+                System.Diagnostics.Debug.WriteLine(
+                    $"[FileHelper] MediaStore: published '{fileName}' to {relativePath}");
 
-                // Retain sourcePath for in-app viewing (not deleted — lives in ExternalCacheDir)
+                // Return the cache copy for in-app viewing (avoids a second round-trip read from DCIM).
                 return sourcePath;
             }
             catch (Exception ex)
@@ -245,8 +296,21 @@ namespace TravelCamApp.Helpers
         private static void DeleteFromMediaStore(string filePath)
         {
             var context = Android.App.Application.Context;
-            var contentResolver = context.ContentResolver;
-            if (contentResolver == null) return;
+            var resolver = context.ContentResolver;
+            if (resolver == null) return;
+
+            // The MediaStore entry was created with DISPLAY_NAME = file-name-without-extension
+            // and RELATIVE_PATH = DCIM/CekliCam — match both so we delete only our own entry.
+            // We do NOT use _DATA because the MediaStore copy lives at a different path from
+            // the cache copy that filePath refers to.
+            var displayName = Path.GetFileNameWithoutExtension(filePath);
+            var selection = $"{Android.Provider.MediaStore.IMediaColumns.DisplayName} = ?"
+                + $" AND {Android.Provider.MediaStore.IMediaColumns.RelativePath} LIKE ?";
+            var selectionArgs = new[]
+            {
+                displayName,
+                $"%{Settings.DefaultCameraName}%"
+            };
 
             var collections = new[]
             {
@@ -256,13 +320,20 @@ namespace TravelCamApp.Helpers
 
             foreach (var collection in collections)
             {
-                string selection = $"{Android.Provider.MediaStore.IMediaColumns.Data} = ?";
-                string[] selectionArgs = { filePath };
-                int deleted = contentResolver.Delete(collection, selection, selectionArgs);
-                if (deleted > 0)
+                try
                 {
-                    System.Diagnostics.Debug.WriteLine($"[FileHelper] Removed from MediaStore: {filePath}");
-                    return;
+                    int deleted = resolver.Delete(collection, selection, selectionArgs);
+                    if (deleted > 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"[FileHelper] Removed from MediaStore: {displayName}");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[FileHelper] DeleteFromMediaStore error: {ex.Message}");
                 }
             }
         }
