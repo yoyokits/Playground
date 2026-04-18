@@ -108,29 +108,18 @@ namespace TravelCamApp.Views
         protected override void OnDisappearing()
         {
             base.OnDisappearing();
-            System.Diagnostics.Debug.WriteLine("[MainPage] OnDisappearing — cleaning up camera (SYNC/BLOCKING)");
+            System.Diagnostics.Debug.WriteLine("[MainPage] OnDisappearing");
+
+            // Cancel any pending layout debounce
+            _layoutDebounce?.Cancel();
+
             try
             {
-                // CRITICAL: Stop preview SYNCHRONOUSLY and BLOCKING to prevent race conditions
-                // Do NOT use MainThread.BeginInvokeOnMainThread — it's async and won't block page destruction
                 if (CameraView != null)
                 {
-                    try
-                    {
-                        System.Diagnostics.Debug.WriteLine("[MainPage] Stopping camera preview on page disappear (SYNC)");
-                        CameraView.StopCameraPreview();
-                        System.Diagnostics.Debug.WriteLine("[MainPage] Camera preview stopped on page disappear (SYNC)");
-
-                        // Force garbage collection to release camera resources
-                        GC.Collect();
-                        GC.WaitForPendingFinalizers();
-                        System.Diagnostics.Debug.WriteLine("[MainPage] GC after camera stop");
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"[MainPage] Error stopping preview on disappear: {ex.GetType().Name} — {ex.Message}");
-                    }
+                    System.Diagnostics.Debug.WriteLine("[MainPage] Stopping camera preview on page disappear");
+                    CameraView.StopCameraPreview();
+                    System.Diagnostics.Debug.WriteLine("[MainPage] Camera preview stopped");
                 }
             }
             catch (Exception ex)
@@ -153,23 +142,60 @@ namespace TravelCamApp.Views
             if (CameraView.SelectedCamera?.SupportedResolutions is { Count: > 0 } resolutions)
                 _cameraSettingsVm.SetAvailableResolutions(resolutions);
 
-            ApplyCameraLayout(CameraView.Width, CameraView.Height, CameraView.SelectedCamera);
+            // Invalidate cache and schedule debounced layout — SetAvailableResolutions may
+            // also fire PropertyChanged→ScheduleLayoutUpdate, so debouncing avoids double work.
+            _lastAppliedW = 0;
+            ScheduleLayoutUpdate();
         }
 
         // ── Camera view alignment ──────────────────────────────────────────────────
 
+        // Cache last applied dimensions to skip redundant layout passes.
+        private double _lastAppliedW;
+        private double _lastAppliedH;
+        private CancellationTokenSource? _layoutDebounce;
+
         private void OnCameraViewSizeChanged(object? sender, EventArgs e)
         {
             if (sender is not CameraView cameraView) return;
-            try { ApplyCameraLayout(cameraView.Width, cameraView.Height, cameraView.SelectedCamera); }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[MainPage] OnCameraViewSizeChanged error: {ex.Message}"); }
+            // Skip if dimensions haven't changed by more than 1dp — avoids sub-pixel thrashing.
+            if (Math.Abs(cameraView.Width  - _lastAppliedW) < 1 &&
+                Math.Abs(cameraView.Height - _lastAppliedH) < 1) return;
+            _lastAppliedW = cameraView.Width;
+            _lastAppliedH = cameraView.Height;
+            ScheduleLayoutUpdate();
         }
 
-        // Called when aspect ratio setting changes — recalculate without a new camera size event.
+        // Called when aspect ratio or resolution setting changes — force recalculate.
         private void UpdateAspectRatioBars(double _w, double _h)
         {
-            if (CameraView != null)
+            // Invalidate cache so the next SizeChanged always runs.
+            _lastAppliedW = 0;
+            ScheduleLayoutUpdate();
+        }
+
+        /// <summary>
+        /// Debounces layout recalculation — cancels any pending call and schedules a new one.
+        /// Prevents cascading layout passes from blocking the main thread.
+        /// </summary>
+        private async void ScheduleLayoutUpdate()
+        {
+            _layoutDebounce?.Cancel();
+            var cts = new CancellationTokenSource();
+            _layoutDebounce = cts;
+            try
+            {
+                // Yield to let the layout pass settle before recalculating.
+                await Task.Delay(16, cts.Token); // ~1 frame at 60fps
+                if (cts.Token.IsCancellationRequested) return;
+                if (CameraView == null) return;
                 ApplyCameraLayout(CameraView.Width, CameraView.Height, CameraView.SelectedCamera);
+            }
+            catch (OperationCanceledException) { /* debounce: newer call superseded this one */ }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainPage] ScheduleLayoutUpdate error: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -193,19 +219,15 @@ namespace TravelCamApp.Views
             try
             {
                 // ── Step 1: natural visible area (AspectFit of sensor resolution) ──────────
-                // Always use the camera's native (largest) resolution for this calculation.
-                // The user-selected capture resolution only affects post-processing output —
-                // the live preview always streams the full sensor feed at its native aspect ratio.
+                // The CameraView control may fill more space than the camera feed itself.
+                // Use the sensor's native resolution to compute where the feed actually lands
+                // within the CameraView bounds, so overlays align with real camera pixels.
+                bool isPortrait = cameraViewHeight > cameraViewWidth;
                 var res = selectedCamera.SupportedResolutions
                     .OrderByDescending(s => (long)s.Width * (long)s.Height)
                     .First();
-
-                // Normalize to landscape-first so portrait/landscape reporting differences don't matter
                 double camLong  = Math.Max(res.Width, res.Height);
                 double camShort = Math.Min(res.Width, res.Height);
-
-                var displayInfo = DeviceDisplay.Current.MainDisplayInfo;
-                bool isPortrait = displayInfo.Orientation == DisplayOrientation.Portrait;
                 double camW = isPortrait ? camShort : camLong;
                 double camH = isPortrait ? camLong  : camShort;
 
@@ -236,6 +258,7 @@ namespace TravelCamApp.Views
                 };
 
                 double croppedW, croppedH;
+                double topBarH = 0, sideBarW = 0;
                 if (r > 0)
                 {
                     double desiredH = naturalW * r;
@@ -244,6 +267,7 @@ namespace TravelCamApp.Views
                         // Letterbox: crop top/bottom — desired height fits within the natural frame
                         croppedW = naturalW;
                         croppedH = desiredH;
+                        topBarH = (naturalH - croppedH) / 2;
                     }
                     else
                     {
@@ -251,8 +275,8 @@ namespace TravelCamApp.Views
                         // (e.g. 16:9 / 9:16 on a 4:3 sensor in portrait)
                         croppedH = naturalH;
                         croppedW = naturalH / r;
+                        sideBarW = (naturalW - croppedW) / 2;
                     }
-
                 }
                 else
                 {
@@ -260,10 +284,36 @@ namespace TravelCamApp.Views
                     croppedH = naturalH;
                 }
 
-                // ── Step 3: resize container to the cropped area ─────────────────────────────
-                // Container guides overlays to the aspect-ratio-cropped area.
+                // ── Step 3: feed offset within CameraView ─────────────────────────────────
+                // The native camera renderer centers the feed (AspectFit) within the
+                // CameraView control, which may be taller/wider than the feed itself.
+                // Compute the feed's origin so overlays and bars align with actual pixels.
+                double feedOffsetX = (cameraViewWidth  - naturalW) / 2;
+                double feedOffsetY = (cameraViewHeight - naturalH) / 2;
+
+                // ── Step 4: resize container + position crop bars ────────────────────────────
+                CameraViewChildrenContainer.Margin = new Thickness(
+                    feedOffsetX + sideBarW, feedOffsetY + topBarH, 0, 0);
                 CameraViewChildrenContainer.WidthRequest  = croppedW;
                 CameraViewChildrenContainer.HeightRequest = croppedH;
+
+                // Letterbox bars (top / bottom) — span full width, positioned within feed area
+                CropTopBar.Margin = new Thickness(0, feedOffsetY, 0, 0);
+                CropTopBar.HeightRequest = topBarH;
+                CropTopBar.IsVisible = topBarH > 0.5;
+                CropBottomBar.Margin = new Thickness(0, feedOffsetY + topBarH + croppedH, 0, 0);
+                CropBottomBar.HeightRequest = topBarH;
+                CropBottomBar.IsVisible = topBarH > 0.5;
+
+                // Pillarbox bars (left / right) — positioned at feed edges
+                CropLeftBar.Margin = new Thickness(feedOffsetX, feedOffsetY, 0, 0);
+                CropLeftBar.WidthRequest  = sideBarW;
+                CropLeftBar.HeightRequest = naturalH;
+                CropLeftBar.IsVisible = sideBarW > 0.5;
+                CropRightBar.Margin = new Thickness(0, feedOffsetY, feedOffsetX, 0);
+                CropRightBar.WidthRequest  = sideBarW;
+                CropRightBar.HeightRequest = naturalH;
+                CropRightBar.IsVisible = sideBarW > 0.5;
             }
             catch (Exception ex)
             {
