@@ -38,22 +38,14 @@ namespace TravelCamApp.Converters
                 return null;
             }
 
-            // Video file (.mp4): try to find the extracted thumbnail
+            // Video file (.mp4): find the extracted thumbnail via FileHelper.
+            // Checks sibling path (cache dir) AND app cache dir (for MediaStore/DCIM paths
+            // where the thumbnail was extracted to cache, not the gallery dir).
             if (extension == ".mp4")
             {
-                var baseDir = Path.GetDirectoryName(filePath);
-                var baseName = Path.GetFileNameWithoutExtension(filePath);
-                if (string.IsNullOrEmpty(baseDir) || string.IsNullOrEmpty(baseName))
-                {
-                    // Fallback to embedded video icon if we can't determine thumbnail path
-                    return VideoIconPath;
-                }
-                var thumbPath = Path.Combine(baseDir, baseName + "_thumb.jpg");
-
-                if (File.Exists(thumbPath))
-                {
+                var thumbPath = Helpers.FileHelper.GetVideoThumbnailPath(filePath);
+                if (!string.IsNullOrEmpty(thumbPath))
                     return ImageSource.FromFile(thumbPath);
-                }
 
                 // Fallback to embedded video icon
                 return VideoIconPath;

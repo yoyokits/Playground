@@ -1656,6 +1656,11 @@ namespace TravelCamApp.ViewModels
             CurrentImageIndex = 0; // newest first
             IsImageViewerVisible = true;
 
+            // Generate missing video thumbnails in the background.
+            // The ThumbnailConverter uses FileHelper.GetVideoThumbnailPath which checks the
+            // cache dir as fallback, so newly generated thumbnails will appear on next swipe.
+            _ = FileHelper.EnsureVideoThumbnailsAsync(imagePaths);
+
             System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Gallery opened with paths bound to Image.Source");
         }
 
