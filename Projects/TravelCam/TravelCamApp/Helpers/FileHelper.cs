@@ -152,6 +152,69 @@ namespace TravelCamApp.Helpers
         }
 
         /// <summary>
+        /// Returns the thumbnail path for a video file.
+        /// Checks the sibling path first (same directory as the video, works for cache paths),
+        /// then falls back to the app cache directory (for MediaStore/DCIM paths where thumbnails
+        /// were extracted to the cache dir instead of the gallery dir).
+        /// Returns empty string if no thumbnail exists.
+        /// </summary>
+        public static string GetVideoThumbnailPath(string videoPath)
+        {
+            if (string.IsNullOrEmpty(videoPath)) return string.Empty;
+
+            var name = Path.GetFileNameWithoutExtension(videoPath);
+            if (string.IsNullOrEmpty(name)) return string.Empty;
+
+            // Check sibling path (same directory — for cache-relative paths)
+            var dir = Path.GetDirectoryName(videoPath);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                var sibling = Path.Combine(dir, name + "_thumb.jpg");
+                if (File.Exists(sibling)) return sibling;
+            }
+
+            // Check cache directory — gallery shows MediaStore/DCIM paths, but thumbnails
+            // are always extracted to the cache dir at recording time.
+            var cacheThumb = Path.Combine(GetAppCacheDir(), name + "_thumb.jpg");
+            if (File.Exists(cacheThumb)) return cacheThumb;
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Generates thumbnails for any video files in <paramref name="mediaPaths"/> that
+        /// do not yet have one. Runs each extraction on a background thread.
+        /// Safe to fire-and-forget; errors are logged and swallowed per file.
+        /// </summary>
+        public static async Task EnsureVideoThumbnailsAsync(IEnumerable<string> mediaPaths)
+        {
+            foreach (var path in mediaPaths)
+            {
+                if (!path.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!File.Exists(path)) continue;
+
+                // Skip if a thumbnail already exists
+                if (!string.IsNullOrEmpty(GetVideoThumbnailPath(path))) continue;
+
+#if ANDROID
+                try
+                {
+                    var cacheDir = GetAppCacheDir();
+                    Directory.CreateDirectory(cacheDir);
+                    var thumbPath = Path.Combine(cacheDir,
+                        Path.GetFileNameWithoutExtension(path) + "_thumb.jpg");
+                    await Task.Run(() => ExtractVideoFirstFrame(path, thumbPath)).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[FileHelper] EnsureVideoThumbnails failed for {path}: {ex.Message}");
+                }
+#endif
+            }
+        }
+
+        /// <summary>
         /// Returns all captured media (images and videos) from the captures cache directory,
         /// sorted newest first.
         /// </summary>

@@ -35,6 +35,7 @@ namespace TravelCamApp.ViewModels
         private bool _isMapOverlayVisible;
         private bool _isDisposed;
         private SensorData? _lastSensorData;
+        private System.Timers.Timer? _clockTimer;
 
         #endregion
 
@@ -92,6 +93,13 @@ namespace TravelCamApp.ViewModels
             _sensorHelper = sensorHelper;
             InitializeOverlayItems();
             _sensorHelper.SensorDataUpdated += OnSensorDataUpdated;
+
+            // 1-second timer keeps Date and Time items current independently of the
+            // 10-second sensor tick. Elapsed fires on a ThreadPool thread — dispatch to UI.
+            _clockTimer = new System.Timers.Timer(1000);
+            _clockTimer.Elapsed += OnClockTick;
+            _clockTimer.AutoReset = true;
+            _clockTimer.Start();
         }
 
         #endregion
@@ -182,6 +190,22 @@ namespace TravelCamApp.ViewModels
         #endregion
 
         #region Sensor Data Updates
+
+        /// <summary>
+        /// Fires every second to keep Date and Time overlay items accurate.
+        /// The 10-second sensor tick is too slow for a clock display.
+        /// </summary>
+        private void OnClockTick(object? sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (_isDisposed) return;
+            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
+            {
+                if (_isDisposed) return;
+                var now = DateTime.Now;
+                UpdateItem("Date", now.ToString("MM/dd/yyyy"));
+                UpdateItem("Time", now.ToString("HH:mm:ss"));
+            });
+        }
 
         private void OnSensorDataUpdated(Models.SensorData data)
         {
@@ -302,6 +326,9 @@ namespace TravelCamApp.ViewModels
         {
             if (_isDisposed) return;
             _isDisposed = true;
+            _clockTimer?.Stop();
+            _clockTimer?.Dispose();
+            _clockTimer = null;
             _sensorHelper.SensorDataUpdated -= OnSensorDataUpdated;
             foreach (var item in _sensorItems)
             {
