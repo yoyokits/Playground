@@ -675,6 +675,9 @@ namespace TravelCamApp.ViewModels
             // already stopped the camera and cleaned up state.
             if (_isDestroyed) return;
 
+            // Safety-net save: sensors stop next — persist current values now.
+            _sensorValueViewModel.SaveCurrentSensorData();
+
             _sensorHelper.Stop();
 
             // Capture _cameraView before any await; OnWindowDestroying may null it concurrently.
@@ -754,6 +757,9 @@ namespace TravelCamApp.ViewModels
             }
 
             _windowSubscribed = false;
+
+            // Persist current sensor values before stopping — safety net for crash/force-close.
+            _sensorValueViewModel.SaveCurrentSensorData();
 
             // Stop sensors and camera view.
             _sensorHelper.Stop();

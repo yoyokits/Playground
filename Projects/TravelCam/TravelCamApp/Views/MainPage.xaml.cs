@@ -12,6 +12,7 @@
 
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Views;
+using TravelCamApp.Helpers;
 using TravelCamApp.ViewModels;
 
 namespace TravelCamApp.Views
@@ -29,6 +30,12 @@ namespace TravelCamApp.Views
             CameraSettingsViewModel cameraSettingsVm)
         {
             InitializeComponent();
+
+            // Apply cached layout immediately — before BindingContext is set and before
+            // the first layout pass fires. Prevents overlay/rule-of-thirds appearing small
+            // in the center while waiting for the camera to initialize (~500-2000ms).
+            ApplyCachedLayout();
+
             BindingContext = viewModel;
 
             _sensorSettingsVm = sensorSettingsVm;
@@ -146,6 +153,52 @@ namespace TravelCamApp.Views
             // also fire PropertyChanged→ScheduleLayoutUpdate, so debouncing avoids double work.
             _lastAppliedW = 0;
             ScheduleLayoutUpdate();
+        }
+
+        // ── Camera layout cache ────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Restores the last computed camera layout from SharedPreferences.
+        /// Called in the constructor (before first layout pass) so elements have
+        /// the correct size and position from the very first render — no flash.
+        /// Safe to call even if no cache exists yet (returns silently on null).
+        /// </summary>
+        private void ApplyCachedLayout()
+        {
+            try
+            {
+                var c = SettingsHelper.LoadCameraLayout();
+                if (c == null) return;
+
+                CameraViewChildrenContainer.Margin      = new Thickness(c.ContainerLeft, c.ContainerTop, 0, 0);
+                CameraViewChildrenContainer.WidthRequest  = c.ContainerWidth;
+                CameraViewChildrenContainer.HeightRequest = c.ContainerHeight;
+
+                CropTopBar.Margin       = new Thickness(0, c.TopBarTop, 0, 0);
+                CropTopBar.HeightRequest = c.TopBarHeight;
+                CropTopBar.IsVisible    = c.TopBarVisible;
+
+                CropBottomBar.Margin       = new Thickness(0, c.BottomBarTop, 0, 0);
+                CropBottomBar.HeightRequest = c.BottomBarHeight;
+                CropBottomBar.IsVisible    = c.BottomBarVisible;
+
+                CropLeftBar.Margin       = new Thickness(c.LeftBarLeft, c.LeftBarTop, 0, 0);
+                CropLeftBar.WidthRequest  = c.LeftBarWidth;
+                CropLeftBar.HeightRequest = c.LeftBarHeight;
+                CropLeftBar.IsVisible    = c.LeftBarVisible;
+
+                CropRightBar.Margin       = new Thickness(0, c.RightBarTop, c.RightBarRight, 0);
+                CropRightBar.WidthRequest  = c.RightBarWidth;
+                CropRightBar.HeightRequest = c.RightBarHeight;
+                CropRightBar.IsVisible    = c.RightBarVisible;
+
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MainPage] Cached layout applied: container {c.ContainerWidth:F0}×{c.ContainerHeight:F0} at ({c.ContainerLeft:F0},{c.ContainerTop:F0})");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainPage] ApplyCachedLayout error: {ex.Message}");
+            }
         }
 
         // ── Camera view alignment ──────────────────────────────────────────────────
@@ -314,6 +367,34 @@ namespace TravelCamApp.Views
                 CropRightBar.WidthRequest  = sideBarW;
                 CropRightBar.HeightRequest = naturalH;
                 CropRightBar.IsVisible = sideBarW > 0.5;
+
+                // ── Step 5: persist layout for instant restore on next start ─────────────
+                // SharedPreferences.apply() is non-blocking — safe to call on the main thread.
+                SettingsHelper.SaveCameraLayout(new CameraLayoutCache
+                {
+                    CameraViewWidth  = cameraViewWidth,
+                    CameraViewHeight = cameraViewHeight,
+                    ContainerLeft    = feedOffsetX + sideBarW,
+                    ContainerTop     = feedOffsetY + topBarH,
+                    ContainerWidth   = croppedW,
+                    ContainerHeight  = croppedH,
+                    TopBarTop        = feedOffsetY,
+                    TopBarHeight     = topBarH,
+                    TopBarVisible    = topBarH > 0.5,
+                    BottomBarTop     = feedOffsetY + topBarH + croppedH,
+                    BottomBarHeight  = topBarH,
+                    BottomBarVisible = topBarH > 0.5,
+                    LeftBarLeft      = feedOffsetX,
+                    LeftBarTop       = feedOffsetY,
+                    LeftBarWidth     = sideBarW,
+                    LeftBarHeight    = naturalH,
+                    LeftBarVisible   = sideBarW > 0.5,
+                    RightBarRight    = feedOffsetX,
+                    RightBarTop      = feedOffsetY,
+                    RightBarWidth    = sideBarW,
+                    RightBarHeight   = naturalH,
+                    RightBarVisible  = sideBarW > 0.5,
+                });
             }
             catch (Exception ex)
             {
