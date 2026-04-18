@@ -113,6 +113,16 @@ namespace TravelCamApp.ViewModels
         }
 
         /// <summary>
+        /// Saves the current sensor values to SharedPreferences as a cache.
+        /// Safe to call from any thread. Called by MainPageViewModel on app stop/destroy.
+        /// </summary>
+        public void SaveCurrentSensorData()
+        {
+            if (_lastSensorData == null) return;
+            SettingsHelper.SaveCachedSensorData(_lastSensorData);
+        }
+
+        /// <summary>
         /// Loads saved sensor visibility settings from persistent storage.
         /// Call once during app initialization.
         /// </summary>
@@ -140,6 +150,12 @@ namespace TravelCamApp.ViewModels
 
                 // Rebuild VisibleOverlayItems in the current (possibly reordered) sequence.
                 RefreshVisibleItems();
+
+                // Load cached sensor values so the overlay shows last-known data immediately,
+                // instead of blanks while waiting for the first 10-second sensor tick.
+                var cached = SettingsHelper.LoadCachedSensorData();
+                if (cached != null)
+                    ApplyCachedSensorData(cached);
             }
             catch (Exception ex)
             {
@@ -174,6 +190,10 @@ namespace TravelCamApp.ViewModels
             // Capture snapshot before dispatching to UI thread
             _lastSensorData = data;
 
+            // Persist every update so cached values are always fresh.
+            // Preferences.Set is thread-safe; this runs on the SensorHelper background thread.
+            SettingsHelper.SaveCachedSensorData(data);
+
             Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
             {
                 if (_isDisposed) return;
@@ -190,6 +210,37 @@ namespace TravelCamApp.ViewModels
                     data.Longitude.ToString(CultureInfo.InvariantCulture));
                 UpdateItem("Date", data.Timestamp.ToString("MM/dd/yyyy"));
                 UpdateItem("Time", data.Timestamp.ToString("HH:mm:ss"));
+                UpdateItem("Heading",
+                    data.Heading.HasValue ? $"{data.Heading.Value:F0}\u00b0" : "N/A");
+                UpdateItem("Speed",
+                    data.Speed.HasValue ? $"{data.Speed.Value * 3.6:F1} km/h" : "N/A");
+            });
+        }
+
+        /// <summary>
+        /// Populates overlay items from cached sensor data for instant display on startup.
+        /// Uses DateTime.Now for Date/Time since cached timestamps are stale.
+        /// Must be called on the main thread (or will dispatch internally).
+        /// </summary>
+        private void ApplyCachedSensorData(Models.SensorData data)
+        {
+            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
+            {
+                if (_isDisposed) return;
+
+                UpdateItem("Temperature",
+                    data.Temperature.HasValue ? $"{data.Temperature.Value:F1}\u00b0C" : "N/A");
+                UpdateItem("City", data.City ?? "Unknown");
+                UpdateItem("Country", data.Country ?? "Unknown");
+                UpdateItem("Altitude",
+                    data.Altitude.HasValue ? $"{data.Altitude.Value:F0}m" : "N/A");
+                UpdateItem("Latitude",
+                    data.Latitude.ToString(CultureInfo.InvariantCulture));
+                UpdateItem("Longitude",
+                    data.Longitude.ToString(CultureInfo.InvariantCulture));
+                // Use current date/time — cached timestamp is from a previous session.
+                UpdateItem("Date", DateTime.Now.ToString("MM/dd/yyyy"));
+                UpdateItem("Time", DateTime.Now.ToString("HH:mm:ss"));
                 UpdateItem("Heading",
                     data.Heading.HasValue ? $"{data.Heading.Value:F0}\u00b0" : "N/A");
                 UpdateItem("Speed",
