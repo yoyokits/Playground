@@ -21,19 +21,25 @@
         <Grid Grid.Row="0" BackgroundColor="Black">
 
             <!-- ── Camera feed ── -->
-            <!-- Fill width completely; scale height to maintain aspect ratio.
-                 Align to top (VerticalOptions="Start") so at least the width edge has 0 distance. -->
+            <!-- Fill width; height naturally set to camera feed's aspect ratio (VerticalOptions="Start").
+                 naturalW/naturalH in ApplyCameraLayout then equals cameraView.Width/Height directly. -->
             <toolkit:CameraView x:Name="CameraView"
                                 HorizontalOptions="Fill"
                                 VerticalOptions="Start"
                                 SizeChanged="OnCameraViewSizeChanged" />
+
+            <!-- ── Aspect ratio crop bars (sized and toggled from ApplyCameraLayout) ── -->
+            <BoxView x:Name="CropTopBar"    BackgroundColor="Black" HorizontalOptions="Fill"  VerticalOptions="Start" IsVisible="False" />
+            <BoxView x:Name="CropBottomBar" BackgroundColor="Black" HorizontalOptions="Fill"  VerticalOptions="Start" IsVisible="False" />
+            <BoxView x:Name="CropLeftBar"   BackgroundColor="Black" HorizontalOptions="Start" VerticalOptions="Start" IsVisible="False" />
+            <BoxView x:Name="CropRightBar"  BackgroundColor="Black" HorizontalOptions="End"   VerticalOptions="Start" IsVisible="False" />
 
 <!-- ── CameraViewChildrenContainer: Container that aligns with visible camera feed ──
                  Positioned at top-center to align with camera preview (which now fills width and starts at top).
                  Container is centered horizontally and aligned to top vertically.
                  It contains the rule-of-thirds grid and sensor overlay as children. -->
             <Grid x:Name="CameraViewChildrenContainer"
-                  HorizontalOptions="Center"
+                  HorizontalOptions="Start"
                   VerticalOptions="Start"
                   InputTransparent="False">
 

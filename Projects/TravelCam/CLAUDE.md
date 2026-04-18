@@ -327,6 +327,62 @@ Key compile checks:
 
 ---
 
+## ⚠️ RECURRING BUGS — READ BEFORE ANY LAYOUT WORK
+
+These bugs have been re-introduced multiple times across sessions. **Always verify these rules when modifying camera layout code.**
+
+### 1. Feed Offset: CameraView centers the feed, overlays must account for it
+The native Android camera renderer centers the feed (AspectFit) within the CameraView control. `CameraView.Height` often equals the full Grid row height, NOT the feed height. The feed floats vertically centered within this larger area.
+
+**In `ApplyCameraLayout`, always compute and apply:**
+```csharp
+double feedOffsetX = (cameraViewWidth  - naturalW) / 2;
+double feedOffsetY = (cameraViewHeight - naturalH) / 2;
+// Apply to ALL positioned elements: container margin, all crop bar margins
+```
+Without this, rule of thirds + overlay are misaligned from the actual camera feed.
+
+### 2. Debounce SizeChanged → ApplyCameraLayout
+`CameraView.SizeChanged` fires repeatedly during layout. If `ApplyCameraLayout` modifies sibling UI properties synchronously, it triggers cascading layout passes → **app freeze on startup**. Always go through a debounced async path (`ScheduleLayoutUpdate` with `CancellationTokenSource` + `Task.Delay(16)`).
+
+### 3. Never GC.Collect() on the main thread
+`GC.Collect()` + `GC.WaitForPendingFinalizers()` in `OnDisappearing` blocked the main thread for 500ms–2000ms+ while finalizing camera resources → **ANR/freeze**. Camera cleanup only needs `StopCameraPreview()`.
+
+### 4. Container must use HorizontalOptions="Start"
+`CameraViewChildrenContainer` uses explicit `Margin.Left = feedOffsetX + sideBarW` for positioning. It MUST have `HorizontalOptions="Start"` in XAML, not `"Center"` (which would double-center it).
+
+---
+
+## RECENT FIXES (2026-04-18)
+
+### 1. App Freeze on Startup — SizeChanged Layout Cascade
+**Files:** `Views/MainPage.xaml.cs`
+
+`OnCameraViewSizeChanged` called `ApplyCameraLayout` synchronously, which modified sibling UI properties (WidthRequest, HeightRequest, Margin on bars/container), triggering cascading layout passes that re-fired SizeChanged → freeze.
+
+**Fix:** All layout paths (`OnCameraViewSizeChanged`, `UpdateAspectRatioBars`, `OnCameraReady`) now go through `ScheduleLayoutUpdate()` — a debounced async method using `CancellationTokenSource` + `Task.Delay(16)` (~1 frame). Multiple rapid events collapse into a single layout calculation.
+
+### 2. GC.Collect Freeze in OnDisappearing — Removed
+**File:** `Views/MainPage.xaml.cs`
+
+`GC.Collect()` + `GC.WaitForPendingFinalizers()` blocked the main thread while finalizing camera hardware resources. Removed — `StopCameraPreview()` is sufficient for resource cleanup.
+
+### 3. Overlay + Rule of Thirds Mispositioned — Feed Offset Fix
+**Files:** `Views/MainPage.xaml.cs`, `Views/MainPage.xaml`
+
+The container, crop bars, and overlays were positioned from the inner Grid's origin (0,0), but the actual camera feed is vertically centered within the CameraView (which fills the full `*` row height). Rule of thirds and data overlay appeared offset from the actual feed.
+
+**Fix:** Compute `feedOffsetX = (cameraViewWidth - naturalW) / 2` and `feedOffsetY = (cameraViewHeight - naturalH) / 2`, then apply to all margins:
+- Container: `Margin = (feedOffsetX + sideBarW, feedOffsetY + topBarH, 0, 0)`
+- Top bar: `Margin.Top = feedOffsetY`
+- Bottom bar: `Margin.Top = feedOffsetY + topBarH + croppedH`
+- Left bar: `Margin.Left = feedOffsetX`
+- Right bar: `Margin.Right = feedOffsetX`
+
+Changed `CameraViewChildrenContainer` from `HorizontalOptions="Center"` to `"Start"` since Margin.Left is now explicitly computed.
+
+---
+
 ## RECENT FIXES (2026-04-16)
 
 ### 1. Sensor Overlay + Settings Panel in ImageViewerView (Gallery)
@@ -466,6 +522,17 @@ Result: first view ~150ms, subsequent views <5ms.
 
 ## CRITICAL PATTERNS
 
+### Camera Layout Must Debounce and Account for Feed Offset
+`ApplyCameraLayout` is called from multiple sources (SizeChanged, aspect ratio change, camera ready). All paths must go through `ScheduleLayoutUpdate()` (debounced). The method must compute `feedOffsetX`/`feedOffsetY` because the native renderer centers the feed within the CameraView control.
+
+```csharp
+// All callers → ScheduleLayoutUpdate() (never call ApplyCameraLayout directly)
+// Inside ApplyCameraLayout:
+double feedOffsetX = (cameraViewWidth  - naturalW) / 2;
+double feedOffsetY = (cameraViewHeight - naturalH) / 2;
+// Apply offsets to container margin, all crop bar margins
+```
+
 ### Heavy I/O Must Run on Background Thread
 `ExifInterface`, `BitmapFactory.DecodeStream`, file writes — all block for 500–2000 ms on mobile. **Always wrap in `await Task.Run()`.**
 
@@ -508,6 +575,31 @@ Summary of 5-part fix:
 
 ---
 
+## CURRENT APP STATE (2026-04-18)
+
+### Working Features
+- Camera preview with CommunityToolkit.Maui.Camera 6.0.1
+- Photo capture with EXIF metadata (GPS, date, device, flash, custom JSON)
+- Video recording with timer display and thumbnail generation
+- Aspect ratio selection (Full, 4:3, 16:9, 1:1) with crop bars (letterbox/pillarbox)
+- Rule of thirds grid overlay aligned to actual camera feed
+- Data overlay pill (live sensor data) on camera + gallery
+- Overlay settings panel (drag-to-reorder, toggle visibility, font size)
+- Camera settings panel (aspect ratio, resolution, grid lines)
+- Flash toggle, camera flip, zoom presets (.6×, 1×, 2×, 3×, 10×)
+- Gallery viewer (CarouselView + thumbnail strip, share, delete)
+- Gallery info panel ("i" button shows EXIF metadata)
+- EXIF in-memory cache for fast gallery browsing
+- Sensor data: GPS, compass, temperature/weather (Open-Meteo API, 10s polling)
+- Premium Samsung-style camera UI (shutter ring, flip icon, mode dots)
+- Proper camera lifecycle (Window.Resumed/Stopped/Destroying handlers)
+
+### Known Stability
+- Camera reopen after Activity recreation: stable (5-part fix from 2026-04-12)
+- Gallery rapid swiping: stable (debounce + cancellation + EXIF cache)
+- Startup: stable after SizeChanged debouncing fix (2026-04-18)
+- Layout: stable after feed offset fix (2026-04-18)
+
 ## TODO / INCOMPLETE FEATURES
 
 - [ ] **Test camera + video recording on physical Android device**
@@ -518,6 +610,8 @@ Summary of 5-part fix:
 - [ ] Upgrade Target SDK to API 36 before Aug 2026 Google Play deadline
 - [ ] Verify CommunityToolkit.Maui.Camera 6.0.1+ compatibility; check for upgrades
 - [ ] iOS support — scaffold only, not targeted
+- [x] **Startup freeze fix** — SizeChanged debouncing, GC.Collect removed, feed offset positioning (2026-04-18)
+- [x] **Overlay positioning fix** — feedOffsetX/feedOffsetY compensation for centered camera feed (2026-04-18)
 - [x] **EXIF metadata write** — GPS, date, device, flash + JSON UserComment payload written on every capture (2026-04-15)
 - [x] **Gallery info panel** — "i" button shows EXIF data overlay; async `ReadMetadata` with guard (2026-04-15)
 - [x] **Gallery delete crash** — empty list guard after deleting last item (2026-04-15)
