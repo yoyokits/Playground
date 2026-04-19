@@ -196,10 +196,12 @@
             </HorizontalStackLayout>
 
             <!-- ── Shutter flash feedback — white overlay, fades on photo capture ──
-                 Always rendered (Opacity=0) so FadeTo starts instantly with no IsVisible delay. -->
+                 Hidden by default so it doesn't participate in layout passes at startup.
+                 Made visible and animated in PlayShutterFlashAsync, then hidden again. -->
             <BoxView x:Name="ShutterFlash"
                      BackgroundColor="White"
                      Opacity="0"
+                     IsVisible="False"
                      InputTransparent="True"
                      HorizontalOptions="Fill"
                      VerticalOptions="Fill" />

@@ -442,8 +442,10 @@ namespace TravelCamApp.Views
         {
             try
             {
+                ShutterFlash.IsVisible = true;
                 ShutterFlash.Opacity = 1.0;
                 await ShutterFlash.FadeToAsync(0, 200, Easing.CubicOut);
+                ShutterFlash.IsVisible = false;
             }
             catch { /* page may be tearing down — ignore */ }
         }

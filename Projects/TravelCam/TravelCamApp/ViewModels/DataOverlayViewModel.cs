@@ -94,17 +94,28 @@ namespace TravelCamApp.ViewModels
             InitializeOverlayItems();
             _sensorHelper.SensorDataUpdated += OnSensorDataUpdated;
 
-            // 1-second timer keeps Date and Time items current independently of the
-            // 10-second sensor tick. Elapsed fires on a ThreadPool thread — dispatch to UI.
+            // Clock timer is created but NOT started in the constructor.
+            // StartClockTimer() is called after app initialization completes
+            // to avoid competing with layout/camera/permission work at startup.
             _clockTimer = new System.Timers.Timer(1000);
             _clockTimer.Elapsed += OnClockTick;
             _clockTimer.AutoReset = true;
-            _clockTimer.Start();
         }
 
         #endregion
 
         #region Public API
+
+        /// <summary>
+        /// Starts the 1-second clock timer that keeps Date/Time overlay items current.
+        /// Call once after app initialization completes (not during startup).
+        /// </summary>
+        public void StartClockTimer()
+        {
+            if (_isDisposed || _clockTimer == null) return;
+            if (_clockTimer.Enabled) return; // already running
+            _clockTimer.Start();
+        }
 
         /// <summary>
         /// Rebuilds VisibleOverlayItems from OverlayItems in their current order.
