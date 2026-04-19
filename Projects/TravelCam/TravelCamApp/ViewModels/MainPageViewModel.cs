@@ -142,7 +142,7 @@ namespace TravelCamApp.ViewModels
         public CaptureMode SelectedMode
         {
             get => _selectedMode;
-            set { _selectedMode = value; OnPropertyChanged(); }
+            set { _selectedMode = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsDataOverlayVisible)); }
         }
 
         public string RecordingTimeText
@@ -230,6 +230,7 @@ namespace TravelCamApp.ViewModels
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(ImagePositionText));
                 OnPropertyChanged(nameof(CurrentImageItem));
+                OnPropertyChanged(nameof(IsGalleryDataOverlayVisible));
             }
         }
 
@@ -253,6 +254,15 @@ namespace TravelCamApp.ViewModels
         public string ImagePositionText => _galleryImagePaths.Count > 0
             ? $"{CurrentImageIndex + 1} / {_galleryImagePaths.Count}"
             : string.Empty;
+
+        /// <summary>True when the data overlay should be shown on the camera preview (photo mode only).</summary>
+        public bool IsDataOverlayVisible =>
+            _cameraSettings.ShowDataOverlay && _selectedMode == CaptureMode.Photo;
+
+        /// <summary>True when the data overlay should be shown in the gallery (not a video item).</summary>
+        public bool IsGalleryDataOverlayVisible =>
+            _cameraSettings.ShowDataOverlay &&
+            !(CurrentImageItem?.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ?? false);
 
         public bool IsFlashOn
         {
@@ -311,6 +321,14 @@ namespace TravelCamApp.ViewModels
             _sensorHelper = sensorHelper;
             _sensorValueViewModel = sensorValueViewModel;
             _cameraSettings = cameraSettings;
+            _cameraSettings.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(CameraSettingsViewModel.ShowDataOverlay))
+                {
+                    OnPropertyChanged(nameof(IsDataOverlayVisible));
+                    OnPropertyChanged(nameof(IsGalleryDataOverlayVisible));
+                }
+            };
 
             ToggleCameraCommand = new Command(async () => await SafeExecuteAsync(ToggleCameraAsync));
             CaptureCommand = new Command(async () => await SafeExecuteAsync(CaptureAsync));
