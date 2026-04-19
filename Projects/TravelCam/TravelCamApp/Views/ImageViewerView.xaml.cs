@@ -195,6 +195,8 @@ namespace TravelCamApp.Views
             try
             {
                 if (BindingContext is not MainPageViewModel vm) return;
+                // Skip expensive dimension lookup when the overlay pill is hidden.
+                if (!vm.IsGalleryDataOverlayVisible) return;
                 if (vm.GalleryImagePaths == null || vm.GalleryImagePaths.Count == 0) return;
 
                 var index = MainCarousel?.Position ?? 0;

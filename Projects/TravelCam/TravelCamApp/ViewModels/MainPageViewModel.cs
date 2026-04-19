@@ -344,7 +344,7 @@ namespace TravelCamApp.ViewModels
             });
             OpenCameraSettingsCommand = new Command(() => IsCameraSettingsVisible = true);
             CloseSettingsCommand = new Command(async () => await SafeExecuteAsync(CloseSettingsAsync));
-            OpenGalleryCommand = new Command(() => OpenImageViewer());
+            OpenGalleryCommand = new Command(async () => await SafeExecuteAsync(OpenImageViewerAsync));
             CloseImageViewerCommand = new Command(() => IsImageViewerVisible = false);
             ShareImageCommand = new Command(async () => await SafeExecuteAsync(ShareCurrentImageAsync));
             DeleteImageCommand = new Command(async () => await SafeExecuteAsync(DeleteCurrentImageAsync));
@@ -1647,11 +1647,13 @@ namespace TravelCamApp.ViewModels
 
         #region Image Viewer
 
-        private void OpenImageViewer()
+        private async Task OpenImageViewerAsync()
         {
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] OpenImageViewer called");
 
-            var imagePaths = FileHelper.GetAllGalleryMediaPaths();
+            // MediaStore ContentResolver queries are disk I/O — run off the main thread.
+            var imagePaths = await Task.Run(() => FileHelper.GetAllGalleryMediaPaths())
+                .ConfigureAwait(false);
             System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] GetAllGalleryMediaPaths returned {imagePaths.Count} paths");
 
             // Temp files are deleted after gallery copy — fall back to last thumbnail
@@ -1667,19 +1669,17 @@ namespace TravelCamApp.ViewModels
                 return;
             }
 
-            // Just use file paths directly - MAUI Image control will load them
-            System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Setting gallery paths: {imagePaths.Count} images");
-
-            GalleryImagePaths = new ObservableCollection<string>(imagePaths);
-            CurrentImageIndex = 0; // newest first
-            IsImageViewerVisible = true;
+            // UI property updates must be on the main thread.
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                GalleryImagePaths = new ObservableCollection<string>(imagePaths);
+                CurrentImageIndex = 0; // newest first
+                IsImageViewerVisible = true;
+                System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Gallery opened with {imagePaths.Count} paths");
+            });
 
             // Generate missing video thumbnails in the background.
-            // The ThumbnailConverter uses FileHelper.GetVideoThumbnailPath which checks the
-            // cache dir as fallback, so newly generated thumbnails will appear on next swipe.
             _ = FileHelper.EnsureVideoThumbnailsAsync(imagePaths);
-
-            System.Diagnostics.Debug.WriteLine($"[MainPageViewModel] Gallery opened with paths bound to Image.Source");
         }
 
         private async Task ShareCurrentImageAsync()
@@ -1784,7 +1784,9 @@ namespace TravelCamApp.ViewModels
                 if (!confirm) return;
             }
 
-            if (!FileHelper.DeleteMedia(path)) return;
+            // DeleteMedia does MediaStore ContentResolver queries — run off main thread.
+            var deleted = await Task.Run(() => FileHelper.DeleteMedia(path));
+            if (!deleted) return;
 
             var deletedIndex = _currentImageIndex;
 
