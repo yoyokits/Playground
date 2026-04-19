@@ -43,7 +43,8 @@
       "Bash(adb install *)",
       "Bash(adb shell *)",
       "Bash(adb pull *)",
-      "Read(//c/Users/yoyok/**)"
+      "Read(//c/Users/yoyok/**)",
+      "WebFetch(domain:api.github.com)"
     ]
   },
   "ENABLE_TOOL_SEARCH": "true"

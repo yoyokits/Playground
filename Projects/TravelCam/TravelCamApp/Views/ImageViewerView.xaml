@@ -247,7 +247,7 @@
                     StrokeShape="RoundRectangle 10"
                     Stroke="Transparent"
                     Padding="10,10"
-                    IsVisible="{Binding CameraSettings.ShowDataOverlay}">
+                    IsVisible="{Binding IsGalleryDataOverlayVisible}">
                 <VerticalStackLayout Spacing="4"
                                      HorizontalOptions="Start"
                                      BindableLayout.ItemsSource="{Binding DataOverlayViewModel.VisibleOverlayItems}">

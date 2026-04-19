@@ -191,9 +191,11 @@ namespace TravelCamApp.ViewModels
                 return;
             }
 
-            // Sort highest total pixels first so index 0 (Auto) = best quality
+            // Keep the 3 highest resolutions (by pixel count) to avoid flooding the picker
+            // with legacy/tiny sizes while still working on emulators with low-res cameras.
             _resolutionSizes = sizes
                 .OrderByDescending(s => (long)s.Width * (long)s.Height)
+                .Take(3)
                 .ToList();
 
             var labels = new List<string>(capacity: _resolutionSizes.Count + 1) { "Auto" };
