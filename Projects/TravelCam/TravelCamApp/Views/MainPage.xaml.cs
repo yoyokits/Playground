@@ -414,9 +414,7 @@ namespace TravelCamApp.Views
 
                 // Run shutter button scale-bounce and flash in parallel.
                 // Flash only on photo capture — video record/stop has no flash.
-                var scaleTask = Task.WhenAll(
-                    ShutterButton.ScaleToAsync(0.86, 80, Easing.CubicOut)
-                        .ContinueWith(_ => ShutterButton.ScaleToAsync(1.00, 90, Easing.SpringOut)));
+                var scaleTask = AnimateShutterBounceAsync();
 
                 if (ViewModel.SelectedMode == CaptureMode.Photo)
                     await Task.WhenAll(scaleTask, PlayShutterFlashAsync());
@@ -430,6 +428,12 @@ namespace TravelCamApp.Views
             }
         }
 
+        private async Task AnimateShutterBounceAsync()
+        {
+            await ShutterButton.ScaleToAsync(0.86, 80, Easing.CubicOut);
+            await ShutterButton.ScaleToAsync(1.00, 90, Easing.SpringOut);
+        }
+
         /// <summary>
         /// Standard Android camera shutter feedback: instant white flash over the
         /// viewfinder that fades out quickly, simulating the physical shutter opening.
@@ -439,7 +443,7 @@ namespace TravelCamApp.Views
             try
             {
                 ShutterFlash.Opacity = 1.0;
-                await ShutterFlash.FadeTo(0, 200, Easing.CubicOut);
+                await ShutterFlash.FadeToAsync(0, 200, Easing.CubicOut);
             }
             catch { /* page may be tearing down — ignore */ }
         }

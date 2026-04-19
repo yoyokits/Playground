@@ -10,42 +10,22 @@ using Microsoft.Maui.Controls;
 namespace TravelCamApp.Converters
 {
     /// <summary>
-    /// Converts a file path (string) to an ImageSource using ImageSource.FromStream().
-    /// This reliably loads images from app-private cache directories on Android.
+    /// Converts a file path (string) to an ImageSource using ImageSource.FromFile().
+    /// FromFile lets the platform handler optimize decode (e.g. subsampling).
     /// </summary>
     public class FilePathToImageSourceConverter : IValueConverter
     {
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            System.Diagnostics.Debug.WriteLine($"[FilePathToImageSourceConverter] Convert called with value: {value}, type: {value?.GetType().Name}");
+            if (value is not string filePath || string.IsNullOrEmpty(filePath))
+                return null;
 
-            if (value is string filePath && !string.IsNullOrEmpty(filePath))
-            {
-                bool exists = File.Exists(filePath);
-                System.Diagnostics.Debug.WriteLine($"[FilePathToImageSourceConverter] Path: {filePath}, exists: {exists}");
+            if (!File.Exists(filePath))
+                return null;
 
-                if (exists)
-                {
-                    try
-                    {
-                        // Use FromStream for absolute cache paths (app-private ExternalCacheDir).
-                        // FromFile() doesn't reliably handle app cache directories on Android.
-                        var source = ImageSource.FromStream(() =>
-                            new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read));
-                        System.Diagnostics.Debug.WriteLine($"[FilePathToImageSourceConverter] Successfully created ImageSource for {filePath}");
-                        return source;
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[FilePathToImageSourceConverter] Error loading {filePath}: {ex.Message}");
-                    }
-                }
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine($"[FilePathToImageSourceConverter] Value is null or empty");
-            }
-            return null;
+            // FromFile lets the platform handler optimize decode (subsampling).
+            // Works for both DCIM/CekliCam (MediaStore) and ExternalCacheDir paths.
+            return ImageSource.FromFile(filePath);
         }
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
