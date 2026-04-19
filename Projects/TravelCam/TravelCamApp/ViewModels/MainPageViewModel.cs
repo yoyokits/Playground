@@ -448,6 +448,11 @@ namespace TravelCamApp.ViewModels
 
             // Mark app as successfully initialized — required for proper Activity recreation recovery
             _isAppInitialized = true;
+
+            // Start the 1-second clock timer now that initialization is done.
+            // Running it earlier competes with layout/camera/permission work on the main thread.
+            _sensorValueViewModel.StartClockTimer();
+
             System.Diagnostics.Debug.WriteLine("[MainPageViewModel] App fully initialized successfully");
 
             // If the camera view is already ready (OnAppearing → OnViewReady → waiting for init),
